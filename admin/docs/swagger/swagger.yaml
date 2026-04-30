@@ -1,0 +1,6186 @@
+definitions:
+  apis.FirmwareDeleteReq:
+    properties:
+      confirm:
+        type: boolean
+      firmware_id:
+        type: integer
+      force:
+        type: boolean
+      product_key:
+        type: string
+      reason:
+        type: string
+      version:
+        type: string
+    type: object
+  apis.instructionCancelReq:
+    properties:
+      reason:
+        type: string
+    type: object
+  apis.platformDeviceDeleteReq:
+    properties:
+      confirm:
+        type: boolean
+      device_id:
+        type: integer
+      sn:
+        type: string
+    required:
+    - confirm
+    type: object
+  apis.shadowDesiredReq:
+    properties:
+      desired:
+        items:
+          type: integer
+        type: array
+      merge:
+        description: 与库中已有 desired 合并；默认 false 为全量覆盖
+        type: boolean
+      sn:
+        type: string
+    type: object
+  dto.BenefitInfo:
+    properties:
+      benefitCode:
+        description: 权益编码
+        type: string
+      benefitName:
+        description: 权益名称
+        type: string
+      expireTime:
+        description: 过期时间戳
+        type: integer
+      remainingCount:
+        description: 剩余次数
+        type: integer
+      status:
+        description: 状态 0-可用 1-已用完 2-已过期
+        type: integer
+      totalCount:
+        description: 总次数
+        type: integer
+      usedCount:
+        description: 已用次数
+        type: integer
+    type: object
+  dto.GetSetSysConfigReq:
+    properties:
+      configKey:
+        type: string
+      configValue:
+        type: string
+    type: object
+  dto.MemberLevelConfig:
+    properties:
+      color:
+        description: 颜色标签
+        type: string
+      description:
+        description: 描述
+        type: string
+      deviceBindLimit:
+        description: 绑定设备上限
+        type: integer
+      level:
+        description: 等级
+        type: integer
+      name:
+        description: 等级名称
+        type: string
+    type: object
+  dto.MemberRightConfig:
+    properties:
+      rightKey:
+        description: 权益键
+        type: string
+      rightName:
+        description: 权益名称
+        type: string
+      rightType:
+        description: 权益类型：int/bool/string
+        type: string
+      rightValue:
+        description: 权益值
+    type: object
+  dto.OperateRecord:
+    properties:
+      newExpireTime:
+        description: 新过期时间
+        type: integer
+      newLevel:
+        description: 新等级
+        type: integer
+      oldExpireTime:
+        description: 原过期时间
+        type: integer
+      oldLevel:
+        description: 原等级
+        type: integer
+      operateAdmin:
+        description: 操作管理员 ID
+        type: integer
+      operateAdminName:
+        description: 操作管理员姓名
+        type: string
+      operateTime:
+        description: 操作时间戳
+        type: integer
+      operateType:
+        description: 操作类型 1-修改等级 2-冻结 3-解冻 4-修改过期时间
+        type: integer
+      remark:
+        description: 备注
+        type: string
+    type: object
+  dto.OrderRecord:
+    properties:
+      memberDays:
+        description: 会员天数
+        type: integer
+      memberLevel:
+        description: 会员等级
+        type: integer
+      orderId:
+        description: 订单 ID
+        type: string
+      orderStatus:
+        description: 订单状态 0-待支付 1-已支付 2-已取消 3-已退款
+        type: integer
+      orderTime:
+        description: 订单时间戳
+        type: integer
+      orderType:
+        description: 订单类型 1-新购 2-续费 3-升级
+        type: integer
+      payAmount:
+        description: 支付金额（分）
+        type: integer
+      payType:
+        description: 支付方式 1-微信 2-支付宝 3-银行卡
+        type: integer
+    type: object
+  dto.PassWord:
+    properties:
+      newPassword:
+        type: string
+      oldPassword:
+        type: string
+    type: object
+  dto.PlatformMemberDetailResp:
+    properties:
+      availableBenefits:
+        description: 可用权益列表
+        items:
+          $ref: '#/definitions/dto.BenefitInfo'
+        type: array
+      avatar:
+        description: 头像
+        type: string
+      bindDeviceCount:
+        description: 其他统计
+        type: integer
+      currentBindCount:
+        description: 当前绑定数量
+        type: integer
+      deviceBindLimit:
+        description: 会员权益信息
+        type: integer
+      expireTime:
+        description: 会员过期时间戳
+        type: integer
+      isAutoRenew:
+        description: 是否自动续费
+        type: boolean
+      isExpiringSoon:
+        description: 是否即将到期（7 天内）
+        type: boolean
+      lastRenewalTime:
+        description: 最后续费时间
+        type: integer
+      levelConfig:
+        allOf:
+        - $ref: '#/definitions/dto.MemberLevelConfig'
+        description: 会员等级配置
+      memberLevel:
+        description: 会员核心信息
+        type: integer
+      memberLevelName:
+        description: 会员等级名称
+        type: string
+      memberStatus:
+        description: 会员状态 0-正常 1-过期 2-冻结 3-未开通
+        type: integer
+      mobile:
+        description: 手机号（脱敏）
+        type: string
+      nickname:
+        description: 用户昵称
+        type: string
+      operateRecords:
+        description: 管理员操作记录
+        items:
+          $ref: '#/definitions/dto.OperateRecord'
+        type: array
+      orderRecords:
+        description: 购买/订单记录
+        items:
+          $ref: '#/definitions/dto.OrderRecord'
+        type: array
+      remainingDays:
+        description: 剩余天数
+        type: integer
+      renewalRecords:
+        description: 续费记录
+        items:
+          $ref: '#/definitions/dto.RenewalRecord'
+        type: array
+      startTime:
+        description: 开通会员时间戳
+        type: integer
+      usedBenefits:
+        description: 已用权益列表
+        items:
+          $ref: '#/definitions/dto.BenefitInfo'
+        type: array
+      userId:
+        description: 用户基础信息
+        type: integer
+      userStatus:
+        description: 用户账号状态 0-禁用 1-正常
+        type: integer
+    type: object
+  dto.PlatformMemberFreezeReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      freezeReason:
+        description: 冻结原因（必填）
+        type: string
+      operatorId:
+        description: 操作管理员 ID
+        type: integer
+      updateBy:
+        type: integer
+      userId:
+        type: integer
+    required:
+    - freezeReason
+    - userId
+    type: object
+  dto.PlatformMemberFreezeResp:
+    properties:
+      expireTime:
+        description: 会员过期时间戳
+        type: integer
+      freezeReason:
+        description: 冻结原因
+        type: string
+      freezeTime:
+        description: 冻结时间戳
+        type: integer
+      memberLevel:
+        description: 会员等级
+        type: integer
+      memberLevelName:
+        description: 会员等级名称
+        type: string
+      memberStatus:
+        description: 会员状态（2-冻结）
+        type: integer
+      operatorId:
+        description: 操作管理员 ID
+        type: integer
+      updateTime:
+        description: 更新时间戳
+        type: integer
+      userId:
+        description: 用户 ID
+        type: integer
+    type: object
+  dto.PlatformMemberListItem:
+    properties:
+      avatar:
+        description: 头像
+        type: string
+      bindDeviceCount:
+        description: 绑定设备数量
+        type: integer
+      createTime:
+        description: 开通会员时间戳
+        type: integer
+      expireTime:
+        description: 会员过期时间戳
+        type: integer
+      memberLevel:
+        description: 会员等级
+        type: integer
+      memberLevelName:
+        description: 会员等级名称
+        type: string
+      memberStatus:
+        description: 会员状态 0-正常 1-过期 2-冻结
+        type: integer
+      mobile:
+        description: 手机号（脱敏）
+        type: string
+      nickname:
+        description: 用户昵称
+        type: string
+      remainingDays:
+        description: 剩余天数
+        type: integer
+      startTime:
+        description: 开通会员时间戳
+        type: integer
+      updateTime:
+        description: 最后更新时间戳
+        type: integer
+      userId:
+        description: 用户 ID
+        type: integer
+    type: object
+  dto.PlatformMemberListResp:
+    properties:
+      list:
+        description: 会员列表
+        items:
+          $ref: '#/definitions/dto.PlatformMemberListItem'
+        type: array
+      page:
+        description: 当前页码
+        type: integer
+      pageSize:
+        description: 每页条数
+        type: integer
+      total:
+        description: 总条数
+        type: integer
+    type: object
+  dto.PlatformMemberRightConfigReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      levelId:
+        description: 会员等级 ID
+        type: integer
+      levelName:
+        description: 会员等级名称
+        type: string
+      operatorId:
+        description: 操作管理员 ID
+        type: integer
+      remark:
+        description: 备注
+        type: string
+      rights:
+        description: 权益配置列表
+        items:
+          $ref: '#/definitions/dto.MemberRightConfig'
+        type: array
+      status:
+        description: 状态 0-禁用 1-启用
+        enum:
+        - 0
+        - 1
+        type: integer
+      updateBy:
+        type: integer
+    required:
+    - levelId
+    type: object
+  dto.PlatformMemberRightConfigResp:
+    properties:
+      levelId:
+        description: 会员等级 ID
+        type: integer
+      levelName:
+        description: 会员等级名称
+        type: string
+      operatorId:
+        description: 操作管理员 ID
+        type: integer
+      operatorName:
+        description: 操作人名称
+        type: string
+      rights:
+        description: 权益配置列表
+        items:
+          $ref: '#/definitions/dto.MemberRightConfig'
+        type: array
+      status:
+        description: 状态
+        type: integer
+      updateTime:
+        description: 更新时间戳
+        type: integer
+    type: object
+  dto.PlatformMemberUnfreezeReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      operatorId:
+        description: 操作管理员 ID
+        type: integer
+      unfreezeReason:
+        description: 解冻原因（必填）
+        type: string
+      updateBy:
+        type: integer
+      userId:
+        type: integer
+    required:
+    - unfreezeReason
+    - userId
+    type: object
+  dto.PlatformMemberUnfreezeResp:
+    properties:
+      expireTime:
+        description: 会员过期时间戳
+        type: integer
+      memberLevel:
+        description: 会员等级
+        type: integer
+      memberLevelName:
+        description: 会员等级名称
+        type: string
+      memberStatus:
+        description: 会员状态（0-正常）
+        type: integer
+      operatorId:
+        description: 操作管理员 ID
+        type: integer
+      unfreezeReason:
+        description: 解冻原因
+        type: string
+      unfreezeTime:
+        description: 解冻时间戳
+        type: integer
+      updateTime:
+        description: 更新时间戳
+        type: integer
+      userId:
+        description: 用户 ID
+        type: integer
+    type: object
+  dto.PlatformMemberUpdateReq:
+    properties:
+      createBy:
+        type: integer
+      days:
+        description: 有效期天数（与 expireTime 二选一）
+        type: integer
+      deleteBy:
+        type: integer
+      expireTime:
+        type: integer
+      memberLevel:
+        enum:
+        - 0
+        - 1
+        - 2
+        - 3
+        type: integer
+      operationType:
+        description: 操作类型 1-开通 2-续费 3-升级 4-降级 5-延长
+        type: integer
+      operatorId:
+        description: 操作管理员 ID（从 JWT 获取）
+        type: integer
+      remark:
+        description: 操作备注（必填）
+        type: string
+      updateBy:
+        type: integer
+      userId:
+        type: integer
+    required:
+    - expireTime
+    - memberLevel
+    - userId
+    type: object
+  dto.PlatformMemberUpdateResp:
+    properties:
+      expireTime:
+        description: 会员过期时间戳
+        type: integer
+      memberLevel:
+        description: 会员等级
+        type: integer
+      memberLevelName:
+        description: 会员等级名称
+        type: string
+      memberStatus:
+        description: 会员状态
+        type: integer
+      oldExpireTime:
+        description: 原过期时间
+        type: integer
+      oldLevel:
+        description: 原等级
+        type: integer
+      operationType:
+        description: 操作类型
+        type: integer
+      remainingDays:
+        description: 剩余天数
+        type: integer
+      remark:
+        description: 操作备注
+        type: string
+      updateTime:
+        description: 更新时间戳
+        type: integer
+      userId:
+        description: 用户 ID
+        type: integer
+    type: object
+  dto.PlatformUserCreateReq:
+    properties:
+      avatar:
+        maxLength: 500
+        type: string
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      email:
+        type: string
+      mobile:
+        type: string
+      nickname:
+        maxLength: 100
+        type: string
+      password:
+        type: string
+      status:
+        enum:
+        - 0
+        - 1
+        type: integer
+      updateBy:
+        type: integer
+    required:
+    - email
+    - mobile
+    - nickname
+    - password
+    - status
+    type: object
+  dto.PlatformUserInfoResp:
+    properties:
+      active_session_count:
+        description: 会话信息
+        type: integer
+      avatar:
+        description: 头像
+        type: string
+      bind_device_count:
+        description: 设备信息
+        type: integer
+      birthday:
+        description: yyyy-MM-dd，由服务层从 DB 填充
+        type: string
+      created_at:
+        description: 创建时间
+        type: string
+      device_list:
+        description: 设备列表
+        items:
+          $ref: '#/definitions/dto.UserDeviceItem'
+        type: array
+      email:
+        description: 邮箱
+        type: string
+      gender:
+        type: integer
+      last_login_ip:
+        description: 最后登录 IP
+        type: string
+      last_login_time:
+        description: 最后登录时间戳
+        type: integer
+      member_created_at:
+        description: 会员开通时间戳
+        type: integer
+      member_expire_at:
+        description: 会员过期时间戳
+        type: integer
+      member_level:
+        description: 会员信息
+        type: integer
+      member_level_name:
+        description: 会员等级名称
+        type: string
+      member_status:
+        description: 会员状态 0-正常 1-过期 2-冻结
+        type: integer
+      mobile:
+        description: 手机号（脱敏）
+        type: string
+      nickname:
+        description: 昵称
+        type: string
+      online_device_count:
+        description: 在线设备数
+        type: integer
+      real_name:
+        type: string
+      real_name_info:
+        allOf:
+        - $ref: '#/definitions/dto.RealNameInfo'
+        description: 实名信息
+      real_name_status:
+        description: 实名状态
+        type: integer
+      recent_logins:
+        description: 最近登录记录
+        items:
+          $ref: '#/definitions/dto.RecentLogin'
+        type: array
+      register_time:
+        description: 注册时间戳
+        type: integer
+      roles:
+        items:
+          $ref: '#/definitions/dto.PlatformUserRoleItem'
+        type: array
+      status:
+        description: 账号状态 0 禁用 1 正常
+        type: integer
+      updated_at:
+        description: 更新时间
+        type: string
+      user_id:
+        description: 基础信息
+        type: integer
+      username:
+        type: string
+    type: object
+  dto.PlatformUserListItem:
+    properties:
+      avatar:
+        description: 头像
+        type: string
+      bind_device_count:
+        description: 绑定设备数量
+        type: integer
+      created_at:
+        description: 创建时间
+        type: string
+      email:
+        description: 邮箱
+        type: string
+      gender:
+        description: 性别
+        type: integer
+      last_login_time:
+        description: 最后登录时间戳
+        type: integer
+      member_expire_at:
+        description: 会员过期时间戳
+        type: integer
+      member_level:
+        description: 会员等级
+        type: integer
+      member_level_name:
+        description: 会员等级名称
+        type: string
+      mobile:
+        description: 手机号
+        type: string
+      nickname:
+        description: 昵称
+        type: string
+      real_name:
+        description: 姓名
+        type: string
+      real_name_status:
+        description: 实名状态
+        type: integer
+      register_time:
+        description: 注册时间戳
+        type: integer
+      role_names:
+        description: 所属角色（逗号分隔）
+        type: string
+      status:
+        description: 账号状态 0 禁用 1 正常
+        type: integer
+      updated_at:
+        description: 更新时间
+        type: string
+      user_id:
+        description: 用户 ID
+        type: integer
+      username:
+        description: 用户名
+        type: string
+    type: object
+  dto.PlatformUserListResp:
+    properties:
+      list:
+        description: 用户列表
+        items:
+          $ref: '#/definitions/dto.PlatformUserListItem'
+        type: array
+      page:
+        description: 当前页码
+        type: integer
+      pageSize:
+        description: 每页条数
+        type: integer
+      total:
+        description: 总条数
+        type: integer
+    type: object
+  dto.PlatformUserRoleItem:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      roleKey:
+        type: string
+    type: object
+  dto.PlatformUserUpdateReq:
+    properties:
+      avatar:
+        maxLength: 500
+        type: string
+      birthday:
+        type: string
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      email:
+        type: string
+      gender:
+        enum:
+        - 0
+        - 1
+        - 2
+        type: integer
+      mobile:
+        type: string
+      nickname:
+        maxLength: 100
+        type: string
+      real_name:
+        maxLength: 64
+        type: string
+      status:
+        enum:
+        - 0
+        - 1
+        type: integer
+      updateBy:
+        type: integer
+      userId:
+        type: integer
+    required:
+    - userId
+    type: object
+  dto.RealNameInfo:
+    properties:
+      audit_remark:
+        description: 审核意见
+        type: string
+      audit_time:
+        description: 审核时间戳
+        type: integer
+      auditor:
+        description: 审核人
+        type: string
+      id_card:
+        description: 身份证号（脱敏）
+        type: string
+      real_name:
+        description: 实名姓名（脱敏）
+        type: string
+      status:
+        description: 实名状态 0-未提交 1-审核中 2-已通过 3-已驳回
+        type: integer
+      submit_time:
+        description: 提交时间戳
+        type: integer
+    type: object
+  dto.RecentLogin:
+    properties:
+      device:
+        description: 登录设备
+        type: string
+      ip:
+        description: 登录 IP
+        type: string
+      location:
+        description: 登录地点
+        type: string
+      login_time:
+        description: 登录时间戳
+        type: integer
+    type: object
+  dto.RenewalRecord:
+    properties:
+      amount:
+        description: 续费金额（分）
+        type: integer
+      days:
+        description: 续费天数
+        type: integer
+      renewalTime:
+        description: 续费时间戳
+        type: integer
+    type: object
+  dto.ResetSysUserPwdReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      password:
+        type: string
+      updateBy:
+        type: integer
+      userId:
+        description: 用户ID
+        type: integer
+    type: object
+  dto.SysAdminCreateReq:
+    properties:
+      avatar:
+        description: 头像（选填）
+        maxLength: 255
+        type: string
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      email:
+        description: 邮箱（选填）
+        maxLength: 100
+        type: string
+      nickname:
+        description: 昵称（必填）
+        maxLength: 50
+        type: string
+      password:
+        description: 密码（必填）
+        maxLength: 20
+        minLength: 8
+        type: string
+      phone:
+        description: 手机号（选填）
+        type: string
+      remark:
+        description: 备注（选填）
+        maxLength: 255
+        type: string
+      role_ids:
+        description: 角色 ID 列表（必填）
+        items:
+          type: integer
+        minItems: 1
+        type: array
+      status:
+        description: 状态（选填，1:禁用 2:正常）
+        enum:
+        - "1"
+        - "2"
+        type: string
+      updateBy:
+        type: integer
+      username:
+        description: 用户名（必填）
+        maxLength: 20
+        minLength: 6
+        type: string
+    required:
+    - nickname
+    - password
+    - role_ids
+    - username
+    type: object
+  dto.SysAdminDeleteReq:
+    properties:
+      confirm:
+        description: 确认标识（选填）
+        type: boolean
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      reason:
+        description: 删除原因（选填）
+        type: string
+      updateBy:
+        type: integer
+      user_id:
+        description: 用户 ID（必填）
+        type: integer
+    required:
+    - user_id
+    type: object
+  dto.SysAdminStatusReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      status:
+        description: 状态（1:禁用 2:正常）
+        enum:
+        - "1"
+        - "2"
+        type: string
+      updateBy:
+        type: integer
+      user_id:
+        description: 用户 ID（必填）
+        type: integer
+    required:
+    - status
+    - user_id
+    type: object
+  dto.SysAdminUpdateReq:
+    properties:
+      avatar:
+        description: 头像
+        maxLength: 255
+        type: string
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      email:
+        description: 邮箱
+        maxLength: 100
+        type: string
+      nickname:
+        description: 昵称
+        maxLength: 50
+        type: string
+      phone:
+        description: 手机号
+        type: string
+      remark:
+        description: 备注
+        maxLength: 255
+        type: string
+      role_ids:
+        description: 角色 ID 列表
+        items:
+          type: integer
+        minItems: 1
+        type: array
+      status:
+        description: 状态
+        enum:
+        - "1"
+        - "2"
+        type: string
+      updateBy:
+        type: integer
+      user_id:
+        description: 用户 ID（必填）
+        type: integer
+    required:
+    - nickname
+    - role_ids
+    - user_id
+    type: object
+  dto.SysApiDeleteReq:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  dto.SysApiUpdateReq:
+    properties:
+      action:
+        type: string
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      handle:
+        type: string
+      id:
+        description: 编码
+        type: integer
+      path:
+        type: string
+      title:
+        type: string
+      type:
+        type: string
+      updateBy:
+        type: integer
+    type: object
+  dto.SysConfigByKeyReq:
+    properties:
+      configKey:
+        type: string
+    type: object
+  dto.SysConfigControl:
+    properties:
+      configKey:
+        type: string
+      configName:
+        type: string
+      configType:
+        type: string
+      configValue:
+        type: string
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      id:
+        description: 编码
+        type: integer
+      isFrontend:
+        type: string
+      remark:
+        type: string
+      updateBy:
+        type: integer
+    type: object
+  dto.SysDeptDeleteReq:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  dto.SysDeptInsertReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      deptId:
+        description: 编码
+        type: integer
+      deptName:
+        description: 部门名称
+        type: string
+      deptPath:
+        description: 路径
+        type: string
+      email:
+        description: 邮箱
+        type: string
+      leader:
+        description: 负责人
+        type: string
+      parentId:
+        description: 上级部门
+        type: integer
+      phone:
+        description: 手机
+        type: string
+      sort:
+        description: 排序
+        type: integer
+      status:
+        description: 状态
+        type: integer
+      updateBy:
+        type: integer
+    type: object
+  dto.SysDeptUpdateReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      deptId:
+        description: 编码
+        type: integer
+      deptName:
+        description: 部门名称
+        type: string
+      deptPath:
+        description: 路径
+        type: string
+      email:
+        description: 邮箱
+        type: string
+      leader:
+        description: 负责人
+        type: string
+      parentId:
+        description: 上级部门
+        type: integer
+      phone:
+        description: 手机
+        type: string
+      sort:
+        description: 排序
+        type: integer
+      status:
+        description: 状态
+        type: integer
+      updateBy:
+        type: integer
+    type: object
+  dto.SysDictDataDeleteReq:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  dto.SysDictDataGetAllResp:
+    properties:
+      label:
+        type: string
+      value:
+        type: string
+    type: object
+  dto.SysDictDataInsertReq:
+    properties:
+      createBy:
+        type: integer
+      cssClass:
+        type: string
+      default:
+        type: string
+      deleteBy:
+        type: integer
+      dictLabel:
+        type: string
+      dictSort:
+        type: integer
+      dictType:
+        type: string
+      dictValue:
+        type: string
+      isDefault:
+        type: string
+      listClass:
+        type: string
+      remark:
+        type: string
+      status:
+        type: integer
+      updateBy:
+        type: integer
+    type: object
+  dto.SysDictDataUpdateReq:
+    properties:
+      createBy:
+        type: integer
+      cssClass:
+        type: string
+      default:
+        type: string
+      deleteBy:
+        type: integer
+      dictLabel:
+        type: string
+      dictSort:
+        type: integer
+      dictType:
+        type: string
+      dictValue:
+        type: string
+      id:
+        type: integer
+      isDefault:
+        type: string
+      listClass:
+        type: string
+      remark:
+        type: string
+      status:
+        type: integer
+      updateBy:
+        type: integer
+    type: object
+  dto.SysDictTypeDeleteReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      ids:
+        items:
+          type: integer
+        type: array
+      updateBy:
+        type: integer
+    type: object
+  dto.SysDictTypeInsertReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      dictName:
+        type: string
+      dictType:
+        type: string
+      id:
+        type: integer
+      remark:
+        type: string
+      status:
+        type: integer
+      updateBy:
+        type: integer
+    type: object
+  dto.SysDictTypeUpdateReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      dictName:
+        type: string
+      dictType:
+        type: string
+      id:
+        type: integer
+      remark:
+        type: string
+      status:
+        type: integer
+      updateBy:
+        type: integer
+    type: object
+  dto.SysLoginLogDeleteReq:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  dto.SysMenuDeleteReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      ids:
+        items:
+          type: integer
+        type: array
+      updateBy:
+        type: integer
+    type: object
+  dto.SysMenuInsertReq:
+    properties:
+      action:
+        description: 请求方式
+        type: string
+      apis:
+        items:
+          type: integer
+        type: array
+      breadcrumb:
+        description: 是否面包屑
+        type: string
+      component:
+        description: 组件
+        type: string
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      icon:
+        description: 图标
+        type: string
+      isFrame:
+        description: 是否frame
+        type: string
+      menuId:
+        description: 编码
+        type: integer
+      menuName:
+        description: 菜单name
+        type: string
+      menuType:
+        description: 菜单类型
+        type: string
+      noCache:
+        description: 是否缓存
+        type: boolean
+      parentId:
+        description: 上级菜单
+        type: integer
+      path:
+        description: 路径
+        type: string
+      paths:
+        description: id路径
+        type: string
+      permission:
+        description: 权限编码
+        type: string
+      sort:
+        description: 排序
+        type: integer
+      sysApi:
+        items:
+          $ref: '#/definitions/go-admin_app_admin_models.SysApi'
+        type: array
+      title:
+        description: 显示名称
+        type: string
+      updateBy:
+        type: integer
+      visible:
+        description: 是否显示
+        type: string
+    type: object
+  dto.SysMenuUpdateReq:
+    properties:
+      action:
+        description: 请求方式
+        type: string
+      apis:
+        items:
+          type: integer
+        type: array
+      breadcrumb:
+        description: 是否面包屑
+        type: string
+      component:
+        description: 组件
+        type: string
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      icon:
+        description: 图标
+        type: string
+      isFrame:
+        description: 是否frame
+        type: string
+      menuId:
+        description: 编码
+        type: integer
+      menuName:
+        description: 菜单name
+        type: string
+      menuType:
+        description: 菜单类型
+        type: string
+      noCache:
+        description: 是否缓存
+        type: boolean
+      parentId:
+        description: 上级菜单
+        type: integer
+      path:
+        description: 路径
+        type: string
+      paths:
+        description: id路径
+        type: string
+      permission:
+        description: 权限编码
+        type: string
+      sort:
+        description: 排序
+        type: integer
+      sysApi:
+        items:
+          $ref: '#/definitions/go-admin_app_admin_models.SysApi'
+        type: array
+      title:
+        description: 显示名称
+        type: string
+      updateBy:
+        type: integer
+      visible:
+        description: 是否显示
+        type: string
+    type: object
+  dto.SysOperaLogDeleteReq:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  dto.SysPostDeleteReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      ids:
+        items:
+          type: integer
+        type: array
+      updateBy:
+        type: integer
+    type: object
+  dto.SysPostInsertReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      postCode:
+        type: string
+      postId:
+        type: integer
+      postName:
+        type: string
+      remark:
+        type: string
+      sort:
+        type: integer
+      status:
+        type: integer
+      updateBy:
+        type: integer
+    type: object
+  dto.SysPostUpdateReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      postCode:
+        type: string
+      postId:
+        type: integer
+      postName:
+        type: string
+      remark:
+        type: string
+      sort:
+        type: integer
+      status:
+        type: integer
+      updateBy:
+        type: integer
+    type: object
+  dto.SysRoleCreateReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      description:
+        description: 角色描述（选填，不超过 200 字符）
+        maxLength: 200
+        type: string
+      permission_list:
+        description: 权限标识列表（必填，至少一个权限）
+        items:
+          type: string
+        minItems: 1
+        type: array
+      role_code:
+        description: 角色编码（选填，不超过 30 字符）
+        maxLength: 30
+        type: string
+      role_name:
+        description: 角色名称（必填，不超过 50 字符）
+        maxLength: 50
+        type: string
+      source_role_id:
+        description: 源角色 ID（选填，用于权限继承）
+        type: integer
+      status:
+        description: 角色状态（选填，1:禁用 2:正常，默认 2）
+        enum:
+        - "1"
+        - "2"
+        type: string
+      updateBy:
+        type: integer
+    required:
+    - permission_list
+    - role_name
+    type: object
+  dto.SysRoleDeleteRequest:
+    properties:
+      confirm:
+        description: 确认标识（选填）
+        type: boolean
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      reason:
+        description: 删除原因（选填）
+        type: string
+      role_id:
+        description: 角色 ID（必填）
+        type: integer
+      updateBy:
+        type: integer
+    required:
+    - role_id
+    type: object
+  dto.SysRoleUpdateRequest:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      description:
+        description: 角色描述（选填，不超过 200 字符）
+        maxLength: 200
+        type: string
+      permission_list:
+        description: 权限标识列表（必填，至少一个权限）
+        items:
+          type: string
+        minItems: 1
+        type: array
+      role_code:
+        description: 角色编码（必填，不超过 30 字符）
+        maxLength: 30
+        type: string
+      role_id:
+        description: 角色 ID（必填）
+        type: integer
+      role_name:
+        description: 角色名称（必填，不超过 50 字符）
+        maxLength: 50
+        type: string
+      status:
+        description: 角色状态（选填，1:禁用 2:正常）
+        enum:
+        - "1"
+        - "2"
+        type: string
+      updateBy:
+        type: integer
+    required:
+    - permission_list
+    - role_code
+    - role_id
+    - role_name
+    type: object
+  dto.SysUserInsertReq:
+    properties:
+      avatar:
+        type: string
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      deptId:
+        type: integer
+      email:
+        type: string
+      nickName:
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+      postId:
+        type: integer
+      remark:
+        type: string
+      roleId:
+        type: integer
+      sex:
+        type: string
+      status:
+        default: "1"
+        type: string
+      updateBy:
+        type: integer
+      userId:
+        description: 用户ID
+        type: integer
+      username:
+        type: string
+    type: object
+  dto.SysUserUpdateReq:
+    properties:
+      avatar:
+        type: string
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      deptId:
+        type: integer
+      email:
+        type: string
+      nickName:
+        type: string
+      phone:
+        type: string
+      postId:
+        type: integer
+      remark:
+        type: string
+      roleId:
+        type: integer
+      sex:
+        type: string
+      status:
+        default: "1"
+        type: string
+      updateBy:
+        type: integer
+      userId:
+        description: 用户ID
+        type: integer
+      username:
+        type: string
+    type: object
+  dto.UpdateSysUserStatusReq:
+    properties:
+      createBy:
+        type: integer
+      deleteBy:
+        type: integer
+      status:
+        type: string
+      updateBy:
+        type: integer
+      userId:
+        description: 用户ID
+        type: integer
+    type: object
+  dto.UpdateUserStatusReq:
+    properties:
+      reason:
+        description: 操作原因
+        type: string
+      status:
+        description: 0=禁用 1=启用
+        type: integer
+      userId:
+        description: 目标用户 ID
+        type: integer
+    type: object
+  dto.UpdateUserStatusResp:
+    properties:
+      status:
+        description: 用户状态
+        type: integer
+      status_text:
+        description: 状态文本
+        type: string
+      update_time:
+        description: 更新时间
+        type: string
+      user_id:
+        description: 用户 ID
+        type: integer
+    type: object
+  dto.UpdateUserVipLevelReq:
+    properties:
+      reason:
+        description: 修改原因
+        maxLength: 500
+        type: string
+      user_id:
+        description: 用户 ID
+        type: integer
+      vip_expire_time:
+        description: 到期时间
+        type: string
+      vip_level:
+        description: 目标会员等级
+        enum:
+        - 0
+        - 1
+        - 2
+        - 3
+        type: integer
+    required:
+    - user_id
+    - vip_level
+    type: object
+  dto.UpdateUserVipLevelResp:
+    properties:
+      update_time:
+        description: 修改时间
+        type: string
+      user_id:
+        description: 用户 ID
+        type: integer
+      vip_expire_time:
+        description: 到期时间
+        type: string
+      vip_level:
+        description: 会员等级
+        type: integer
+      vip_name:
+        description: 等级名称
+        type: string
+    type: object
+  dto.UserDeviceItem:
+    properties:
+      bind_time:
+        description: 绑定时间戳
+        type: integer
+      device_name:
+        description: 设备名称
+        type: string
+      device_sn:
+        description: 设备 SN
+        type: string
+      model:
+        description: 设备型号
+        type: string
+      online:
+        description: 是否在线
+        type: boolean
+    type: object
+  dto.UserInfo:
+    properties:
+      avatar:
+        description: 头像
+        type: string
+      introduction:
+        description: 简介
+        type: string
+      name:
+        description: 用户名
+        type: string
+      permissions:
+        description: 权限列表
+        items:
+          type: string
+        type: array
+      roles:
+        description: 角色列表
+        items:
+          type: string
+        type: array
+    type: object
+  go-admin_app_admin_models.SysApi:
+    properties:
+      action:
+        type: string
+      createBy:
+        type: integer
+      createdAt:
+        type: string
+      deleteBy:
+        type: integer
+      handle:
+        type: string
+      id:
+        type: integer
+      path:
+        type: string
+      title:
+        type: string
+      type:
+        type: string
+      updateBy:
+        type: integer
+      updatedAt:
+        type: string
+    type: object
+  go-admin_app_admin_models.SysConfig:
+    properties:
+      configKey:
+        type: string
+      configName:
+        type: string
+      configType:
+        type: string
+      configValue:
+        type: string
+      createBy:
+        type: integer
+      createdAt:
+        type: string
+      deleteBy:
+        type: integer
+      id:
+        type: integer
+      isFrontend:
+        type: string
+      remark:
+        type: string
+      updateBy:
+        type: integer
+      updatedAt:
+        type: string
+    type: object
+  go-admin_app_admin_other_models_tools.Params:
+    properties:
+      treeCode:
+        type: string
+      treeName:
+        type: string
+      treeParentCode:
+        type: string
+    type: object
+  go-admin_app_admin_other_models_tools.SysColumns:
+    properties:
+      columnComment:
+        type: string
+      columnId:
+        type: integer
+      columnName:
+        type: string
+      columnType:
+        type: string
+      createBy:
+        type: integer
+      createdAt:
+        type: string
+      dictType:
+        type: string
+      edit:
+        type: boolean
+      fkCol:
+        items:
+          $ref: '#/definitions/go-admin_app_admin_other_models_tools.SysColumns'
+        type: array
+      fkLabelId:
+        type: string
+      fkLabelName:
+        type: string
+      fkTableName:
+        type: string
+      fkTableNameClass:
+        type: string
+      fkTableNamePackage:
+        type: string
+      goField:
+        type: string
+      goType:
+        type: string
+      htmlType:
+        type: string
+      increment:
+        type: boolean
+      insert:
+        type: boolean
+      isEdit:
+        type: string
+      isIncrement:
+        type: string
+      isInsert:
+        type: string
+      isList:
+        type: string
+      isPk:
+        type: string
+      isQuery:
+        type: string
+      isRequired:
+        type: string
+      jsonField:
+        type: string
+      list:
+        type: string
+      pk:
+        type: boolean
+      query:
+        type: boolean
+      queryType:
+        type: string
+      remark:
+        type: string
+      required:
+        type: boolean
+      sort:
+        type: integer
+      superColumn:
+        type: boolean
+      tableId:
+        type: integer
+      updateBy:
+        type: integer
+      updatedAt:
+        type: string
+      usableColumn:
+        type: boolean
+    type: object
+  go-admin_app_admin_other_models_tools.SysTables:
+    properties:
+      businessName:
+        type: string
+      className:
+        description: 类名
+        type: string
+      columns:
+        items:
+          $ref: '#/definitions/go-admin_app_admin_other_models_tools.SysColumns'
+        type: array
+      createBy:
+        type: integer
+      createdAt:
+        type: string
+      crud:
+        type: boolean
+      dataScope:
+        type: string
+      deleteBy:
+        type: integer
+      functionAuthor:
+        description: 功能作者
+        type: string
+      functionName:
+        description: 功能名称
+        type: string
+      isActions:
+        type: integer
+      isAuth:
+        type: integer
+      isDataScope:
+        type: integer
+      isLogicalDelete:
+        type: string
+      logicalDelete:
+        type: boolean
+      logicalDeleteColumn:
+        type: string
+      moduleFrontName:
+        description: 前端文件名
+        type: string
+      moduleName:
+        description: go文件名
+        type: string
+      options:
+        type: string
+      packageName:
+        description: 包名
+        type: string
+      params:
+        $ref: '#/definitions/go-admin_app_admin_other_models_tools.Params'
+      pkColumn:
+        type: string
+      pkGoField:
+        type: string
+      pkJsonField:
+        type: string
+      remark:
+        type: string
+      tableComment:
+        description: 表备注
+        type: string
+      tableId:
+        description: 表编码
+        type: integer
+      tableName:
+        description: 表名称
+        type: string
+      tplCategory:
+        type: string
+      tree:
+        type: boolean
+      treeCode:
+        type: string
+      treeName:
+        type: string
+      treeParentCode:
+        type: string
+      updateBy:
+        type: integer
+      updatedAt:
+        type: string
+    type: object
+  go-admin_app_other_models_tools.Params:
+    properties:
+      treeCode:
+        type: string
+      treeName:
+        type: string
+      treeParentCode:
+        type: string
+    type: object
+  go-admin_app_other_models_tools.SysColumns:
+    properties:
+      columnComment:
+        type: string
+      columnId:
+        type: integer
+      columnName:
+        type: string
+      columnType:
+        type: string
+      createBy:
+        type: integer
+      createdAt:
+        type: string
+      dictType:
+        type: string
+      edit:
+        type: boolean
+      fkCol:
+        items:
+          $ref: '#/definitions/go-admin_app_other_models_tools.SysColumns'
+        type: array
+      fkLabelId:
+        type: string
+      fkLabelName:
+        type: string
+      fkTableName:
+        type: string
+      fkTableNameClass:
+        type: string
+      fkTableNamePackage:
+        type: string
+      goField:
+        type: string
+      goType:
+        type: string
+      htmlType:
+        type: string
+      increment:
+        type: boolean
+      insert:
+        type: boolean
+      isEdit:
+        type: string
+      isIncrement:
+        type: string
+      isInsert:
+        type: string
+      isList:
+        type: string
+      isPk:
+        type: string
+      isQuery:
+        type: string
+      isRequired:
+        type: string
+      jsonField:
+        type: string
+      list:
+        type: string
+      pk:
+        type: boolean
+      query:
+        type: boolean
+      queryType:
+        type: string
+      remark:
+        type: string
+      required:
+        type: boolean
+      sort:
+        type: integer
+      superColumn:
+        type: boolean
+      tableId:
+        type: integer
+      updateBy:
+        type: integer
+      updatedAt:
+        type: string
+      usableColumn:
+        type: boolean
+    type: object
+  go-admin_app_other_models_tools.SysTables:
+    properties:
+      businessName:
+        type: string
+      className:
+        description: 类名
+        type: string
+      columns:
+        items:
+          $ref: '#/definitions/go-admin_app_other_models_tools.SysColumns'
+        type: array
+      createBy:
+        type: integer
+      createdAt:
+        type: string
+      crud:
+        type: boolean
+      dataScope:
+        type: string
+      deleteBy:
+        type: integer
+      functionAuthor:
+        description: 功能作者
+        type: string
+      functionName:
+        description: 功能名称
+        type: string
+      isActions:
+        type: integer
+      isAuth:
+        type: integer
+      isDataScope:
+        type: integer
+      isLogicalDelete:
+        type: string
+      logicalDelete:
+        type: boolean
+      logicalDeleteColumn:
+        type: string
+      moduleFrontName:
+        description: 前端文件名
+        type: string
+      moduleName:
+        description: go文件名
+        type: string
+      options:
+        type: string
+      packageName:
+        description: 包名
+        type: string
+      params:
+        $ref: '#/definitions/go-admin_app_other_models_tools.Params'
+      pkColumn:
+        type: string
+      pkGoField:
+        type: string
+      pkJsonField:
+        type: string
+      remark:
+        type: string
+      tableComment:
+        description: 表备注
+        type: string
+      tableId:
+        description: 表编码
+        type: integer
+      tableName:
+        description: 表名称
+        type: string
+      tplCategory:
+        type: string
+      tree:
+        type: boolean
+      treeCode:
+        type: string
+      treeName:
+        type: string
+      treeParentCode:
+        type: string
+      updateBy:
+        type: integer
+      updatedAt:
+        type: string
+    type: object
+  handler.Login:
+    properties:
+      code:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+      uuid:
+        type: string
+    required:
+    - code
+    - password
+    - username
+    - uuid
+    type: object
+  models.UserRealNameAuditReq:
+    properties:
+      audit_remark:
+        description: 驳回时必填，由接口层校验
+        type: string
+      audit_result:
+        description: 审核结果：1 通过 2 驳回
+        type: integer
+      operator_id:
+        description: 操作员 ID（从 token 获取）
+        type: integer
+      user_id:
+        description: 用户 ID
+        type: integer
+    required:
+    - audit_result
+    - user_id
+    type: object
+  response.Page:
+    properties:
+      count:
+        type: integer
+      pageIndex:
+        type: integer
+      pageSize:
+        type: integer
+    type: object
+  response.Response:
+    properties:
+      code:
+        type: integer
+      msg:
+        type: string
+      requestId:
+        description: 数据集
+        type: string
+      status:
+        type: string
+    type: object
+  service.BatchManageDevicesIn:
+    properties:
+      device_ids:
+        items:
+          type: integer
+        type: array
+      group_id:
+        type: integer
+      operation:
+        description: add/remove/replace
+        type: string
+      operator:
+        type: string
+      sns:
+        items:
+          type: string
+        type: array
+    type: object
+  service.CancelShareIn:
+    properties:
+      operator:
+        type: string
+      share_id:
+        type: integer
+    type: object
+  service.ConfirmShareIn:
+    properties:
+      operator:
+        type: string
+      share_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  service.CreateGroupIn:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      operator:
+        type: string
+      parent_id:
+        type: integer
+      sort:
+        type: integer
+    type: object
+  service.CreateSceneIn:
+    properties:
+      action_exec:
+        additionalProperties: true
+        description: 执行动作
+        type: object
+      action_type:
+        description: device_control/mqtt_command/scene_trigger
+        type: string
+      description:
+        type: string
+      device_ids:
+        items:
+          type: integer
+        type: array
+      name:
+        type: string
+      operator:
+        type: string
+      trigger_cond:
+        additionalProperties: true
+        description: 触发条件
+        type: object
+      trigger_type:
+        description: device_status/timer/manual
+        type: string
+    type: object
+  service.CreateShareIn:
+    properties:
+      device_id:
+        type: integer
+      expire_time:
+        type: string
+      operator:
+        type: string
+      permissions:
+        additionalProperties:
+          type: boolean
+        type: object
+      remark:
+        type: string
+      share_type:
+        type: integer
+      shared_user:
+        type: string
+    type: object
+  service.CreateTaskIn:
+    properties:
+      action_exec:
+        additionalProperties: true
+        type: object
+      action_type:
+        type: string
+      cron_expr:
+        type: string
+      device_ids:
+        items:
+          type: integer
+        type: array
+      exec_time:
+        type: string
+      operator:
+        type: string
+      remark:
+        type: string
+      task_name:
+        type: string
+      task_type:
+        type: string
+      timezone:
+        type: string
+    type: object
+  service.DeleteGroupIn:
+    properties:
+      group_id:
+        type: integer
+      operator:
+        type: string
+    type: object
+  service.DeleteSceneIn:
+    properties:
+      operator:
+        type: string
+      scene_id:
+        type: integer
+    type: object
+  service.DeleteTaskIn:
+    properties:
+      operator:
+        type: string
+      task_id:
+        type: integer
+    type: object
+  service.DeviceConfigItem:
+    properties:
+      config_key:
+        type: string
+      config_type:
+        type: string
+      config_value:
+        type: string
+    type: object
+  service.DeviceDiagnosisItem:
+    properties:
+      detail:
+        description: 详细信息
+        type: string
+      error_code:
+        description: 错误码（可选）
+        type: integer
+      item:
+        description: 检查项名称
+        type: string
+      message:
+        description: 检查结果描述
+        type: string
+      status:
+        description: normal/abnormal/error
+        type: string
+    type: object
+  service.DeviceLogItem:
+    properties:
+      content:
+        description: 日志内容
+        type: string
+      error_code:
+        description: 错误码（可选）
+        type: integer
+      extra:
+        additionalProperties: true
+        description: 额外信息
+        type: object
+      ip_address:
+        description: IP 地址
+        type: string
+      log_level:
+        description: debug/info/warn/error/fatal
+        type: string
+      log_type:
+        description: system/error/operation/status
+        type: string
+      report_source:
+        description: device/cloud
+        type: string
+      report_time:
+        description: 上报时间
+        type: string
+    type: object
+  service.ExecuteSceneIn:
+    properties:
+      scene_id:
+        type: integer
+      trigger_data:
+        additionalProperties: true
+        type: object
+      trigger_src:
+        description: device/timer/manual/api
+        type: string
+    type: object
+  service.ReportDeviceLogIn:
+    properties:
+      device_id:
+        type: integer
+      logs:
+        items:
+          $ref: '#/definitions/service.DeviceLogItem'
+        type: array
+      sn:
+        type: string
+    type: object
+  service.ReportDiagnosisIn:
+    properties:
+      device_id:
+        type: integer
+      diagnosis_id:
+        type: integer
+      items:
+        description: 诊断项列表
+        items:
+          $ref: '#/definitions/service.DeviceDiagnosisItem'
+        type: array
+      report_time:
+        type: string
+      sn:
+        type: string
+      summary:
+        description: 诊断摘要
+        type: string
+    type: object
+  service.StartDiagnosisIn:
+    properties:
+      device_id:
+        type: integer
+      diag_type:
+        description: full/network/hardware/storage/audio/firmware/connection
+        type: string
+      ip_address:
+        type: string
+      operator:
+        type: string
+      sn:
+        type: string
+    type: object
+  service.ToggleTaskIn:
+    properties:
+      operator:
+        type: string
+      status:
+        type: integer
+      task_id:
+        type: integer
+    type: object
+  service.UpdateDeviceConfigIn:
+    properties:
+      configs:
+        items:
+          $ref: '#/definitions/service.DeviceConfigItem'
+        type: array
+      device_id:
+        type: integer
+      operator:
+        type: string
+      sn:
+        type: string
+    type: object
+  service.UpdateGroupIn:
+    properties:
+      description:
+        type: string
+      group_id:
+        type: integer
+      name:
+        type: string
+      operator:
+        type: string
+      sort:
+        type: integer
+      status:
+        type: integer
+    type: object
+  service.UpdateSceneIn:
+    properties:
+      action_exec:
+        additionalProperties: true
+        type: object
+      action_type:
+        type: string
+      description:
+        type: string
+      device_ids:
+        items:
+          type: integer
+        type: array
+      name:
+        type: string
+      operator:
+        type: string
+      scene_id:
+        type: integer
+      status:
+        type: integer
+      trigger_cond:
+        additionalProperties: true
+        type: object
+      trigger_type:
+        type: string
+    type: object
+  service.UpdateTaskIn:
+    properties:
+      action_exec:
+        additionalProperties: true
+        type: object
+      action_type:
+        type: string
+      cron_expr:
+        type: string
+      device_ids:
+        items:
+          type: integer
+        type: array
+      exec_time:
+        type: string
+      operator:
+        type: string
+      remark:
+        type: string
+      task_id:
+        type: integer
+      task_name:
+        type: string
+      timezone:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: |-
+    基于Gin + Vue + Element UI的前后端分离权限管理系统的接口文档
+    添加qq群: 521386980 进入技术交流群 请先star，谢谢！
+  license:
+    name: MIT
+    url: https://github.com/go-admin-team/go-admin/blob/master/LICENSE.md
+  title: go-admin API
+  version: 2.0.0
+paths:
+  /api/v1/admin/{id}:
+    get:
+      description: 获取管理员详细信息
+      parameters:
+      - description: 管理员 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": {...}}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 管理员详情
+      tags:
+      - 管理员/Admin
+  /api/v1/admin/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建新的后台管理员账户
+      parameters:
+      - description: 管理员信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysAdminCreateReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": {...}}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 创建管理员
+      tags:
+      - 管理员/Admin
+  /api/v1/admin/delete:
+    post:
+      consumes:
+      - application/json
+      description: 删除管理员账户（软删除）
+      parameters:
+      - description: 删除信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysAdminDeleteReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": {...}}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 删除管理员
+      tags:
+      - 管理员/Admin
+  /api/v1/admin/list:
+    get:
+      description: 获取后台管理员账户信息，包括基本信息、关联角色、登录状态等
+      parameters:
+      - description: 关键词搜索管理员姓名或用户名
+        in: query
+        name: keyword
+        type: string
+      - description: 关联角色 ID 筛选
+        in: query
+        name: role_id
+        type: integer
+      - description: 管理员状态（1:禁用 2:正常）
+        in: query
+        name: status
+        type: string
+      - description: 最后登录时间起始（2006-01-02）
+        in: query
+        name: last_login_from
+        type: string
+      - description: 最后登录时间结束（2006-01-02）
+        in: query
+        name: last_login_to
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 排序字段
+        in: query
+        name: sort_by
+        type: string
+      - description: 排序方式
+        in: query
+        name: sort_order
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": {...}}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 管理员列表
+      tags:
+      - 管理员/Admin
+  /api/v1/admin/status:
+    put:
+      consumes:
+      - application/json
+      description: 启用或禁用管理员账户
+      parameters:
+      - description: 状态信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysAdminStatusReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": {...}}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 更新管理员状态
+      tags:
+      - 管理员/Admin
+  /api/v1/admin/update:
+    put:
+      consumes:
+      - application/json
+      description: 更新管理员账户信息
+      parameters:
+      - description: 管理员信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysAdminUpdateReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": {...}}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 更新管理员
+      tags:
+      - 管理员/Admin
+  /api/v1/app-config:
+    get:
+      description: 获取系统配置信息，主要注意这里不在验证权限
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: string
+                  type: object
+              type: object
+      summary: 获取系统前台配置信息，主要注意这里不在验证权限
+      tags:
+      - 配置管理
+  /api/v1/captcha:
+    get:
+      description: 获取验证码
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  type: string
+                id:
+                  type: string
+                msg:
+                  type: string
+              type: object
+      summary: 获取验证码
+      tags:
+      - 登陆
+  /api/v1/db/columns/page:
+    get:
+      description: 数据库表列分页列表 / database table column page list
+      parameters:
+      - description: tableName / 数据表名称
+        in: query
+        name: tableName
+        type: string
+      - description: pageSize / 页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: pageIndex / 页码
+        in: query
+        name: pageIndex
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 分页列表数据 / page list data
+      tags:
+      - 工具 / 生成工具
+  /api/v1/db/tables/page:
+    get:
+      description: 数据库表分页列表 / database table page list
+      parameters:
+      - description: tableName / 数据表名称
+        in: query
+        name: tableName
+        type: string
+      - description: pageSize / 页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: pageIndex / 页码
+        in: query
+        name: pageIndex
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 分页列表数据 / page list data
+      tags:
+      - 工具 / 生成工具
+  /api/v1/dept:
+    delete:
+      description: 删除数据
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysDeptDeleteReq'
+      responses:
+        "200":
+          description: '{"code": -1, "message": "删除失败"}'
+          schema:
+            type: string
+      security:
+      - Bearer: []
+      summary: 删除部门
+      tags:
+      - 部门
+    get:
+      description: 分页列表
+      parameters:
+      - description: deptName
+        in: query
+        name: deptName
+        type: string
+      - description: deptId
+        in: query
+        name: deptId
+        type: string
+      - description: position
+        in: query
+        name: position
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 分页部门列表数据
+      tags:
+      - 部门
+    post:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysDeptInsertReq'
+      responses:
+        "200":
+          description: '{"code": -1, "message": "添加失败"}'
+          schema:
+            type: string
+      security:
+      - Bearer: []
+      summary: 添加部门
+      tags:
+      - 部门
+  /api/v1/dept/{deptId}:
+    get:
+      description: 获取JSON
+      parameters:
+      - description: deptId
+        in: path
+        name: deptId
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 获取部门数据
+      tags:
+      - 部门
+    put:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysDeptUpdateReq'
+      responses:
+        "200":
+          description: '{"code": -1, "message": "添加失败"}'
+          schema:
+            type: string
+      security:
+      - Bearer: []
+      summary: 修改部门
+      tags:
+      - 部门
+  /api/v1/device/enum:
+    get:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/dict-data/option-select:
+    get:
+      description: 数据字典根据key获取
+      parameters:
+      - description: dictType
+        in: query
+        name: dictType
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.SysDictDataGetAllResp'
+                  type: array
+              type: object
+      security:
+      - Bearer: []
+      summary: 数据字典根据key获取
+      tags:
+      - 字典数据
+  /api/v1/dict/data:
+    delete:
+      description: 删除数据
+      parameters:
+      - description: body
+        in: body
+        name: dictCode
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysDictDataDeleteReq'
+      responses:
+        "200":
+          description: '{"code": 200, "message": "删除成功"}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 删除字典数据
+      tags:
+      - 字典数据
+    get:
+      description: 获取JSON
+      parameters:
+      - description: status
+        in: query
+        name: status
+        type: string
+      - description: dictCode
+        in: query
+        name: dictCode
+        type: string
+      - description: dictType
+        in: query
+        name: dictType
+        type: string
+      - description: 页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 页码
+        in: query
+        name: pageIndex
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 字典数据列表
+      tags:
+      - 字典数据
+    post:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysDictDataInsertReq'
+      responses:
+        "200":
+          description: '{"code": 200, "message": "添加成功"}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 添加字典数据
+      tags:
+      - 字典数据
+  /api/v1/dict/data/{dictCode}:
+    get:
+      description: 获取JSON
+      parameters:
+      - description: 字典编码
+        in: path
+        name: dictCode
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 通过编码获取字典数据
+      tags:
+      - 字典数据
+    put:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysDictDataUpdateReq'
+      responses:
+        "200":
+          description: '{"code": 200, "message": "修改成功"}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 修改字典数据
+      tags:
+      - 字典数据
+  /api/v1/dict/type:
+    delete:
+      description: 删除数据
+      parameters:
+      - description: body
+        in: body
+        name: dictCode
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysDictTypeDeleteReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 删除字典类型
+      tags:
+      - 字典类型
+    get:
+      description: 获取JSON
+      parameters:
+      - description: dictName
+        in: query
+        name: dictName
+        type: string
+      - description: dictId
+        in: query
+        name: dictId
+        type: string
+      - description: dictType
+        in: query
+        name: dictType
+        type: string
+      - description: 页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 页码
+        in: query
+        name: pageIndex
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 字典类型列表数据
+      tags:
+      - 字典类型
+    post:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysDictTypeInsertReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 添加字典类型
+      tags:
+      - 字典类型
+  /api/v1/dict/type-option-select:
+    get:
+      description: 获取JSON
+      parameters:
+      - description: dictName
+        in: query
+        name: dictName
+        type: string
+      - description: dictId
+        in: query
+        name: dictId
+        type: string
+      - description: dictType
+        in: query
+        name: dictType
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 字典类型全部数据 代码生成使用接口
+      tags:
+      - 字典类型
+  /api/v1/dict/type/{dictId}:
+    get:
+      description: 获取JSON
+      parameters:
+      - description: 字典类型编码
+        in: path
+        name: dictId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 字典类型通过字典id获取
+      tags:
+      - 字典类型
+    put:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysDictTypeUpdateReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 修改字典类型
+      tags:
+      - 字典类型
+  /api/v1/getinfo:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserInfo'
+              type: object
+      security:
+      - Bearer: []
+      summary: 获取用户信息
+      tags:
+      - 用户管理
+  /api/v1/login:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        获取token
+        LoginHandler can be used by clients to get a jwt token.
+        Payload needs to be json in the form of {"username": "USERNAME", "password": "PASSWORD"}.
+        Reply will be of the form {"token": "TOKEN"}.
+        dev mode：It should be noted that all fields cannot be empty, and a value of 0 can be passed in addition to the account password
+        注意：开发模式：需要注意全部字段不能为空，账号密码外可以传入0值
+      parameters:
+      - description: account
+        in: body
+        name: account
+        required: true
+        schema:
+          $ref: '#/definitions/handler.Login'
+      responses:
+        "200":
+          description: '{"code": 200, "expire": "2019-08-07T12:45:48+08:00", "token":
+            ".eyJleHAiOjE1NjUxNTMxNDgsImlkIjoiYWRtaW4iLCJvcmlnX2lhdCI6MTU2NTE0OTU0OH0.-zvzHvbg0A"
+            }'
+          schema:
+            type: string
+      summary: 登陆
+      tags:
+      - 登陆
+  /api/v1/menu:
+    delete:
+      description: 删除数据
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysMenuDeleteReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 删除菜单
+      tags:
+      - 菜单
+    get:
+      description: 获取JSON
+      parameters:
+      - description: menuName
+        in: query
+        name: menuName
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: Menu列表数据
+      tags:
+      - 菜单
+    post:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysMenuInsertReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 创建菜单
+      tags:
+      - 菜单
+  /api/v1/menu/{id}:
+    get:
+      description: 获取JSON
+      parameters:
+      - description: id
+        in: path
+        name: id
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: Menu详情数据
+      tags:
+      - 菜单
+    put:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysMenuUpdateReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 修改菜单
+      tags:
+      - 菜单
+  /api/v1/menuTreeselect/{roleId}:
+    get:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: roleId
+        in: path
+        name: roleId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 角色修改使用的菜单列表
+      tags:
+      - 菜单
+  /api/v1/menurole:
+    get:
+      description: 获取JSON
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 根据登录角色名称获取菜单列表数据（左菜单使用）
+      tags:
+      - 菜单
+  /api/v1/permission/list:
+    get:
+      description: 获取系统所有权限标识，按模块和类型分组展示
+      parameters:
+      - description: 权限所属模块（user/device/content/order/system）
+        in: query
+        name: module
+        type: string
+      - description: 权限类型（1:菜单权限 2:操作权限 3:数据权限）
+        in: query
+        name: type
+        type: string
+      - description: 关键词搜索权限名称或标识
+        in: query
+        name: keyword
+        type: string
+      - description: 权限状态（1:禁用 2:启用）
+        in: query
+        name: status
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": {...}}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 权限列表（按模块分组）
+      tags:
+      - 权限/Permission
+  /api/v1/permission/tree:
+    get:
+      description: 获取树形结构的权限列表，模块为父节点，权限为子节点
+      parameters:
+      - description: 权限所属模块
+        in: query
+        name: module
+        type: string
+      - description: 权限状态
+        in: query
+        name: status
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 权限树形结构
+      tags:
+      - 权限/Permission
+  /api/v1/platform-device/command:
+    post:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-device/config:
+    get:
+      parameters:
+      - description: 设备 ID
+        format: int64
+        in: query
+        name: device_id
+        type: integer
+      - description: 设备 SN
+        in: query
+        name: sn
+        type: string
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 获取设备配置
+      tags:
+      - 平台设备
+    put:
+      parameters:
+      - description: 配置信息
+        in: body
+        name: config
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateDeviceConfigIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 更新设备配置
+      tags:
+      - 平台设备
+  /api/v1/platform-device/create:
+    post:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-device/delete:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 删除请求
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/apis.platformDeviceDeleteReq'
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            properties:
+              code:
+                type: integer
+              data:
+                properties:
+                  device_id:
+                    type: integer
+                  device_sn:
+                    type: string
+                  success:
+                    type: boolean
+                type: object
+              msg:
+                type: string
+            type: object
+        "400":
+          description: 参数错误/设备在线/确认缺失
+          schema:
+            properties:
+              code:
+                type: integer
+              msg:
+                type: string
+            type: object
+        "404":
+          description: 设备不存在
+          schema:
+            properties:
+              code:
+                type: integer
+              msg:
+                type: string
+            type: object
+        "500":
+          description: 系统异常
+          schema:
+            properties:
+              code:
+                type: integer
+              msg:
+                type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 删除设备
+      tags:
+      - 平台设备
+  /api/v1/platform-device/detail:
+    get:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-device/diagnosis/history:
+    get:
+      parameters:
+      - description: 设备 ID
+        format: int64
+        in: query
+        name: device_id
+        type: integer
+      - description: 设备 SN
+        in: query
+        name: sn
+        type: string
+      - description: 开始时间 (RFC3339 格式)
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间 (RFC3339 格式)
+        in: query
+        name: end_time
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 设备诊断历史
+      tags:
+      - 平台设备
+  /api/v1/platform-device/diagnosis/report:
+    post:
+      parameters:
+      - description: 诊断结果
+        in: body
+        name: diagnosis
+        required: true
+        schema:
+          $ref: '#/definitions/service.ReportDiagnosisIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 上报诊断结果
+      tags:
+      - 平台设备
+  /api/v1/platform-device/diagnosis/result:
+    get:
+      parameters:
+      - description: 诊断记录 ID
+        in: query
+        name: diagnosis_id
+        required: true
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 获取诊断结果
+      tags:
+      - 平台设备
+  /api/v1/platform-device/diagnosis/start:
+    post:
+      parameters:
+      - description: 诊断信息
+        in: body
+        name: diagnosis
+        required: true
+        schema:
+          $ref: '#/definitions/service.StartDiagnosisIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 开始设备诊断
+      tags:
+      - 平台设备
+  /api/v1/platform-device/firmware/{id}:
+    get:
+      parameters:
+      - description: 固件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 固件详情
+      tags:
+      - 平台设备-固件
+  /api/v1/platform-device/firmware/delete:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: firmware_id 与 (product_key+version) 二选一
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/apis.FirmwareDeleteReq'
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 固件删除
+      tags:
+      - 平台设备-固件
+  /api/v1/platform-device/firmware/history:
+    get:
+      parameters:
+      - description: 产品标识
+        in: query
+        name: product_key
+        type: string
+      - description: 设备型号
+        in: query
+        name: device_model
+        type: string
+      - description: 开始日期 YYYY-MM-DD
+        in: query
+        name: date_from
+        type: string
+      - description: 结束日期 YYYY-MM-DD
+        in: query
+        name: date_to
+        type: string
+      - description: 发布类型：formal/test/gray/rollback/emergency
+        in: query
+        name: release_type
+        type: string
+      - description: 状态：draft/testing/published/withdrawn/obsolete
+        in: query
+        name: status
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      - description: 是否包含统计数据
+        in: query
+        name: with_stats
+        type: boolean
+      - description: 是否包含变更日志
+        in: query
+        name: with_change_log
+        type: boolean
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 版本历史列表
+      tags:
+      - 平台设备 - 固件
+  /api/v1/platform-device/firmware/list:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      - description: 产品线 product_key 精确
+        in: query
+        name: product_key
+        type: string
+      - description: 版本号（模糊）
+        in: query
+        name: version
+        type: string
+      - description: true 时版本精确匹配
+        in: query
+        name: version_exact
+        type: boolean
+      - description: 版本码下限
+        in: query
+        name: version_code_min
+        type: integer
+      - description: 版本码上限
+        in: query
+        name: version_code_max
+        type: integer
+      - description: 适用型号（模糊匹配 device_models）
+        in: query
+        name: device_model
+        type: string
+      - description: 1=启用 2=禁用，不传则全部
+        in: query
+        name: status
+        type: integer
+      - description: 搜索版本号或说明
+        in: query
+        name: keyword
+        type: string
+      - description: 创建起 YYYY-MM-DD
+        in: query
+        name: created_from
+        type: string
+      - description: 创建止 YYYY-MM-DD
+        in: query
+        name: created_to
+        type: string
+      - description: created_at|version_code|download_count|version|device_models
+        in: query
+        name: sort_by
+        type: string
+      - description: asc|desc 默认 desc
+        in: query
+        name: sort_order
+        type: string
+      - description: true 时包含已软删固件（审计）
+        in: query
+        name: include_deleted
+        type: boolean
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 固件列表
+      tags:
+      - 平台设备-固件
+  /api/v1/platform-device/firmware/update:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 固件 ID
+        in: body
+        name: firmware_id
+        required: true
+        schema:
+          type: integer
+      - description: 版本说明
+        in: body
+        name: version_description
+        schema:
+          type: string
+      - description: 适用型号列表
+        in: body
+        name: device_models
+        schema:
+          type: array
+      - description: 是否强制升级
+        in: body
+        name: force_update
+        schema:
+          type: boolean
+      - description: 最低系统版本
+        in: body
+        name: min_sys_version
+        schema:
+          type: string
+      - description: 固件状态 1=启用 2=禁用
+        in: body
+        name: status
+        schema:
+          type: integer
+      - description: 标签列表
+        in: body
+        name: tags
+        schema:
+          type: array
+      - description: 确认标识
+        in: body
+        name: confirm
+        required: true
+        schema:
+          type: boolean
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 修改固件信息
+      tags:
+      - 平台设备 - 固件
+  /api/v1/platform-device/firmware/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: 产品线 product_key
+        in: formData
+        name: product_key
+        required: true
+        type: string
+      - description: 版本号，如 v1.2.3
+        in: formData
+        name: version
+        required: true
+        type: string
+      - description: 固件文件 .bin 或 .zip
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: 整型版本码，不传则根据 version 推算
+        in: formData
+        name: version_code
+        type: integer
+      - description: 适用型号，逗号分隔或 JSON
+        in: formData
+        name: device_models
+        type: string
+      - description: 是否强制升级
+        in: formData
+        name: force_update
+        type: boolean
+      - description: 最低系统版本
+        in: formData
+        name: min_sys_version
+        type: string
+      - description: 版本说明
+        in: formData
+        name: description
+        type: string
+      - description: 1=启用 2=禁用，默认 1
+        in: formData
+        name: status
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 固件上传
+      tags:
+      - 平台设备-固件
+  /api/v1/platform-device/force-unbind:
+    post:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-device/group/batch:
+    post:
+      parameters:
+      - description: 设备列表和操作类型
+        in: body
+        name: devices
+        required: true
+        schema:
+          $ref: '#/definitions/service.BatchManageDevicesIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 批量管理设备分组
+      tags:
+      - 平台设备
+  /api/v1/platform-device/group/create:
+    post:
+      parameters:
+      - description: 分组信息
+        in: body
+        name: group
+        required: true
+        schema:
+          $ref: '#/definitions/service.CreateGroupIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 创建设备分组
+      tags:
+      - 平台设备
+  /api/v1/platform-device/group/delete:
+    post:
+      parameters:
+      - description: 分组 ID
+        in: body
+        name: group
+        required: true
+        schema:
+          $ref: '#/definitions/service.DeleteGroupIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 删除设备分组
+      tags:
+      - 平台设备
+  /api/v1/platform-device/group/detail:
+    get:
+      parameters:
+      - description: 分组 ID
+        in: query
+        name: group_id
+        required: true
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 获取分组详情
+      tags:
+      - 平台设备
+  /api/v1/platform-device/group/list:
+    get:
+      parameters:
+      - description: 父分组 ID
+        in: query
+        name: parent_id
+        type: integer
+      - description: 状态
+        format: int32
+        in: query
+        name: status
+        type: integer
+      - description: 搜索关键字
+        in: query
+        name: keyword
+        type: string
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 获取设备分组列表
+      tags:
+      - 平台设备
+  /api/v1/platform-device/group/update:
+    post:
+      parameters:
+      - description: 分组信息
+        in: body
+        name: group
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateGroupIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 更新设备分组
+      tags:
+      - 平台设备
+  /api/v1/platform-device/import:
+    post:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-device/instruction/execution:
+    get:
+      parameters:
+      - description: 指令主键 ID（与 sn+command_id 二选一）
+        in: query
+        name: instruction_id
+        type: integer
+      - description: 设备 SN（需与 command_id 同时传）
+        in: query
+        name: sn
+        type: string
+      - description: 指令唯一标识 params.command_id，如 cmd_12
+        in: query
+        name: command_id
+        type: string
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 单条指令执行状态
+      tags:
+      - 平台设备-指令
+  /api/v1/platform-device/instructions:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      - description: 设备 ID
+        in: query
+        name: device_id
+        type: integer
+      - description: 设备 SN（模糊）
+        in: query
+        name: sn
+        type: string
+      - description: exact 精确匹配 SN
+        in: query
+        name: sn_mode
+        type: string
+      - description: 指令类型（模糊）
+        in: query
+        name: cmd
+        type: string
+      - description: pending|executing|success|failed|timeout|cancelled|all
+        in: query
+        name: status
+        type: string
+      - description: 创建时间起 YYYY-MM-DD
+        in: query
+        name: created_from
+        type: string
+      - description: 创建时间止 YYYY-MM-DD
+        in: query
+        name: created_to
+        type: string
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 设备指令历史列表
+      tags:
+      - 平台设备-指令
+  /api/v1/platform-device/instructions/{id}:
+    get:
+      parameters:
+      - description: 指令 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 设备指令详情
+      tags:
+      - 平台设备-指令
+  /api/v1/platform-device/instructions/{id}/cancel:
+    post:
+      parameters:
+      - description: 指令 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 原因
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/apis.instructionCancelReq'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 取消设备指令（仅 pending）
+      tags:
+      - 平台设备-指令
+  /api/v1/platform-device/list:
+    get:
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 平台设备列表
+      tags:
+      - 平台设备
+  /api/v1/platform-device/log/list:
+    get:
+      parameters:
+      - description: 设备 ID
+        format: int64
+        in: query
+        name: device_id
+        type: integer
+      - description: 设备 SN
+        in: query
+        name: sn
+        type: string
+      - description: 日志类型 (system/error/operation/status)
+        in: query
+        name: log_type
+        type: string
+      - description: 日志级别 (debug/info/warn/error/fatal)
+        in: query
+        name: log_level
+        type: string
+      - description: 开始时间 (RFC3339 格式)
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间 (RFC3339 格式)
+        in: query
+        name: end_time
+        type: string
+      - description: 处理状态 (0-未处理 1-已处理 2-已忽略)
+        in: query
+        name: processed
+        type: integer
+      - description: 告警状态 (0-未发送 1-已发送)
+        in: query
+        name: alert_sent
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 排序字段
+        in: query
+        name: sort_by
+        type: string
+      - description: 排序方式 (asc/desc)
+        in: query
+        name: sort_order
+        type: string
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 设备日志列表
+      tags:
+      - 平台设备
+  /api/v1/platform-device/log/report:
+    post:
+      parameters:
+      - description: 日志信息
+        in: body
+        name: log
+        required: true
+        schema:
+          $ref: '#/definitions/service.ReportDeviceLogIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 设备日志上报
+      tags:
+      - 平台设备
+  /api/v1/platform-device/ota:
+    post:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-device/ota-task/cancel:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 任务 ID
+        in: body
+        name: task_id
+        required: true
+        schema:
+          type: integer
+      - description: 确认标识
+        in: body
+        name: confirm
+        required: true
+        schema:
+          type: boolean
+      - description: 取消原因
+        in: body
+        name: reason
+        schema:
+          type: string
+      - description: 取消类型：all/pending_only
+        in: body
+        name: cancel_type
+        schema:
+          type: string
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 取消 OTA 任务
+      tags:
+      - 平台设备 - 固件
+  /api/v1/platform-device/ota-task/detail:
+    get:
+      parameters:
+      - description: 任务 ID
+        in: query
+        name: task_id
+        required: true
+        type: integer
+      - description: 是否包含设备列表
+        in: query
+        name: with_devices
+        type: boolean
+      - description: 是否包含操作日志
+        in: query
+        name: with_logs
+        type: boolean
+      responses: {}
+      security:
+      - Bearer: []
+      summary: OTA 任务详情
+      tags:
+      - 平台设备 - 固件
+  /api/v1/platform-device/ota-task/list:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 产品标识
+        in: query
+        name: product_key
+        type: string
+      - description: 任务类型
+        in: query
+        name: task_type
+        type: string
+      - description: 任务状态
+        in: query
+        name: status
+        type: integer
+      - description: 开始时间起始
+        in: query
+        name: start_time_begin
+        type: string
+      - description: 开始时间结束
+        in: query
+        name: start_time_end
+        type: string
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 排序字段
+        in: query
+        name: sort_by
+        type: string
+      - description: 排序方式
+        in: query
+        name: sort_order
+        type: string
+      responses: {}
+      security:
+      - Bearer: []
+      summary: OTA 任务列表
+      tags:
+      - 平台设备 - 固件
+  /api/v1/platform-device/ota-task/progress:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: 任务 ID
+        in: body
+        name: task_id
+        schema:
+          type: integer
+      - description: 设备 ID
+        in: body
+        name: device_id
+        schema:
+          type: integer
+      - description: 是否强制刷新
+        in: body
+        name: refresh
+        schema:
+          type: boolean
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 查询 OTA 任务进度
+      tags:
+      - 平台设备 - 固件
+  /api/v1/platform-device/product-keys:
+    get:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-device/remote-command:
+    post:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-device/scene/create:
+    post:
+      parameters:
+      - description: 场景信息
+        in: body
+        name: scene
+        required: true
+        schema:
+          $ref: '#/definitions/service.CreateSceneIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 创建场景联动规则
+      tags:
+      - 平台设备
+  /api/v1/platform-device/scene/delete:
+    post:
+      parameters:
+      - description: 场景 ID
+        in: body
+        name: scene
+        required: true
+        schema:
+          $ref: '#/definitions/service.DeleteSceneIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 删除场景联动规则
+      tags:
+      - 平台设备
+  /api/v1/platform-device/scene/detail:
+    get:
+      parameters:
+      - description: 场景 ID
+        in: query
+        name: scene_id
+        required: true
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 获取场景详情
+      tags:
+      - 平台设备
+  /api/v1/platform-device/scene/exec-log:
+    get:
+      parameters:
+      - description: 场景 ID
+        in: query
+        name: scene_id
+        required: true
+        type: integer
+      - description: 开始时间 (RFC3339 格式)
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间 (RFC3339 格式)
+        in: query
+        name: end_time
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 获取场景执行日志
+      tags:
+      - 平台设备
+  /api/v1/platform-device/scene/execute:
+    post:
+      parameters:
+      - description: 执行参数
+        in: body
+        name: execute
+        required: true
+        schema:
+          $ref: '#/definitions/service.ExecuteSceneIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 执行场景联动
+      tags:
+      - 平台设备
+  /api/v1/platform-device/scene/list:
+    get:
+      parameters:
+      - description: 触发类型
+        in: query
+        name: trigger_type
+        type: string
+      - description: 状态
+        format: int32
+        in: query
+        name: status
+        type: integer
+      - description: 搜索关键字
+        in: query
+        name: keyword
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 获取场景联动规则列表
+      tags:
+      - 平台设备
+  /api/v1/platform-device/scene/update:
+    post:
+      parameters:
+      - description: 场景信息
+        in: body
+        name: scene
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateSceneIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 更新场景联动规则
+      tags:
+      - 平台设备
+  /api/v1/platform-device/shadow:
+    get:
+      parameters:
+      - description: 设备 SN
+        in: query
+        name: sn
+        required: true
+        type: string
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 设备影子查询
+      tags:
+      - 平台设备-影子
+  /api/v1/platform-device/shadow/desired:
+    put:
+      parameters:
+      - description: sn + desired JSON
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/apis.shadowDesiredReq'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 更新设备影子 desired
+      tags:
+      - 平台设备-影子
+  /api/v1/platform-device/share/cancel:
+    post:
+      parameters:
+      - description: 取消共享参数
+        in: body
+        name: share
+        required: true
+        schema:
+          $ref: '#/definitions/service.CancelShareIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 取消设备共享
+      tags:
+      - 平台设备
+  /api/v1/platform-device/share/confirm:
+    post:
+      parameters:
+      - description: 确认共享参数
+        in: body
+        name: share
+        required: true
+        schema:
+          $ref: '#/definitions/service.ConfirmShareIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 确认设备共享
+      tags:
+      - 平台设备
+  /api/v1/platform-device/share/create:
+    post:
+      parameters:
+      - description: 共享信息
+        in: body
+        name: share
+        required: true
+        schema:
+          $ref: '#/definitions/service.CreateShareIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 创建设备共享
+      tags:
+      - 平台设备
+  /api/v1/platform-device/share/detail:
+    get:
+      parameters:
+      - description: 共享 ID
+        in: query
+        name: share_id
+        required: true
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 共享详情
+      tags:
+      - 平台设备
+  /api/v1/platform-device/share/list:
+    get:
+      parameters:
+      - description: '角色 (owner: 我共享给他人的 / shared: 他人共享给我的)'
+        in: query
+        name: role
+        type: string
+      - description: 状态 (0-待确认 1-已生效 2-已取消 3-已过期)
+        in: query
+        name: status
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 设备共享列表
+      tags:
+      - 平台设备
+  /api/v1/platform-device/share/log:
+    get:
+      parameters:
+      - description: 共享 ID
+        in: query
+        name: share_id
+        type: integer
+      - description: 设备 ID
+        format: int64
+        in: query
+        name: device_id
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 共享日志列表
+      tags:
+      - 平台设备
+  /api/v1/platform-device/status:
+    post:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-device/status/batch:
+    post:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-device/summary:
+    get:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-device/task/create:
+    post:
+      parameters:
+      - description: 任务信息
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/service.CreateTaskIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 创建设备定时任务
+      tags:
+      - 平台设备
+  /api/v1/platform-device/task/delete:
+    post:
+      parameters:
+      - description: 删除参数
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/service.DeleteTaskIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 删除设备定时任务
+      tags:
+      - 平台设备
+  /api/v1/platform-device/task/detail:
+    get:
+      parameters:
+      - description: 任务 ID
+        in: query
+        name: task_id
+        required: true
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 任务详情
+      tags:
+      - 平台设备
+  /api/v1/platform-device/task/list:
+    get:
+      parameters:
+      - description: 任务类型 (single/cron)
+        in: query
+        name: task_type
+        type: string
+      - description: 状态 (0-禁用 1-启用)
+        in: query
+        name: status
+        type: integer
+      - description: 任务名称关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 任务列表
+      tags:
+      - 平台设备
+  /api/v1/platform-device/task/log:
+    get:
+      parameters:
+      - description: 任务 ID
+        in: query
+        name: task_id
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 任务执行日志
+      tags:
+      - 平台设备
+  /api/v1/platform-device/task/toggle:
+    post:
+      parameters:
+      - description: 切换状态参数
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/service.ToggleTaskIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 切换任务状态
+      tags:
+      - 平台设备
+  /api/v1/platform-device/task/update:
+    post:
+      parameters:
+      - description: 任务信息
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateTaskIn'
+      responses: {}
+      security:
+      - Bearer: []
+      summary: 更新设备定时任务
+      tags:
+      - 平台设备
+  /api/v1/platform-device/unbind:
+    post:
+      responses: {}
+      security:
+      - Bearer: []
+  /api/v1/platform-member:
+    put:
+      parameters:
+      - description: 会员信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PlatformMemberUpdateReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PlatformMemberUpdateResp'
+              type: object
+      security:
+      - Bearer: []
+      summary: 更新会员信息（开通/续费/升级/降级/延长）
+      tags:
+      - 会员管理
+  /api/v1/platform-member/{userId}:
+    get:
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: userId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PlatformMemberDetailResp'
+              type: object
+      security:
+      - Bearer: []
+      summary: 会员详情
+      tags:
+      - 会员管理
+  /api/v1/platform-member/freeze:
+    post:
+      parameters:
+      - description: 冻结信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PlatformMemberFreezeReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PlatformMemberFreezeResp'
+              type: object
+      security:
+      - Bearer: []
+      summary: 冻结会员
+      tags:
+      - 会员管理
+  /api/v1/platform-member/list:
+    get:
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认 10，最大 100
+        in: query
+        name: pageSize
+        type: integer
+      - description: 手机号（模糊搜索）
+        in: query
+        name: mobile
+        type: string
+      - description: 昵称（模糊搜索）
+        in: query
+        name: nickname
+        type: string
+      - description: 会员等级
+        in: query
+        name: memberLevel
+        type: integer
+      - description: 会员状态 0-正常 1-过期 2-冻结
+        in: query
+        name: memberStatus
+        type: integer
+      - description: 开通会员时间开始 (Unix 时间戳)
+        in: query
+        name: startTimeStart
+        type: string
+      - description: 开通会员时间结束 (Unix 时间戳)
+        in: query
+        name: startTimeEnd
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PlatformMemberListResp'
+              type: object
+      security:
+      - Bearer: []
+      summary: 会员列表
+      tags:
+      - 会员管理
+  /api/v1/platform-member/right-config:
+    post:
+      parameters:
+      - description: 权益配置信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PlatformMemberRightConfigReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PlatformMemberRightConfigResp'
+              type: object
+      security:
+      - Bearer: []
+      summary: 保存会员权益配置
+      tags:
+      - 会员管理
+  /api/v1/platform-member/unfreeze:
+    post:
+      parameters:
+      - description: 解冻信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PlatformMemberUnfreezeReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PlatformMemberUnfreezeResp'
+              type: object
+      security:
+      - Bearer: []
+      summary: 解冻会员
+      tags:
+      - 会员管理
+  /api/v1/platform-user:
+    post:
+      parameters:
+      - description: 用户信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PlatformUserCreateReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 创建用户
+      tags:
+      - 用户管理
+  /api/v1/platform-user/{userId}:
+    delete:
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: userId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 删除用户
+      tags:
+      - 用户管理
+    get:
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: userId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PlatformUserInfoResp'
+              type: object
+      security:
+      - Bearer: []
+      summary: 获取用户详情（多维度关联查询）
+      tags:
+      - 用户管理
+    put:
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: userId
+        required: true
+        type: integer
+      - description: 用户信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PlatformUserUpdateReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 更新用户
+      tags:
+      - 用户管理
+  /api/v1/platform-user/list:
+    get:
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认 10，最大 100
+        in: query
+        name: pageSize
+        type: integer
+      - description: 手机号（模糊搜索）
+        in: query
+        name: mobile
+        type: string
+      - description: 昵称（模糊搜索）
+        in: query
+        name: nickname
+        type: string
+      - description: 邮箱（模糊搜索）
+        in: query
+        name: email
+        type: string
+      - description: 账号状态 0 禁用 1 正常
+        in: query
+        name: status
+        type: integer
+      - description: 会员等级
+        in: query
+        name: memberLevel
+        type: integer
+      - description: 实名状态
+        in: query
+        name: realNameStatus
+        type: integer
+      - description: 注册时间开始 (Unix 时间戳)
+        in: query
+        name: registerTimeStart
+        type: string
+      - description: 注册时间结束 (Unix 时间戳)
+        in: query
+        name: registerTimeEnd
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PlatformUserListResp'
+              type: object
+      security:
+      - Bearer: []
+      summary: 平台用户列表
+      tags:
+      - 用户管理
+  /api/v1/platform-user/status:
+    put:
+      parameters:
+      - description: 用户状态更新请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateUserStatusReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UpdateUserStatusResp'
+              type: object
+      security:
+      - Bearer: []
+      summary: 禁用/启用用户
+      tags:
+      - 用户管理
+  /api/v1/platform-user/vip-level:
+    put:
+      parameters:
+      - description: 用户会员等级更新请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateUserVipLevelReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UpdateUserVipLevelResp'
+              type: object
+      security:
+      - Bearer: []
+      summary: 修改用户会员等级
+      tags:
+      - 用户管理
+  /api/v1/post:
+    delete:
+      description: 删除数据
+      parameters:
+      - description: 请求参数
+        in: body
+        name: id
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysPostDeleteReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 删除岗位
+      tags:
+      - 岗位
+    get:
+      description: 获取JSON
+      parameters:
+      - description: postName
+        in: query
+        name: postName
+        type: string
+      - description: postCode
+        in: query
+        name: postCode
+        type: string
+      - description: postId
+        in: query
+        name: postId
+        type: string
+      - description: status
+        in: query
+        name: status
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 岗位列表数据
+      tags:
+      - 岗位
+    post:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysPostInsertReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 添加岗位
+      tags:
+      - 岗位
+  /api/v1/post/{id}:
+    put:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysPostUpdateReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 修改岗位
+      tags:
+      - 岗位
+  /api/v1/post/{postId}:
+    get:
+      description: 获取JSON
+      parameters:
+      - description: 编码
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 获取岗位信息
+      tags:
+      - 岗位
+  /api/v1/public/uploadFile:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 获取JSON
+      parameters:
+      - description: type
+        in: query
+        name: type
+        required: true
+        type: string
+      - description: file
+        in: formData
+        name: file
+        required: true
+        type: file
+      responses:
+        "200":
+          description: '{"code": -1, "message": "添加失败"}'
+          schema:
+            type: string
+      security:
+      - Bearer: []
+      summary: 上传图片
+      tags:
+      - 公共接口
+  /api/v1/role/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建新角色，配置角色名称、权限范围、角色描述等信息
+      parameters:
+      - description: 角色信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysRoleCreateReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": {...}}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 创建角色
+      tags:
+      - 角色/Role
+  /api/v1/role/delete:
+    post:
+      consumes:
+      - application/json
+      description: 删除角色，包含关联检查、软删除处理等
+      parameters:
+      - description: 删除信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysRoleDeleteRequest'
+      responses:
+        "200":
+          description: '{"code": 200, "data": {...}}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 删除角色
+      tags:
+      - 角色/Role
+  /api/v1/role/list:
+    get:
+      description: 获取 JSON，包含权限数量、管理员数量等统计信息
+      parameters:
+      - description: 关键词（角色名称或编码）
+        in: query
+        name: keyword
+        type: string
+      - description: 状态（1:禁用 2:正常）
+        in: query
+        name: status
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 排序字段
+        in: query
+        name: sort_by
+        type: string
+      - description: 排序方式
+        in: query
+        name: sort_order
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 角色列表（完整版）
+      tags:
+      - 角色/Role
+  /api/v1/role/update:
+    put:
+      consumes:
+      - application/json
+      description: 更新角色配置信息，包括角色名称、权限范围、角色描述、状态等
+      parameters:
+      - description: 角色信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysRoleUpdateRequest'
+      responses:
+        "200":
+          description: '{"code": 200, "data": {...}}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 修改角色
+      tags:
+      - 角色/Role
+  /api/v1/set-config:
+    get:
+      consumes:
+      - application/json
+      description: 界面操作设置配置值的获取
+      responses:
+        "200":
+          description: '{"code": 200, "message": "修改成功"}'
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+      security:
+      - Bearer: []
+      summary: 获取配置
+      tags:
+      - 配置管理
+    put:
+      consumes:
+      - application/json
+      description: 界面操作设置配置值
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/dto.GetSetSysConfigReq'
+          type: array
+      responses:
+        "200":
+          description: '{"code": 200, "message": "修改成功"}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 设置配置
+      tags:
+      - 配置管理
+  /api/v1/sys-api:
+    delete:
+      description: 删除接口管理
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysApiDeleteReq'
+      responses:
+        "200":
+          description: '{"code": 200, "message": "删除成功"}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 删除接口管理
+      tags:
+      - 接口管理
+    get:
+      description: 获取接口管理列表
+      parameters:
+      - description: 名称
+        in: query
+        name: name
+        type: string
+      - description: 标题
+        in: query
+        name: title
+        type: string
+      - description: 地址
+        in: query
+        name: path
+        type: string
+      - description: 类型
+        in: query
+        name: action
+        type: string
+      - description: 页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 页码
+        in: query
+        name: pageIndex
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.Page'
+                  - properties:
+                      list:
+                        items:
+                          $ref: '#/definitions/go-admin_app_admin_models.SysApi'
+                        type: array
+                    type: object
+              type: object
+      security:
+      - Bearer: []
+      summary: 获取接口管理列表
+      tags:
+      - 接口管理
+  /api/v1/sys-api/{id}:
+    get:
+      description: 获取接口管理
+      parameters:
+      - description: id
+        in: path
+        name: id
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/go-admin_app_admin_models.SysApi'
+              type: object
+      security:
+      - Bearer: []
+      summary: 获取接口管理
+      tags:
+      - 接口管理
+    put:
+      consumes:
+      - application/json
+      description: 修改接口管理
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysApiUpdateReq'
+      responses:
+        "200":
+          description: '{"code": 200, "message": "修改成功"}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 修改接口管理
+      tags:
+      - 接口管理
+  /api/v1/sys-config:
+    delete:
+      description: 删除配置管理
+      parameters:
+      - description: ids
+        in: body
+        name: ids
+        schema:
+          items:
+            type: integer
+          type: array
+      responses:
+        "200":
+          description: '{"code": 200, "message": "删除成功"}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 删除配置管理
+      tags:
+      - 配置管理
+    get:
+      description: 获取配置管理列表
+      parameters:
+      - description: 名称
+        in: query
+        name: configName
+        type: string
+      - description: key
+        in: query
+        name: configKey
+        type: string
+      - description: 类型
+        in: query
+        name: configType
+        type: string
+      - description: 是否前端
+        in: query
+        name: isFrontend
+        type: integer
+      - description: 页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: 页码
+        in: query
+        name: pageIndex
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.Page'
+                  - properties:
+                      list:
+                        items:
+                          $ref: '#/definitions/go-admin_app_admin_models.SysApi'
+                        type: array
+                    type: object
+              type: object
+      security:
+      - Bearer: []
+      summary: 获取配置管理列表
+      tags:
+      - 配置管理
+    post:
+      consumes:
+      - application/json
+      description: 创建配置管理
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysConfigControl'
+      responses:
+        "200":
+          description: '{"code": 200, "message": "创建成功"}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 创建配置管理
+      tags:
+      - 配置管理
+  /api/v1/sys-config/{id}:
+    get:
+      description: 根据Key获取SysConfig的Service
+      parameters:
+      - description: configKey
+        in: path
+        name: configKey
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.SysConfigByKeyReq'
+              type: object
+      security:
+      - Bearer: []
+      summary: 根据Key获取SysConfig的Service
+      tags:
+      - 配置管理
+    put:
+      consumes:
+      - application/json
+      description: 修改配置管理
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysConfigControl'
+      responses:
+        "200":
+          description: '{"code": 200, "message": "修改成功"}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 修改配置管理
+      tags:
+      - 配置管理
+  /api/v1/sys-login-log:
+    delete:
+      description: 登录日志删除
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysLoginLogDeleteReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 登录日志删除
+      tags:
+      - 登录日志
+    get:
+      description: 获取JSON
+      parameters:
+      - description: 用户名
+        in: query
+        name: username
+        type: string
+      - description: ip地址
+        in: query
+        name: ipaddr
+        type: string
+      - description: 归属地
+        in: query
+        name: loginLocation
+        type: string
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      - description: 开始时间
+        in: query
+        name: beginTime
+        type: string
+      - description: 结束时间
+        in: query
+        name: endTime
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 登录日志列表
+      tags:
+      - 登录日志
+  /api/v1/sys-login-log/{id}:
+    get:
+      description: 获取JSON
+      parameters:
+      - description: id
+        in: path
+        name: id
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 登录日志通过id获取
+      tags:
+      - 登录日志
+  /api/v1/sys-opera-log:
+    delete:
+      description: 删除数据
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysOperaLogDeleteReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 删除操作日志
+      tags:
+      - 操作日志
+    get:
+      description: 获取JSON
+      parameters:
+      - description: title
+        in: query
+        name: title
+        type: string
+      - description: method
+        in: query
+        name: method
+        type: string
+      - description: requestMethod
+        in: query
+        name: requestMethod
+        type: string
+      - description: operUrl
+        in: query
+        name: operUrl
+        type: string
+      - description: operIp
+        in: query
+        name: operIp
+        type: string
+      - description: status
+        in: query
+        name: status
+        type: string
+      - description: beginTime
+        in: query
+        name: beginTime
+        type: string
+      - description: endTime
+        in: query
+        name: endTime
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 操作日志列表
+      tags:
+      - 操作日志
+  /api/v1/sys-opera-log/{id}:
+    get:
+      description: 获取JSON
+      parameters:
+      - description: id
+        in: path
+        name: id
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 操作日志通过id获取
+      tags:
+      - 操作日志
+  /api/v1/sys-user:
+    get:
+      description: 获取JSON
+      parameters:
+      - description: username
+        in: query
+        name: username
+        type: string
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            type: string
+      security:
+      - Bearer: []
+      summary: 列表用户信息数据
+      tags:
+      - 用户
+    post:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: 用户数据
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysUserInsertReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 创建用户
+      tags:
+      - 用户
+  /api/v1/sys-user/{userId}:
+    delete:
+      description: 删除数据
+      parameters:
+      - description: userId
+        in: path
+        name: userId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 删除用户数据
+      tags:
+      - 用户
+    get:
+      description: 获取JSON
+      parameters:
+      - description: 用户编码
+        in: path
+        name: userId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 获取用户
+      tags:
+      - 用户
+    put:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SysUserUpdateReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 修改用户数据
+      tags:
+      - 用户
+  /api/v1/sys/tables/info:
+    post:
+      consumes:
+      - application/json
+      description: 添加表结构
+      parameters:
+      - description: tableName / 数据表名称
+        in: query
+        name: tables
+        type: string
+      responses:
+        "200":
+          description: '{"code": -1, "message": "添加失败"}'
+          schema:
+            type: string
+      security:
+      - Bearer: []
+      summary: 添加表结构
+      tags:
+      - 工具 / 生成工具
+    put:
+      consumes:
+      - application/json
+      description: 修改表结构
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/go-admin_app_other_models_tools.SysTables'
+      responses:
+        "200":
+          description: '{"code": -1, "message": "添加失败"}'
+          schema:
+            type: string
+      security:
+      - Bearer: []
+      summary: 修改表结构
+      tags:
+      - 工具 / 生成工具
+  /api/v1/sys/tables/info/{tableId}:
+    delete:
+      description: 删除表结构
+      parameters:
+      - description: tableId
+        in: path
+        name: tableId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: '{"code": -1, "message": "删除失败"}'
+          schema:
+            type: string
+      summary: 删除表结构
+      tags:
+      - 工具 / 生成工具
+    get:
+      description: 获取JSON
+      parameters:
+      - description: configKey
+        in: path
+        name: configKey
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 获取配置
+      tags:
+      - 工具 / 生成工具
+  /api/v1/sys/tables/page:
+    get:
+      description: 生成表分页列表
+      parameters:
+      - description: tableName / 数据表名称
+        in: query
+        name: tableName
+        type: string
+      - description: pageSize / 页条数
+        in: query
+        name: pageSize
+        type: integer
+      - description: pageIndex / 页码
+        in: query
+        name: pageIndex
+        type: integer
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 分页列表数据
+      tags:
+      - 工具 / 生成工具
+  /api/v1/user-realname/audit:
+    post:
+      consumes:
+      - application/json
+      description: 管理员审核用户实名认证申请
+      parameters:
+      - description: 审核请求参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRealNameAuditReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 审核实名认证
+      tags:
+      - 实名认证
+  /api/v1/user-realname/detail/:user_id:
+    get:
+      consumes:
+      - application/json
+      description: 管理员查看用户实名认证详细信息
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 获取实名认证详情
+      tags:
+      - 实名认证
+  /api/v1/user-realname/list:
+    get:
+      consumes:
+      - application/json
+      description: 管理员查询实名认证列表
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        required: true
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        required: true
+        type: integer
+      - description: 审核状态
+        in: query
+        name: auth_status
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 获取实名认证列表
+      tags:
+      - 实名认证
+  /api/v1/user/avatar:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 获取JSON
+      parameters:
+      - description: file
+        in: formData
+        name: file
+        required: true
+        type: file
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 修改头像
+      tags:
+      - 个人中心
+  /api/v1/user/profile:
+    get:
+      description: 获取JSON
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 获取个人中心用户
+      tags:
+      - 个人中心
+  /api/v1/user/pwd/reset:
+    put:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ResetSysUserPwdReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 重置用户密码
+      tags:
+      - 用户
+  /api/v1/user/pwd/set:
+    put:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.PassWord'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 修改密码
+      tags:
+      - 用户
+  /api/v1/user/status:
+    put:
+      consumes:
+      - application/json
+      description: 获取JSON
+      parameters:
+      - description: body
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateSysUserStatusReq'
+      responses:
+        "200":
+          description: '{"code": 200, "data": [...]}'
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - Bearer: []
+      summary: 修改用户状态
+      tags:
+      - 用户
+  /logout:
+    post:
+      consumes:
+      - application/json
+      description: 获取token
+      responses:
+        "200":
+          description: '{"code": 200, "msg": "成功退出系统" }'
+          schema:
+            type: string
+      security:
+      - Bearer: []
+      summary: 退出登录
+securityDefinitions:
+  Bearer:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

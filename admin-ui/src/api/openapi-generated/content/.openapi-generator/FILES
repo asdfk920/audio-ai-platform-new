@@ -1,0 +1,15 @@
+.gitignore
+.npmignore
+.openapi-generator-ignore
+api.ts
+base.ts
+common.ts
+configuration.ts
+docs/DefaultApi.md
+docs/GetContentList200Response.md
+docs/GetContentList200ResponseListInner.md
+docs/GetProcessStatus200Response.md
+docs/GetUploadUrl200Response.md
+docs/GetUploadUrlRequest.md
+git_push.sh
+index.ts

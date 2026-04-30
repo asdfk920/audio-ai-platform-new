@@ -1,0 +1,6 @@
+# Created by Husky v4.2.5 (https://github.com/typicode/husky#readme)
+#   At: 2026/3/20 15:05:15
+#   From: undefined (undefined)
+
+packageManager=npm
+cd "admin-ui/"

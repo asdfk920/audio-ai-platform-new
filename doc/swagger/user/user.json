@@ -1,0 +1,3114 @@
+{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "https"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "title": "用户服务 API",
+    "version": "v1"
+  },
+  "basePath": "/",
+  "paths": {
+    "/api/v1/user/bind": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "绑定邮箱/手机号（已登录，邮箱或手机号二选一 + 验证码；验证码校验成功后进行绑定）",
+        "operationId": "bindContact",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "new_email": {
+                  "type": "string"
+                },
+                "new_mobile": {
+                  "type": "string"
+                },
+                "new_verify_code": {
+                  "type": "string"
+                },
+                "old_email": {
+                  "type": "string"
+                },
+                "old_mobile": {
+                  "type": "string"
+                },
+                "old_verify_code": {
+                  "type": "string"
+                },
+                "verify_code": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "age": {
+                  "type": "integer"
+                },
+                "avatar": {
+                  "type": "string"
+                },
+                "bio": {
+                  "type": "string"
+                },
+                "birthday_visibility": {
+                  "type": "integer"
+                },
+                "constellation": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "gender_visibility": {
+                  "type": "integer"
+                },
+                "hobbies": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "nickname": {
+                  "type": "string"
+                },
+                "profile_complete": {
+                  "type": "integer"
+                },
+                "profile_complete_score": {
+                  "type": "integer"
+                },
+                "real_name_at": {
+                  "type": "integer"
+                },
+                "real_name_cert_type": {
+                  "type": "integer"
+                },
+                "real_name_status": {
+                  "type": "integer"
+                },
+                "signature": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/cancellation/apply": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "申请注销账号（校验后进入冷静期，并吊销 refresh token）",
+        "operationId": "applyAccountCancellation",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "agreement_ack"
+              ],
+              "properties": {
+                "agreement_ack": {
+                  "type": "boolean"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "cooling_end_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/cancellation/confirm": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "注销二次确认页说明文案",
+        "operationId": "getAccountCancellationConfirm",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "consequences": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "title": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/cancellation/status": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询注销状态：normal / cooling_off / cancelled",
+        "operationId": "getAccountCancellationStatus",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "cooling_end_at": {
+                  "type": "integer"
+                },
+                "phase": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/cancellation/withdraw": {
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "撤销注销申请（仅冷静期内）",
+        "operationId": "withdrawAccountCancellation",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "cooling_end_cleared": {
+                  "type": "boolean"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "user_id": {
+                  "type": "integer"
+                },
+                "withdrawn_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/bind": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "绑定已注册设备（JWT；device_sn 全局唯一；已被他人绑定返回冲突；本人重复绑定返回提示）",
+        "operationId": "bindUserDevice",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn"
+              ],
+              "properties": {
+                "device_model": {
+                  "type": "string"
+                },
+                "device_name": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "system_version": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "bind_time": {
+                  "type": "string"
+                },
+                "device_name": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/list": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询当前用户已绑定设备（可选筛选：device_name 绑定别名、device_sn 序列号、device_model 设备表型号；多条件 AND）",
+        "operationId": "listUserDevices",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "device_name",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "device_sn",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "device_model",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page_size",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "list": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "device_sn",
+                      "device_name",
+                      "device_model",
+                      "system_version",
+                      "bind_time"
+                    ],
+                    "properties": {
+                      "access_mode": {
+                        "type": "string"
+                      },
+                      "bind_time": {
+                        "type": "string"
+                      },
+                      "device_model": {
+                        "type": "string"
+                      },
+                      "device_name": {
+                        "type": "string"
+                      },
+                      "device_sn": {
+                        "type": "string"
+                      },
+                      "family_id": {
+                        "type": "integer"
+                      },
+                      "owner_user_id": {
+                        "type": "integer"
+                      },
+                      "permission": {
+                        "type": "string"
+                      },
+                      "permission_level": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "type": "string"
+                      },
+                      "share_id": {
+                        "type": "integer"
+                      },
+                      "system_version": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/share/accept": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "接受设备共享邀请",
+        "operationId": "acceptDeviceShare",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "invite_code"
+              ],
+              "properties": {
+                "invite_code": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "confirmed_at": {
+                  "type": "integer"
+                },
+                "created_at": {
+                  "type": "integer"
+                },
+                "device_id": {
+                  "type": "integer"
+                },
+                "device_name": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "end_at": {
+                  "type": "integer"
+                },
+                "family_id": {
+                  "type": "integer"
+                },
+                "family_name": {
+                  "type": "string"
+                },
+                "invite_code": {
+                  "type": "string"
+                },
+                "owner_nickname": {
+                  "type": "string"
+                },
+                "owner_user_id": {
+                  "type": "integer"
+                },
+                "permission": {
+                  "type": "string"
+                },
+                "permission_level": {
+                  "type": "string"
+                },
+                "share_id": {
+                  "type": "integer"
+                },
+                "share_type": {
+                  "type": "string"
+                },
+                "shared_user_id": {
+                  "type": "integer"
+                },
+                "shared_user_nickname": {
+                  "type": "string"
+                },
+                "start_at": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "target_account": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/share/create": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "创建设备共享邀请",
+        "operationId": "createDeviceShare",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn"
+              ],
+              "properties": {
+                "device_sn": {
+                  "type": "string"
+                },
+                "end_at": {
+                  "type": "integer"
+                },
+                "permission": {
+                  "type": "string"
+                },
+                "permission_level": {
+                  "type": "string"
+                },
+                "remark": {
+                  "type": "string"
+                },
+                "share_type": {
+                  "type": "string"
+                },
+                "start_at": {
+                  "type": "integer"
+                },
+                "target_account": {
+                  "type": "string"
+                },
+                "target_user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "confirmed_at": {
+                  "type": "integer"
+                },
+                "created_at": {
+                  "type": "integer"
+                },
+                "device_id": {
+                  "type": "integer"
+                },
+                "device_name": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "end_at": {
+                  "type": "integer"
+                },
+                "family_id": {
+                  "type": "integer"
+                },
+                "family_name": {
+                  "type": "string"
+                },
+                "invite_code": {
+                  "type": "string"
+                },
+                "owner_nickname": {
+                  "type": "string"
+                },
+                "owner_user_id": {
+                  "type": "integer"
+                },
+                "permission": {
+                  "type": "string"
+                },
+                "permission_level": {
+                  "type": "string"
+                },
+                "share_id": {
+                  "type": "integer"
+                },
+                "share_type": {
+                  "type": "string"
+                },
+                "shared_user_id": {
+                  "type": "integer"
+                },
+                "shared_user_nickname": {
+                  "type": "string"
+                },
+                "start_at": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "target_account": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/share/detail": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询共享详情",
+        "operationId": "getDeviceShareDetail",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "share_id",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "confirmed_at": {
+                  "type": "integer"
+                },
+                "created_at": {
+                  "type": "integer"
+                },
+                "device_id": {
+                  "type": "integer"
+                },
+                "device_name": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "end_at": {
+                  "type": "integer"
+                },
+                "family_id": {
+                  "type": "integer"
+                },
+                "family_name": {
+                  "type": "string"
+                },
+                "invite_code": {
+                  "type": "string"
+                },
+                "owner_nickname": {
+                  "type": "string"
+                },
+                "owner_user_id": {
+                  "type": "integer"
+                },
+                "permission": {
+                  "type": "string"
+                },
+                "permission_level": {
+                  "type": "string"
+                },
+                "share_id": {
+                  "type": "integer"
+                },
+                "share_type": {
+                  "type": "string"
+                },
+                "shared_user_id": {
+                  "type": "integer"
+                },
+                "shared_user_nickname": {
+                  "type": "string"
+                },
+                "start_at": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "target_account": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/share/quit": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "退出设备共享",
+        "operationId": "quitDeviceShare",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "share_id"
+              ],
+              "properties": {
+                "share_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/share/received": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询我收到的共享",
+        "operationId": "listReceivedDeviceShares",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "list": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "share_id",
+                      "family_id",
+                      "device_id",
+                      "device_sn",
+                      "device_name",
+                      "owner_user_id",
+                      "shared_user_id",
+                      "share_type",
+                      "permission_level",
+                      "status",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "confirmed_at": {
+                        "type": "integer"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "device_id": {
+                        "type": "integer"
+                      },
+                      "device_name": {
+                        "type": "string"
+                      },
+                      "device_sn": {
+                        "type": "string"
+                      },
+                      "end_at": {
+                        "type": "integer"
+                      },
+                      "family_id": {
+                        "type": "integer"
+                      },
+                      "family_name": {
+                        "type": "string"
+                      },
+                      "invite_code": {
+                        "type": "string"
+                      },
+                      "owner_nickname": {
+                        "type": "string"
+                      },
+                      "owner_user_id": {
+                        "type": "integer"
+                      },
+                      "permission": {
+                        "type": "string"
+                      },
+                      "permission_level": {
+                        "type": "string"
+                      },
+                      "share_id": {
+                        "type": "integer"
+                      },
+                      "share_type": {
+                        "type": "string"
+                      },
+                      "shared_user_id": {
+                        "type": "integer"
+                      },
+                      "shared_user_nickname": {
+                        "type": "string"
+                      },
+                      "start_at": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "target_account": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/share/revoke": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "撤销设备共享",
+        "operationId": "revokeDeviceShare",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "share_id"
+              ],
+              "properties": {
+                "share_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/share/sent": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询我发出的共享",
+        "operationId": "listSentDeviceShares",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "list": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "share_id",
+                      "family_id",
+                      "device_id",
+                      "device_sn",
+                      "device_name",
+                      "owner_user_id",
+                      "shared_user_id",
+                      "share_type",
+                      "permission_level",
+                      "status",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "confirmed_at": {
+                        "type": "integer"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "device_id": {
+                        "type": "integer"
+                      },
+                      "device_name": {
+                        "type": "string"
+                      },
+                      "device_sn": {
+                        "type": "string"
+                      },
+                      "end_at": {
+                        "type": "integer"
+                      },
+                      "family_id": {
+                        "type": "integer"
+                      },
+                      "family_name": {
+                        "type": "string"
+                      },
+                      "invite_code": {
+                        "type": "string"
+                      },
+                      "owner_nickname": {
+                        "type": "string"
+                      },
+                      "owner_user_id": {
+                        "type": "integer"
+                      },
+                      "permission": {
+                        "type": "string"
+                      },
+                      "permission_level": {
+                        "type": "string"
+                      },
+                      "share_id": {
+                        "type": "integer"
+                      },
+                      "share_type": {
+                        "type": "string"
+                      },
+                      "shared_user_id": {
+                        "type": "integer"
+                      },
+                      "shared_user_nickname": {
+                        "type": "string"
+                      },
+                      "start_at": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "target_account": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/unbind": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "解绑设备（仅本人已绑定设备）",
+        "operationId": "unbindUserDevice",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn"
+              ],
+              "properties": {
+                "device_sn": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "device_sn": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/family/create": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "显式创建家庭",
+        "operationId": "createFamily",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "current_role": {
+                  "type": "string"
+                },
+                "family_id": {
+                  "type": "integer"
+                },
+                "member_count": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "owner_user_id": {
+                  "type": "integer"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/family/current": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询当前家庭",
+        "operationId": "getCurrentFamily",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "current_role": {
+                  "type": "string"
+                },
+                "family_id": {
+                  "type": "integer"
+                },
+                "member_count": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "owner_user_id": {
+                  "type": "integer"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/family/member/accept": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "接受家庭邀请",
+        "operationId": "acceptFamilyMember",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "invite_code"
+              ],
+              "properties": {
+                "invite_code": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "current_role": {
+                  "type": "string"
+                },
+                "family_id": {
+                  "type": "integer"
+                },
+                "member_count": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "owner_user_id": {
+                  "type": "integer"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/family/member/invite": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "邀请家庭成员",
+        "operationId": "inviteFamilyMember",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "expire_at": {
+                  "type": "integer"
+                },
+                "remark": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "target_account": {
+                  "type": "string"
+                },
+                "target_user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "expire_at": {
+                  "type": "integer"
+                },
+                "family_id": {
+                  "type": "integer"
+                },
+                "invite_code": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "target_account": {
+                  "type": "string"
+                },
+                "target_user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/family/member/list": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询家庭成员列表",
+        "operationId": "listFamilyMembers",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "family": {
+                  "type": "object",
+                  "required": [
+                    "family_id",
+                    "name",
+                    "owner_user_id",
+                    "current_role",
+                    "member_count",
+                    "created_at",
+                    "updated_at"
+                  ],
+                  "properties": {
+                    "created_at": {
+                      "type": "integer"
+                    },
+                    "current_role": {
+                      "type": "string"
+                    },
+                    "family_id": {
+                      "type": "integer"
+                    },
+                    "member_count": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "owner_user_id": {
+                      "type": "integer"
+                    },
+                    "updated_at": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "list": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "user_id",
+                      "nickname",
+                      "role",
+                      "status",
+                      "joined_at",
+                      "invited_by"
+                    ],
+                    "properties": {
+                      "email": {
+                        "type": "string"
+                      },
+                      "invited_by": {
+                        "type": "integer"
+                      },
+                      "joined_at": {
+                        "type": "integer"
+                      },
+                      "mobile": {
+                        "type": "string"
+                      },
+                      "nickname": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "integer"
+                      },
+                      "user_id": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/family/member/remove": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "移除家庭成员",
+        "operationId": "removeFamilyMember",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "user_id"
+              ],
+              "properties": {
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/user/family/member/role/update": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "更新家庭成员角色",
+        "operationId": "updateFamilyMemberRole",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "user_id",
+                "role"
+              ],
+              "properties": {
+                "role": {
+                  "type": "string"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/user/info": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "更新用户基本信息（Header 携带 token，从 JWT 解析用户；body 传 nickname/avatar 等可选字段，勿传 user_id）",
+        "operationId": "updateUserInfo",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "age": {
+                  "type": "integer"
+                },
+                "avatar": {
+                  "type": "string"
+                },
+                "bio": {
+                  "type": "string"
+                },
+                "birthday": {
+                  "type": "string"
+                },
+                "birthday_visibility": {
+                  "type": "integer"
+                },
+                "constellation": {
+                  "type": "string"
+                },
+                "gender": {
+                  "type": "integer"
+                },
+                "gender_visibility": {
+                  "type": "integer"
+                },
+                "hobbies": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "nickname": {
+                  "type": "string"
+                },
+                "profile_complete": {
+                  "type": "integer"
+                },
+                "profile_complete_score": {
+                  "type": "integer"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "age": {
+                  "type": "integer"
+                },
+                "avatar": {
+                  "type": "string"
+                },
+                "bio": {
+                  "type": "string"
+                },
+                "birthday_visibility": {
+                  "type": "integer"
+                },
+                "constellation": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "gender_visibility": {
+                  "type": "integer"
+                },
+                "hobbies": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "nickname": {
+                  "type": "string"
+                },
+                "profile_complete": {
+                  "type": "integer"
+                },
+                "profile_complete_score": {
+                  "type": "integer"
+                },
+                "real_name_at": {
+                  "type": "integer"
+                },
+                "real_name_cert_type": {
+                  "type": "integer"
+                },
+                "real_name_status": {
+                  "type": "integer"
+                },
+                "signature": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/login": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "统一登录：account 或 email/mobile + password（密码登录）或 verify_code（验证码登录/静默注册，先发 verify/send scene=login）；微信/Google 走 OAuth",
+        "operationId": "login",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "password"
+              ],
+              "properties": {
+                "email": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "access_token": {
+                  "type": "string"
+                },
+                "expires_in": {
+                  "type": "integer"
+                },
+                "refresh_token": {
+                  "type": "string"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/member/benefits": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询当前登录用户会员档案与权益（仅本人；含等级名称/排序、档案到期、开通时间、权益列表）",
+        "operationId": "getUserMemberBenefits",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "benefits": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "benefit_code",
+                      "benefit_name"
+                    ],
+                    "properties": {
+                      "benefit_code": {
+                        "type": "string"
+                      },
+                      "benefit_name": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "expire_at": {
+                  "description": "当前生效权益的到期 Unix 秒；永久/普通无截止为 0",
+                  "type": "integer"
+                },
+                "is_expired": {
+                  "description": "档案到期已过期且非永久",
+                  "type": "boolean"
+                },
+                "is_permanent": {
+                  "type": "boolean"
+                },
+                "level_code": {
+                  "description": "当前生效等级（过期或无档会回落 ordinary）",
+                  "type": "string"
+                },
+                "level_name": {
+                  "description": "member_level.level_name",
+                  "type": "string"
+                },
+                "level_sort": {
+                  "description": "member_level.sort，越小越靠前，可作「几档」展示",
+                  "type": "integer"
+                },
+                "member_since": {
+                  "description": "user_member.created_at Unix 秒；无行为 0",
+                  "type": "integer"
+                },
+                "record_expire_at": {
+                  "description": "user_member 档案中的到期日（可能已过期）；无行为 0",
+                  "type": "integer"
+                },
+                "register_type": {
+                  "description": "user_member.register_type：pay/gift/admin 等",
+                  "type": "string"
+                },
+                "subscription_active": {
+                  "description": "库内会员行有效且未过期或为永久",
+                  "type": "boolean"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/member/create_order": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "会员套餐预下单：package_code 为上架套餐编码；pay_type 1微信 2支付宝 3余额",
+        "operationId": "createMemberOrder",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "package_code",
+                "pay_type"
+              ],
+              "properties": {
+                "package_code": {
+                  "description": "须与 public.member_package.package_code 一致且 status=1 上架",
+                  "type": "string"
+                },
+                "pay_type": {
+                  "description": "1微信 2支付宝 3余额（须 1–3，见 create_member_order_logic 校验）",
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "amount_cent": {
+                  "type": "integer"
+                },
+                "amount_yuan": {
+                  "type": "string"
+                },
+                "biz_scene": {
+                  "description": "new | renew_active | renew_expired",
+                  "type": "string"
+                },
+                "discount_cent": {
+                  "type": "integer"
+                },
+                "duration_days": {
+                  "type": "integer"
+                },
+                "order_no": {
+                  "type": "string"
+                },
+                "original_amount_cent": {
+                  "type": "integer"
+                },
+                "package_code": {
+                  "type": "string"
+                },
+                "package_name": {
+                  "type": "string"
+                },
+                "pay_type": {
+                  "type": "integer"
+                },
+                "preview_expire_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/member/info": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "会员中心：会员状态与权益（与 benefits 一致，含 is_expired）",
+        "operationId": "getUserMemberInfo",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "benefits": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "benefit_code",
+                      "benefit_name"
+                    ],
+                    "properties": {
+                      "benefit_code": {
+                        "type": "string"
+                      },
+                      "benefit_name": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "expire_at": {
+                  "description": "当前生效权益的到期 Unix 秒；永久/普通无截止为 0",
+                  "type": "integer"
+                },
+                "is_expired": {
+                  "description": "档案到期已过期且非永久",
+                  "type": "boolean"
+                },
+                "is_permanent": {
+                  "type": "boolean"
+                },
+                "level_code": {
+                  "description": "当前生效等级（过期或无档会回落 ordinary）",
+                  "type": "string"
+                },
+                "level_name": {
+                  "description": "member_level.level_name",
+                  "type": "string"
+                },
+                "level_sort": {
+                  "description": "member_level.sort，越小越靠前，可作「几档」展示",
+                  "type": "integer"
+                },
+                "member_since": {
+                  "description": "user_member.created_at Unix 秒；无行为 0",
+                  "type": "integer"
+                },
+                "record_expire_at": {
+                  "description": "user_member 档案中的到期日（可能已过期）；无行为 0",
+                  "type": "integer"
+                },
+                "register_type": {
+                  "description": "user_member.register_type：pay/gift/admin 等",
+                  "type": "string"
+                },
+                "subscription_active": {
+                  "description": "库内会员行有效且未过期或为永久",
+                  "type": "boolean"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/member/pay": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "发起支付：余额直接成功；微信/支付宝返回 mock 调起参数，支付成功后由回调履约",
+        "operationId": "payMemberOrder",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "order_no"
+              ],
+              "properties": {
+                "order_no": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "order_no": {
+                  "type": "string"
+                },
+                "pay_type": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/member/auto_renew": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询自动续费意向（占位字段，非真实代扣）",
+        "operationId": "getMemberAutoRenew",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auto_renew": {
+                  "type": "boolean"
+                },
+                "auto_renew_package_code": {
+                  "type": "string"
+                },
+                "auto_renew_pay_type": {
+                  "type": "integer"
+                },
+                "auto_renew_updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "设置自动续费开关与意向套餐/支付方式（需已有 user_member；不真实扣款）",
+        "operationId": "setMemberAutoRenew",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "enabled"
+              ],
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "package_code": {
+                  "type": "string"
+                },
+                "pay_type": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auto_renew": {
+                  "type": "boolean"
+                },
+                "auto_renew_package_code": {
+                  "type": "string"
+                },
+                "auto_renew_pay_type": {
+                  "type": "integer"
+                },
+                "auto_renew_updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/member/unsubscribe": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "会员退订：当前周期内仍有效，到期后终止；关闭自动续费并记录原因",
+        "operationId": "unsubscribeMember",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "reason_code"
+              ],
+              "properties": {
+                "reason_code": {
+                  "description": "price|features|low_usage|switch_platform|service|other",
+                  "type": "string"
+                },
+                "feedback": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/member/unsubscribe/revoke": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "撤销会员退订标记（不自动恢复自动续费）",
+        "operationId": "revokeMemberUnsubscribe",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/oauth/google/callback": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "Google OAuth 直接登录（授权后回调，自动创建/绑定用户并返回 token，无需单独注册）",
+        "operationId": "oauthGoogleCallback",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "code",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "state",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "access_token": {
+                  "type": "string"
+                },
+                "expires_in": {
+                  "type": "integer"
+                },
+                "refresh_token": {
+                  "type": "string"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/oauth/wechat/callback": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "微信 OAuth 直接登录（授权后回调，自动创建/绑定用户并返回 token，无需单独注册）",
+        "operationId": "oauthWechatCallback",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "code",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "state",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "access_token": {
+                  "type": "string"
+                },
+                "expires_in": {
+                  "type": "integer"
+                },
+                "refresh_token": {
+                  "type": "string"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/password/change": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "修改密码：验证旧密码后修改（新密码需输入两次且一致，且不能与旧密码一致）",
+        "operationId": "changePassword",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "old_password",
+                "new_password",
+                "new_password_confirm"
+              ],
+              "properties": {
+                "new_password": {
+                  "type": "string"
+                },
+                "new_password_confirm": {
+                  "type": "string"
+                },
+                "old_password": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "age": {
+                  "type": "integer"
+                },
+                "avatar": {
+                  "type": "string"
+                },
+                "bio": {
+                  "type": "string"
+                },
+                "birthday_visibility": {
+                  "type": "integer"
+                },
+                "constellation": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "gender_visibility": {
+                  "type": "integer"
+                },
+                "hobbies": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "nickname": {
+                  "type": "string"
+                },
+                "profile_complete": {
+                  "type": "integer"
+                },
+                "profile_complete_score": {
+                  "type": "integer"
+                },
+                "real_name_at": {
+                  "type": "integer"
+                },
+                "real_name_cert_type": {
+                  "type": "integer"
+                },
+                "real_name_status": {
+                  "type": "integer"
+                },
+                "signature": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/password/reset": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "忘记旧密码：邮箱/手机号发送验证码后，验证验证码重置密码（新密码需输入两次且一致，且不能与旧密码一致）",
+        "operationId": "resetPassword",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "verify_code",
+                "new_password",
+                "new_password_confirm"
+              ],
+              "properties": {
+                "email": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "new_password": {
+                  "type": "string"
+                },
+                "new_password_confirm": {
+                  "type": "string"
+                },
+                "verify_code": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "age": {
+                  "type": "integer"
+                },
+                "avatar": {
+                  "type": "string"
+                },
+                "bio": {
+                  "type": "string"
+                },
+                "birthday_visibility": {
+                  "type": "integer"
+                },
+                "constellation": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "gender_visibility": {
+                  "type": "integer"
+                },
+                "hobbies": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "nickname": {
+                  "type": "string"
+                },
+                "profile_complete": {
+                  "type": "integer"
+                },
+                "profile_complete_score": {
+                  "type": "integer"
+                },
+                "real_name_at": {
+                  "type": "integer"
+                },
+                "real_name_cert_type": {
+                  "type": "integer"
+                },
+                "real_name_status": {
+                  "type": "integer"
+                },
+                "signature": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/realname/audit": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "获取最近一次实名提交的脱敏审核信息",
+        "operationId": "getRealNameAuditInfo",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auth_record_id": {
+                  "type": "integer"
+                },
+                "auth_status": {
+                  "type": "integer"
+                },
+                "cert_type": {
+                  "type": "integer"
+                },
+                "created_at": {
+                  "type": "integer"
+                },
+                "face_data_ref": {
+                  "type": "string"
+                },
+                "fail_reason": {
+                  "type": "string"
+                },
+                "id_card_back_ref": {
+                  "type": "string"
+                },
+                "id_card_front_ref": {
+                  "type": "string"
+                },
+                "id_number_last4": {
+                  "type": "string"
+                },
+                "real_name_masked": {
+                  "type": "string"
+                },
+                "reviewed_at": {
+                  "type": "integer"
+                },
+                "reviewer_note": {
+                  "type": "string"
+                },
+                "third_party_flow_no": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/realname/status": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询实名认证总状态",
+        "operationId": "getRealNameStatus",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "cert_type": {
+                  "type": "integer"
+                },
+                "fail_reason": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "real_name_status": {
+                  "type": "integer"
+                },
+                "sub_status": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/realname/submit": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "提交实名认证（Mock/三方核验 + 可选人工审核）",
+        "operationId": "submitRealName",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "cert_type",
+                "real_name",
+                "id_number"
+              ],
+              "properties": {
+                "cert_type": {
+                  "type": "integer"
+                },
+                "face_image_base64": {
+                  "type": "string"
+                },
+                "id_card_back_base64": {
+                  "type": "string"
+                },
+                "id_card_front_base64": {
+                  "type": "string"
+                },
+                "id_number": {
+                  "type": "string"
+                },
+                "id_photo_base64": {
+                  "type": "string"
+                },
+                "real_name": {
+                  "type": "string"
+                },
+                "verify_code": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auth_record_id": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "real_name_status": {
+                  "type": "integer"
+                },
+                "reject_reason": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/rebind": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "换绑邮箱/手机号（已登录：旧账号验证码通过 + 新账号验证码通过后完成换绑）",
+        "operationId": "rebindContact",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "old_verify_code",
+                "new_verify_code"
+              ],
+              "properties": {
+                "new_email": {
+                  "type": "string"
+                },
+                "new_mobile": {
+                  "type": "string"
+                },
+                "new_verify_code": {
+                  "type": "string"
+                },
+                "old_email": {
+                  "type": "string"
+                },
+                "old_mobile": {
+                  "type": "string"
+                },
+                "old_verify_code": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "age": {
+                  "type": "integer"
+                },
+                "avatar": {
+                  "type": "string"
+                },
+                "bio": {
+                  "type": "string"
+                },
+                "birthday_visibility": {
+                  "type": "integer"
+                },
+                "constellation": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "gender_visibility": {
+                  "type": "integer"
+                },
+                "hobbies": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "nickname": {
+                  "type": "string"
+                },
+                "profile_complete": {
+                  "type": "integer"
+                },
+                "profile_complete_score": {
+                  "type": "integer"
+                },
+                "real_name_at": {
+                  "type": "integer"
+                },
+                "real_name_cert_type": {
+                  "type": "integer"
+                },
+                "real_name_status": {
+                  "type": "integer"
+                },
+                "signature": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/rebind/realname": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "实名换绑：旧邮箱/手机不可收码时，凭姓名+身份证号+新号验证码（scene=bind）换绑；须已通过个人身份证实名",
+        "operationId": "realnameRebind",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "new_verify_code",
+                "real_name",
+                "id_number"
+              ],
+              "properties": {
+                "id_number": {
+                  "type": "string"
+                },
+                "new_email": {
+                  "type": "string"
+                },
+                "new_mobile": {
+                  "type": "string"
+                },
+                "new_verify_code": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "real_name": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "age": {
+                  "type": "integer"
+                },
+                "avatar": {
+                  "type": "string"
+                },
+                "bio": {
+                  "type": "string"
+                },
+                "birthday_visibility": {
+                  "type": "integer"
+                },
+                "constellation": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "gender_visibility": {
+                  "type": "integer"
+                },
+                "hobbies": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "nickname": {
+                  "type": "string"
+                },
+                "profile_complete": {
+                  "type": "integer"
+                },
+                "profile_complete_score": {
+                  "type": "integer"
+                },
+                "real_name_at": {
+                  "type": "integer"
+                },
+                "real_name_cert_type": {
+                  "type": "integer"
+                },
+                "real_name_status": {
+                  "type": "integer"
+                },
+                "signature": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/register": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "用户注册（需先发验证码；按邮箱/手机判断是否已注册；密码加盐存储）",
+        "operationId": "register",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "password",
+                "verify_code"
+              ],
+              "properties": {
+                "avatar": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "nickname": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "verify_code": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/token/refresh": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "刷新 Token：使用 refresh_token 换取新的 access_token（无需重新登录）",
+        "operationId": "refreshToken",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "refresh_token"
+              ],
+              "properties": {
+                "refresh_token": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "access_token": {
+                  "type": "string"
+                },
+                "expires_in": {
+                  "type": "integer"
+                },
+                "refresh_token": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/verify/send": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "发送验证码（邮箱或手机二选一，1分钟有效，1分钟最多3条，超过提示3分钟后重试）",
+        "operationId": "sendVerifyCode",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "scene": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "expire_seconds": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-date": "2026-04-17 15:34:55",
+  "x-description": "This is a goctl generated swagger file.",
+  "x-github": "https://github.com/zeromicro/go-zero",
+  "x-go-zero-doc": "https://go-zero.dev/",
+  "x-goctl-version": "1.10.1"
+}

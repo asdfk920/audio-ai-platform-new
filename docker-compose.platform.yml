@@ -1,0 +1,55 @@
+# 平台能力叠加：统一 HTTP 入口、Kafka 兼容消息总线、MQTT Broker。
+# 使用方式（与根目录 docker-compose.yml 合并启动）：
+#   docker compose -f docker-compose.yml -f docker-compose.platform.yml up -d
+#
+# 本机 Go 服务默认端口：user 8001、device 8002、content 8003（与 gateway 中 host.docker.internal 一致）。
+
+services:
+  gateway:
+    image: nginx:1.25-alpine
+    container_name: audio-platform-gateway
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./deploy/gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - platform_net
+
+  # 单节点 Redpanda，Kafka 协议，供设备状态/埋点/异步任务接入（替代纯扫表耦合）
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.15
+    container_name: audio-platform-redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:29092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092,OUTSIDE://localhost:29092
+      - --smp
+      - "1"
+      - --memory
+      - 512M
+      - --mode
+      - dev-container
+      - --default-log-level=warn
+    ports:
+      - "29092:29092"
+    networks:
+      - platform_net
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: audio-platform-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./deploy/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    networks:
+      - platform_net
+
+networks:
+  platform_net:
+    driver: bridge

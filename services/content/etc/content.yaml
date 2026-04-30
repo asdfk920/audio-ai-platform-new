@@ -1,0 +1,62 @@
+Name: content-api
+Host: 0.0.0.0
+Port: 8003
+# 大文件上传：略大于单音频上限（字节）
+MaxBytes: 134217728
+
+Database:
+  # PostgreSQL（与 docker-compose / go-admin 一致）；执行过 045_content_service_catalog 迁移
+  DataSource: host=127.0.0.1 port=5432 user=admin password=admin123 dbname=audio_platform sslmode=disable TimeZone=Asia/Shanghai
+
+Storage:
+  # local：开发默认写入 ./data/content-objects；生产可改为 s3/minio
+  Driver: local
+  Region: us-east-1
+  Endpoint: ""
+  AccessKey: ""
+  SecretKey: ""
+  Bucket: audio-platform-bucket
+  UsePathStyle: true
+  # 写入 DB 的 URL 前缀（不要尾斜杠）。local 时可指向本服务静态源或由网关反代 /static
+  CdnBaseUrl: "http://127.0.0.1:8003/static-media"
+
+Local:
+  Root: ./data/content-objects
+
+Upload:
+  AudioMaxMB: 100
+  CoverMaxMB: 10
+
+# 内容列表热点缓存（秒，建议 300–600，对应 5～10 分钟）；仅无分类/标签/关键词/会员筛时启用
+List:
+  CacheEnabled: true
+  CacheTTLSeconds: 600
+  HotPlayThreshold: 1000
+
+# 首页推荐：Redis 池 20～50 条，Key 带版本号与 content:list:ver 联动；TTL 建议 300～900
+Recommend:
+  CacheEnabled: true
+  CacheTTLSeconds: 600
+  PoolSize: 50
+
+# 会员内容降级试听时长（秒）；实际试听不超过音频总时长
+ContentAuth:
+  PreviewSeconds: 60
+
+CacheRedis:
+  - Host: localhost:6379
+    Pass: redis123
+    Type: node
+
+# 非空时开放 POST /api/v1/content/internal/bump-list-cache，Header: X-Internal-Secret
+# Internal:
+#   ListCacheBumpSecret: "change-me-in-production"
+
+Auth:
+  AccessSecret: audio-ai-platform-user-secret
+  AccessExpire: 3600
+
+Log:
+  ServiceName: content-api
+  Mode: console
+  Level: info

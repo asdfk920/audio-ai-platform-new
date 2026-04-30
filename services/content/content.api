@@ -1,0 +1,69 @@
+syntax = "v1"
+
+info (
+	title:   "内容服务 API"
+	desc:    "音频上传、处理、管理等功能"
+	author:  "audio-ai-platform"
+	version: "v1"
+)
+
+type (
+	// 上传请求
+	UploadReq {
+		FileName string `json:"file_name"`
+		FileSize int64  `json:"file_size"`
+	}
+	// 上传响应
+	UploadResp {
+		UploadUrl    string `json:"upload_url"`
+		RawContentId int64  `json:"raw_content_id"`
+	}
+	// 内容信息
+	ContentInfo {
+		ContentId int64  `json:"content_id"`
+		Title     string `json:"title"`
+		Duration  int32  `json:"duration"`
+		CdnUrl    string `json:"cdn_url"`
+		Status    string `json:"status"`
+		CreatedAt string `json:"created_at"`
+	}
+	// 内容列表响应
+	ContentListResp {
+		List  []ContentInfo `json:"list"`
+		Total int64         `json:"total"`
+	}
+	// 处理状态
+	ProcessStatusResp {
+		RawContentId int64  `json:"raw_content_id"`
+		Status       string `json:"status"`
+		Progress     int32  `json:"progress"`
+	}
+	// 内容列表请求
+	ContentListReq {
+		Page     int32 `form:"page"`
+		PageSize int32 `form:"page_size"`
+	}
+	// 处理状态请求
+	ProcessStatusReq {
+		RawContentId int64 `form:"raw_content_id"`
+	}
+)
+
+@server (
+	jwt:    Auth
+	prefix: /api/v1/content
+)
+service content-api {
+	@doc "获取上传地址"
+	@handler getUploadUrl
+	post /upload (UploadReq) returns (UploadResp)
+
+	@doc "获取内容列表"
+	@handler getContentList
+	get /list (ContentListReq) returns (ContentListResp)
+
+	@doc "获取处理状态"
+	@handler getProcessStatus
+	get /status (ProcessStatusReq) returns (ProcessStatusResp)
+}
+

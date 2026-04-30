@@ -1,0 +1,35 @@
+-- 使用 U& Unicode 转义重写 COMMENT，修复因客户端编码导致的注释乱码（Navicat 显示为 ?）
+SET search_path TO public;
+SET client_encoding TO 'UTF8';
+
+COMMENT ON COLUMN users.real_name_status IS U&'\5b9e\540d\72b6\6001: 0\672a\8ba4\8bc1 1\5df2\901a\8fc7 2\5ba1\6838\4e2d 3\5931\8d25';
+COMMENT ON COLUMN users.real_name_time IS U&'\6700\8fd1\4e00\6b21\5b9e\540d\901a\8fc7\65f6\95f4';
+COMMENT ON COLUMN users.real_name_type IS U&'\8bc1\4ef6\7c7b\578b: 1\4e2a\4eba 2\4f01\4e1a';
+COMMENT ON TABLE user_real_name_auth IS U&'\5b9e\540d\8ba4\8bc1\63d0\4ea4\4e0e\5ba1\6838\6d41\6c34';
+COMMENT ON COLUMN user_real_name_auth.auth_status IS U&'10\5f85\4e09\65b9 11\4e09\65b9\901a\8fc7 12\4e09\65b9\62d2\7edd 20\5f85\4eba\5de5 21\4eba\5de5\901a\8fc7 22\4eba\5de5\62d2\7edd 30\5df2\53d6\6d88(\63a5\53e3\5f02\5e38\56de\6eda)';
+COMMENT ON COLUMN user_real_name_auth.id_card_front_ref IS U&'\8eab\4efd\8bc1\4eba\50cf\9762\ff1a\5bf9\8c61\5b58\50a8 URL \6216\670d\52a1\7aef\5360\4f4d\6807\8bb0';
+COMMENT ON COLUMN user_real_name_auth.id_card_back_ref IS U&'\8eab\4efd\8bc1\56fd\5fbd\9762\ff1a\5bf9\8c61\5b58\50a8 URL \6216\670d\52a1\7aef\5360\4f4d\6807\8bb0';
+COMMENT ON COLUMN users.cancellation_cooling_until IS U&'\6ce8\9500\51b7\9759\671f\7ed3\675f\65f6\95f4\ff1b\975e\7a7a\4e14\672a\5230\671f\65f6\7981\6b62\767b\5f55';
+COMMENT ON COLUMN users.account_cancelled_at IS U&'\903b\8f91\6ce8\9500\5b8c\6210\65f6\95f4';
+COMMENT ON TABLE user_cancellation_log IS U&'\6ce8\9500\7533\8bf7\6d41\6c34\ff1a1\51b7\9759\4e2d 2\5df2\6267\884c 3\5df2\64a4\9500';
+COMMENT ON COLUMN user_cancellation_log.status IS U&'1\51b7\9759\671f 2\5df2\6ce8\9500 3\5df2\64a4\9500';
+COMMENT ON TABLE user_auth IS U&'\7b2c\4e09\65b9\767b\5f55\7ed1\5b9a\ff1bauth_type=wechat|google \7b49\ff0cauth_id=openid\ff0cunionid \5fae\4fe1\53ef\9009';
+COMMENT ON COLUMN user_auth.unionid IS U&'\5fae\4fe1 unionid\ff0c\53ef\9009';
+COMMENT ON TABLE user_verify_code IS U&'\9a8c\8bc1\7801\6d41\6c34\ff1ascene \5982 register/login/reset_pwd/bind\ff1b\751f\4ea7\5efa\8bae code \5b58\54c8\5e0c\6216\8131\654f';
+COMMENT ON COLUMN user_verify_code.scene IS U&'register|login|reset_pwd|bind \7b49';
+COMMENT ON TABLE user_member IS U&'\4f1a\5458\7b49\7ea7\4e0e\6709\6548\671f\ff1b\65e0\884c\8868\793a\9ed8\8ba4\514d\8d39\6863';
+COMMENT ON COLUMN user_member.status IS U&'1\6709\6548 0\6682\505c\7b49\ff0c\7531\4e1a\52a1\5b9a\4e49';
+COMMENT ON COLUMN user_login_log.login_type IS U&'password|sms|wechat|google';
+COMMENT ON COLUMN user_login_log.status IS U&'1\6210\529f 2\5931\8d25';
+COMMENT ON TABLE jwt_blacklist IS U&'\5931\6548 access/refresh \6307\7eb9\ff1b\5b9a\671f\6309 expired_at \6e05\7406';
+COMMENT ON VIEW sys_user IS U&'go-admin \517c\5bb9\89c6\56fe\ff1b\7269\7406\8868 public.users + user_role_rel';
+COMMENT ON VIEW sys_role IS U&'go-admin \517c\5bb9\89c6\56fe\ff1brole_name \4e3a\4e2d\6587\5206\7c7b\77ed\540d\ff08\89c1 015\ff09';
+COMMENT ON VIEW sys_user_role IS U&'\7528\6237-\89d2\8272\5173\8054\ff1b\7269\7406\8868 public.user_role_rel';
+COMMENT ON COLUMN users.username IS U&'\767b\5f55\7528\6237\540d\ff0c\552f\4e00\ff08\5ffd\7565\5927\5c0f\5199\ff09\ff1b\4e3a\7a7a\5219\4ec5\7528\90ae\7bb1/\624b\673a\767b\5f55';
+COMMENT ON COLUMN roles.description IS U&'\89d2\8272\8bf4\660e';
+COMMENT ON COLUMN roles.slug IS U&'\89d2\8272\6807\8bc6\ff0c\5982 admin\3001user\ff0c\7528\4e8e\4ee3\7801\4e0e\63a5\53e3';
+COMMENT ON TABLE permission_defs IS U&'\6743\9650\70b9\5b9a\4e49\ff1b\7ec6\7c92\5ea6\6388\6743\7528\672c\8868\ff0c\7c97\7c92\5ea6\4ecd\53ef\7528 roles.permissions JSONB';
+COMMENT ON TABLE role_permissions IS U&'\89d2\8272\4e0e\6743\9650\70b9\591a\5bf9\591a';
+COMMENT ON TABLE user_settings IS U&'\7528\6237\7ea7\914d\7f6e\9879\ff1bsetting_key \5982 theme\3001notify_push';
+COMMENT ON COLUMN users.real_name IS U&'\771f\5b9e\59d3\540d\ff08\8fd0\8425\7ef4\62a4\ff1b\53ef\4e0e user_real_name_auth \5b9e\540d\6d41\6c34\5e76\5b58\ff09';
+COMMENT ON TABLE roles IS U&'\5e73\53f0\89d2\8272\ff1bpermissions.modules \952e\ff1auser_mgmt/device_mgmt/content_mgmt/ota/stats/audit_log/sys_config\ff1b\503c\ff1aall|view|self|none';

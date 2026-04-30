@@ -1,0 +1,106 @@
+Name: user-api
+Host: 0.0.0.0
+Port: 8001
+
+Postgres:
+  DataSource: postgres://admin:admin123@localhost:5432/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai
+
+Redis:
+  Addr: localhost:6379
+  # 本机 Redis 无密码时留空；docker-compose 中 Redis 使用 requirepass 时改为 redis123
+  Password: ""
+  DB: 0
+
+Auth:
+  AccessSecret: audio-ai-platform-user-secret
+  AccessExpire: 3600
+
+Register:
+  MinPasswordLen: 6
+  RateLimitWindowMin: 60
+  RateLimitMaxPerIP: 20
+  RegisterLockSeconds: 30
+  SubmitDedupSeconds: 5
+
+ResetPassword:
+  RateLimitWindowMin: 60
+  RateLimitMaxPerIP: 10
+
+UpdateProfile:
+  RateLimitWindowSec: 60
+  RateLimitMaxPerUser: 30
+
+# 换绑邮箱/手机：按用户与 IP 限流、成功后的冷却期；日志安全通知见 Notify.RebindSecurityNotify
+RebindContact:
+  RateLimitWindowSec: 3600
+  RateLimitMaxPerUser: 10
+  IPRateLimitWindowMin: 60
+  IPRateLimitMaxPerIP: 30
+  CooldownHours: 24
+
+Security:
+  PasswordHashAlgo: bcrypt_concat
+  BcryptCost: 10
+
+Notify:
+  RegisterEnabled: false
+  EmailSubject: "欢迎注册"
+  RebindSecurityNotify: false
+
+Login:
+  RefreshTTLHours: 168
+  LoginLockSeconds: 15
+  UserCacheTTLMinutes: 10
+  SingleSessionOnLogin: false
+  # 刷新 Token 接口按 IP 限流（防暴力猜 refresh）
+  RefreshTokenRateLimitWindowSec: 60
+  RefreshTokenRateLimitMaxPerIP: 30
+
+VerifyCode:
+  ExpireSeconds: 180  # 验证码 3 分钟过期
+  MaxPerMinute: 3
+  BlockMinutes: 3
+
+# 会员支付回调验签：sign = hex(HMAC-SHA256(MockCallbackSecret, order_no+"|"+trade_no))
+Payment:
+  MockCallbackSecret: ""
+
+# 实名认证：证件号 AES-GCM 加密入库；MockOutcome=pass|fail|error；人工审核在用户服务无 HTTP 入口，由管理后台实现
+# 账号注销：冷静期天数 7–30；RequireRealName 为 true 时仅已通过实名用户可申请
+Cancellation:
+  CoolingDays: 7
+  MaxReasonRunes: 500
+  RequireRealName: false
+
+DeviceShare:
+  ExpireCronExpr: "0 */5 * * * *"
+  BatchSize: 100
+
+# 自动续费占位：扫描「开启自动续费且 N 天内到期」的用户，仅写日志（不真实扣款）
+MemberAutoRenew:
+  CronExpr: "0 0 3 * * *"
+  WithinDaysBeforeExpire: 7
+  BatchSize: 200
+
+RealName:
+  SubmitLockSeconds: 5
+  MockOutcome: pass
+  Provider: mock
+  RequireManualReview: false
+  # SkipFaceForPersonal: false  # true 时个人实名可不传人脸（默认 false，需上传人脸）
+  ThirdPartyChannel: mock
+  # IdNumberEncryptKeyBase64: ""  # 留空则用 AccessSecret 的 SHA256 派生（仅开发）
+
+OAuth:
+  WeChat:
+    AppId: ""
+    AppSecret: ""
+  Google:
+    ClientID: ""
+    ClientSecret: ""
+    # RedirectURL: "https://your-domain/api/v1/user/oauth/google/callback"
+
+Log:
+  ServiceName: user-api
+  Mode: console
+  Level: info

@@ -1,0 +1,365 @@
+name: CI
+
+on:
+  push:
+    branches: [ develop, main, feature/** ]
+  pull_request:
+    branches: [ develop, main ]
+
+# golangci-lint 与 Go 工具链版本（Go 具体版本由根目录 go.mod + setup-go 解析）
+# 注意：job.services.image 不能使用 env 表达式，Postgres/Redis 镜像版本在下方两处保持同步
+env:
+  GOLANGCI_LINT_VERSION: v1.64.8
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            admin/go.sum
+            services/user/go.sum
+            services/device/go.sum
+            services/content/go.sum
+            services/media-processing/go.sum
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" "${{ env.GOLANGCI_LINT_VERSION }}"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Sync root platform module (replace 指向根模块的 user 等子模块需先解析)
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          go mod download
+          go mod verify
+
+      - name: Check DB migrations (*_down.sql paired)
+        run: bash scripts/check-migrations.sh
+
+      - name: Lint shared common packages
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          cd "${GITHUB_WORKSPACE}"
+          golangci-lint run --config "${GITHUB_WORKSPACE}/.golangci.yml" --out-format=colored-line-number --timeout=5m ./common/...
+
+      - name: Lint microservices
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          ROOT="${GITHUB_WORKSPACE}"
+          CFG="${ROOT}/.golangci.yml"
+          for svc in services/user services/device services/content services/media-processing; do
+            echo "=== Linting ${svc} ==="
+            (cd "${ROOT}/${svc}" && go mod tidy && go mod verify && golangci-lint run --config "${CFG}" --out-format=colored-line-number --timeout=5m ./...)
+          done
+
+      - name: Lint admin (allow failures)
+        continue-on-error: true
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          echo "Linting admin service (go-admin framework code may have issues)..."
+          CFG="${GITHUB_WORKSPACE}/.golangci.yml"
+          cd admin && golangci-lint run --config "${CFG}" --out-format=colored-line-number --timeout=5m ./...
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15.12-alpine
+        env:
+          POSTGRES_DB: audio_platform_test
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin123
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7.4-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            admin/go.sum
+            services/user/go.sum
+            services/device/go.sum
+            services/content/go.sum
+            services/media-processing/go.sum
+
+      - name: Download dependencies
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          go mod download
+          go mod verify
+          for svc in services/user services/device services/content services/media-processing; do
+            echo "=== Downloading deps for $svc ==="
+            (cd "$svc" && go mod download && go mod verify)
+          done
+
+      - name: Run tests with merged coverage
+        env:
+          GOTOOLCHAIN: local
+          DATABASE_URL: postgresql://admin:admin123@localhost:5432/audio_platform_test
+          REDIS_ADDR: localhost:6379
+        run: |
+          set -euo pipefail
+          ROOT="${GITHUB_WORKSPACE}"
+          rm -f "${ROOT}/coverage.out"
+          echo "mode: atomic" > "${ROOT}/coverage.out"
+          for svc in services/user services/device services/content services/media-processing; do
+            echo "=== Testing $svc ==="
+            (
+              cd "${ROOT}/${svc}"
+              go test -v -race -covermode=atomic -count=1 -coverprofile=cov.out ./...
+              tail -n +2 cov.out >> "${ROOT}/coverage.out"
+              rm -f cov.out
+            )
+          done
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          fail_ci_if_error: false
+
+  # 与 scripts/ci-local.sh 一致，在 Windows 上跑一遍（Git Bash），保证 Win/Linux 本地脚本行为可对齐
+  local-ci-windows:
+    name: Local CI (Windows, Bash)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            admin/go.sum
+            services/user/go.sum
+            services/device/go.sum
+            services/content/go.sum
+            services/media-processing/go.sum
+
+      - name: Install golangci-lint
+        env:
+          GOTOOLCHAIN: local
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@${{ env.GOLANGCI_LINT_VERSION }}
+
+      - name: Run scripts/ci-local.sh
+        env:
+          GOTOOLCHAIN: local
+        shell: bash
+        run: bash scripts/ci-local.sh
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, local-ci-windows]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            admin/go.sum
+            services/user/go.sum
+            services/device/go.sum
+            services/content/go.sum
+            services/media-processing/go.sum
+
+      - name: Build services
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          go mod download
+          go mod verify
+          mkdir -p bin
+          cd services/user && go mod tidy && go mod verify && go build -o ../../bin/user-service .
+          cd ../device && go mod tidy && go mod verify && go build -o ../../bin/device-service .
+          cd ../content && go mod tidy && go mod verify && go build -o ../../bin/content-service .
+          cd ../media-processing && go mod tidy && go mod verify && go build -o ../../bin/media-processing .
+          cd ../../admin && go mod tidy && go mod verify && go build -o ../bin/admin .
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: bin/
+
+  integration-test:
+    name: API Integration Test
+    runs-on: ubuntu-latest
+    needs: [build]
+    services:
+      postgres:
+        image: postgres:15.12-alpine
+        env:
+          POSTGRES_DB: audio_platform_test
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin123
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7.4-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            admin/go.sum
+            services/user/go.sum
+            services/device/go.sum
+            services/content/go.sum
+            services/media-processing/go.sum
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: bin/
+
+      - name: Make binaries executable
+        run: chmod +x bin/*
+
+      - name: Setup test config files
+        run: |
+          # 用户服务配置
+          mkdir -p services/user/etc
+          printf 'Name: user-api\nHost: 0.0.0.0\nPort: 8001\nAuth:\n  AccessSecret: test-secret-key-for-ci\n  AccessExpire: 86400\nPostgres:\n  DataSource: postgres://admin:admin123@localhost:5432/audio_platform_test?sslmode=disable\nRedis:\n  Addr: localhost:6379\n  Password: ""\n  DB: 0\nOAuth:\n  WeChat:\n    AppId: ""\n    AppSecret: ""\n  Google:\n    ClientID: ""\n    ClientSecret: ""\nVerifyCode:\n  ExpireSeconds: 180\n  MaxPerMinute: 3\n  BlockMinutes: 3\n' > services/user/etc/user.yaml
+
+          # 设备服务配置
+          mkdir -p services/device/etc
+          printf 'Name: device-api\nHost: 0.0.0.0\nPort: 8002\nAuth:\n  AccessSecret: test-secret-key-for-ci\n  AccessExpire: 86400\n' > services/device/etc/device.yaml
+
+          # 内容服务配置
+          mkdir -p services/content/etc
+          printf 'Name: content-api\nHost: 0.0.0.0\nPort: 8003\nAuth:\n  AccessSecret: test-secret-key-for-ci\n  AccessExpire: 86400\n' > services/content/etc/content.yaml
+
+          # go-admin 配置
+          mkdir -p admin/config admin/temp/logs
+          printf 'settings:\n  application:\n    mode: dev\n    host: 0.0.0.0\n    port: 8000\n    readtimeout: 60\n    writertimeout: 60\n  logger:\n    path: temp/logs\n    stdout: default\n    level: info\n  jwt:\n    secret: test-secret-key\n    timeout: 3600\n  database:\n    driver: postgres\n    source: "host=localhost port=5432 user=admin password=admin123 dbname=audio_platform_test sslmode=disable"\n  cache:\n    memory: ""\n  queue:\n    memory:\n      poolSize: 100\n' > admin/config/settings.yml
+
+      - name: Run database migrations
+        run: |
+          for f in $(ls scripts/db/migrations/*.sql | grep -v '_down\.sql' | sort); do
+            echo "Applying $f"
+            psql -h localhost -U admin -d audio_platform_test -f "$f"
+          done
+          echo "Applying admin/config/pg.sql"
+          psql -h localhost -U admin -d audio_platform_test -f admin/config/pg.sql
+        env:
+          PGPASSWORD: admin123
+
+      - name: Start services in background
+        run: |
+          (cd services/user && ../../bin/user-service > ../../user-service.log 2>&1) &
+          (cd services/device && ../../bin/device-service > ../../device-service.log 2>&1) &
+          (cd services/content && ../../bin/content-service > ../../content-service.log 2>&1) &
+          (cd admin && ../bin/admin server -c config/settings.yml > ../admin.log 2>&1) &
+          sleep 10
+
+          # 检查服务是否启动成功
+          echo "=== 检查服务状态 ==="
+          ps aux | grep -E "(user-service|device-service|content-service|admin)" | grep -v grep || true
+
+          echo "=== 服务日志 ==="
+          echo "--- User Service ---"
+          head -20 user-service.log || true
+          echo "--- Device Service ---"
+          head -20 device-service.log || true
+          echo "--- Content Service ---"
+          head -20 content-service.log || true
+          echo "--- Admin Service ---"
+          head -20 admin.log || true
+
+      - name: Run API integration tests
+        run: |
+          chmod +x scripts/test-api.sh
+          ./scripts/test-api.sh
+
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          echo "=== User Service Logs ==="
+          cat user-service.log || true
+          echo "=== Device Service Logs ==="
+          cat device-service.log || true
+          echo "=== Content Service Logs ==="
+          cat content-service.log || true
+          echo "=== Admin Service Logs ==="
+          cat admin.log || true
+
+      - name: Stop services
+        if: always()
+        run: |
+          pkill -f user-service || true
+          pkill -f device-service || true
+          pkill -f content-service || true
+          pkill -f admin || true

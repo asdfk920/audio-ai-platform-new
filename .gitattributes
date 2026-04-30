@@ -1,0 +1,4 @@
+# Shell scripts must use LF so Bash on Windows (Git Bash / MSYS) and Linux behave the same.
+*.sh text eol=lf
+# SQL migrations contain UTF-8 Chinese comments; normalize line endings for PostgreSQL tools.
+*.sql text eol=lf

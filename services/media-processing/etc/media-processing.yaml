@@ -1,0 +1,40 @@
+Name: media-processing-api
+Host: 0.0.0.0
+Port: 8004
+
+Postgres:
+  DataSource: postgres://admin:admin123@localhost:5432/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai
+
+Redis:
+  Addr: 127.0.0.1:6379
+  Password: ""
+  DB: 0
+  Optional: true
+
+Auth:
+  # 与网关签发的 access JWT secret 保持一致
+  AccessSecret: audio-ai-platform-user-secret
+
+Stream:
+  # 推流地址拼装：例如 rtmp://stream.example.com/live/
+  RTMPBaseURL: rtmp://stream.example.com/live/
+  # 可选：FLV 基础地址，例如 https://stream.example.com/live/
+  FLVBaseURL: https://stream.example.com/live/
+  # token 鉴权默认密钥；若 stream_auth_configs 有 default 配置，会优先使用表中 secret_key
+  DefaultSecretKey: dev-stream-secret
+  # 默认鉴权配置 ID
+  DefaultConfigID: default
+  # 默认过期秒数（客户端未传则用此值）
+  DefaultExpiresSec: 180
+
+SQS:
+  Enabled: false
+  Endpoint: http://localhost:4566
+  QueueURL: ""
+  Region: us-east-1
+
+Log:
+  ServiceName: media-processing-api
+  Mode: console
+  Level: info
+

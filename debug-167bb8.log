@@ -1,0 +1,6 @@
+{"data":{"contentType":"multipart/form-data; boundary=----WebKitFormBoundaryUiwop8260MZRwqcE","method":"POST"},"hypothesisId":"H1","location":"platform_content.go:Add:entry","message":"request_headers","sessionId":"167bb8","timestamp":1776914672796}
+{"data":{"artistLen":4,"audioLen":103,"coverLen":103,"duration":180,"status":0,"titleLen":5,"vipLevel":3},"hypothesisId":"H1","location":"platform_content.go:Add:validated","message":"fields_ok_before_tx","sessionId":"167bb8","timestamp":1776914673147}
+{"data":{"contentId":2,"operator":6},"hypothesisId":"H4","location":"platform_content.go:Add:success","message":"insert_ok","sessionId":"167bb8","timestamp":1776914673172}
+{"data":{"contentType":"multipart/form-data; boundary=----WebKitFormBoundarysPjAB6mcxrvRUftE","method":"POST"},"hypothesisId":"H1","location":"platform_content.go:Add:entry","message":"request_headers","sessionId":"167bb8","timestamp":1776941276277}
+{"data":{"artistLen":6,"audioLen":49,"coverLen":103,"duration":180,"status":0,"titleLen":6,"vipLevel":0},"hypothesisId":"H1","location":"platform_content.go:Add:validated","message":"fields_ok_before_tx","sessionId":"167bb8","timestamp":1776941276297}
+{"data":{"contentId":3,"operator":6},"hypothesisId":"H4","location":"platform_content.go:Add:success","message":"insert_ok","sessionId":"167bb8","timestamp":1776941276315}

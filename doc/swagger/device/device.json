@@ -1,0 +1,2012 @@
+{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "https"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "title": "设备服务 API",
+    "version": "v1"
+  },
+  "basePath": "/",
+  "paths": {
+    "/api/v1/device/auth": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "设备向云端认证并获取短期访问 token",
+        "operationId": "deviceAuth",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "sn",
+                "secret",
+                "timestamp",
+                "nonce",
+                "signature"
+              ],
+              "properties": {
+                "firmware_version": {
+                  "type": "string"
+                },
+                "ip": {
+                  "type": "string"
+                },
+                "nonce": {
+                  "type": "string"
+                },
+                "secret": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                },
+                "sn": {
+                  "type": "string"
+                },
+                "timestamp": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "integer"
+                },
+                "expire": {
+                  "type": "integer"
+                },
+                "http_base_url": {
+                  "type": "string"
+                },
+                "mqtt_broker": {
+                  "type": "string"
+                },
+                "server_time": {
+                  "type": "integer"
+                },
+                "sn": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/bind": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "绑定已注册设备（JWT；device_sn 全局唯一；已被他人绑定返回冲突；本人重复绑定按成功返回）",
+        "operationId": "bindDevice",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn"
+              ],
+              "properties": {
+                "device_sn": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "bind_time": {
+                  "type": "string"
+                },
+                "device_name": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/commands/cancel": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "取消未完成设备指令",
+        "operationId": "cancelCommand",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "instruction_id"
+              ],
+              "properties": {
+                "instruction_id": {
+                  "type": "integer"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "instruction_id": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/commands/detail": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询单条设备指令详情",
+        "operationId": "getCommandDetail",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "instruction_id",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "instruction": {
+                  "type": "object",
+                  "required": [
+                    "instruction_id",
+                    "device_id",
+                    "device_sn",
+                    "cmd",
+                    "command_code",
+                    "instruction_type",
+                    "status",
+                    "status_code",
+                    "priority",
+                    "retry_count",
+                    "params",
+                    "created_at",
+                    "updated_at"
+                  ],
+                  "properties": {
+                    "cmd": {
+                      "type": "string"
+                    },
+                    "command_code": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "integer"
+                    },
+                    "device_id": {
+                      "type": "integer"
+                    },
+                    "device_sn": {
+                      "type": "string"
+                    },
+                    "error_msg": {
+                      "type": "string"
+                    },
+                    "expires_at": {
+                      "type": "integer"
+                    },
+                    "instruction_id": {
+                      "type": "integer"
+                    },
+                    "instruction_type": {
+                      "type": "string"
+                    },
+                    "params": {
+                      "type": "string"
+                    },
+                    "priority": {
+                      "type": "integer"
+                    },
+                    "result": {
+                      "type": "string"
+                    },
+                    "retry_count": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "status_code": {
+                      "type": "integer"
+                    },
+                    "updated_at": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "logs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "to_status",
+                      "note",
+                      "operator",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "from_status": {
+                        "type": "integer"
+                      },
+                      "note": {
+                        "type": "string"
+                      },
+                      "operator": {
+                        "type": "string"
+                      },
+                      "to_status": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/commands/history": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询当前用户设备指令历史",
+        "operationId": "listCommandHistory",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "device_sn",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "status",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "default": 1,
+            "example": 1,
+            "name": "page",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "default": 20,
+            "example": 20,
+            "name": "page_size",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "list": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "instruction_id",
+                      "device_id",
+                      "device_sn",
+                      "cmd",
+                      "command_code",
+                      "instruction_type",
+                      "status",
+                      "status_code",
+                      "priority",
+                      "retry_count",
+                      "params",
+                      "created_at",
+                      "updated_at"
+                    ],
+                    "properties": {
+                      "cmd": {
+                        "type": "string"
+                      },
+                      "command_code": {
+                        "type": "string"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "device_id": {
+                        "type": "integer"
+                      },
+                      "device_sn": {
+                        "type": "string"
+                      },
+                      "error_msg": {
+                        "type": "string"
+                      },
+                      "expires_at": {
+                        "type": "integer"
+                      },
+                      "instruction_id": {
+                        "type": "integer"
+                      },
+                      "instruction_type": {
+                        "type": "string"
+                      },
+                      "params": {
+                        "type": "string"
+                      },
+                      "priority": {
+                        "type": "integer"
+                      },
+                      "result": {
+                        "type": "string"
+                      },
+                      "retry_count": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "status_code": {
+                        "type": "integer"
+                      },
+                      "updated_at": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/commands/pending": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "设备拉取待执行命令（device_sn + device_secret）",
+        "operationId": "getPendingCommands",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "device_sn",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "device_secret",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "default": 20,
+            "example": 20,
+            "name": "limit",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "device_sn": {
+                  "type": "string"
+                },
+                "list": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "instruction_id",
+                      "cmd",
+                      "command_code",
+                      "instruction_type",
+                      "params",
+                      "status",
+                      "priority",
+                      "retry_count",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "cmd": {
+                        "type": "string"
+                      },
+                      "command_code": {
+                        "type": "string"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "expires_at": {
+                        "type": "integer"
+                      },
+                      "instruction_id": {
+                        "type": "integer"
+                      },
+                      "instruction_type": {
+                        "type": "string"
+                      },
+                      "params": {
+                        "type": "string"
+                      },
+                      "priority": {
+                        "type": "integer"
+                      },
+                      "retry_count": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/commands/result": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "设备上报命令执行结果（device_sn + device_secret）",
+        "operationId": "reportCommandResult",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn",
+                "instruction_id",
+                "status"
+              ],
+              "properties": {
+                "device_secret": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "error_msg": {
+                  "type": "string"
+                },
+                "instruction_id": {
+                  "type": "integer"
+                },
+                "reported": {
+                  "type": "string"
+                },
+                "result": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "delta": {
+                  "type": "string"
+                },
+                "instruction_id": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/commands/schedule": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "更新设备定时指令",
+        "operationId": "updateCommandSchedule",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn",
+                "schedule_type",
+                "desired_payload"
+              ],
+              "properties": {
+                "cron_expr": {
+                  "type": "string"
+                },
+                "desired_payload": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "execute_at": {
+                  "type": "integer"
+                },
+                "expires_at": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "merge_desired": {
+                  "type": "boolean"
+                },
+                "schedule_type": {
+                  "type": "string"
+                },
+                "timezone": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "cron_expr": {
+                  "type": "string"
+                },
+                "desired_payload": {
+                  "type": "string"
+                },
+                "device_id": {
+                  "type": "integer"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "expires_at": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "last_execute_at": {
+                  "type": "integer"
+                },
+                "merge_desired": {
+                  "type": "boolean"
+                },
+                "next_execute_at": {
+                  "type": "integer"
+                },
+                "schedule_type": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "timezone": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "创建设备定时指令",
+        "operationId": "saveCommandSchedule",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn",
+                "schedule_type",
+                "desired_payload"
+              ],
+              "properties": {
+                "cron_expr": {
+                  "type": "string"
+                },
+                "desired_payload": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "execute_at": {
+                  "type": "integer"
+                },
+                "expires_at": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "merge_desired": {
+                  "type": "boolean"
+                },
+                "schedule_type": {
+                  "type": "string"
+                },
+                "timezone": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "created_at": {
+                  "type": "integer"
+                },
+                "cron_expr": {
+                  "type": "string"
+                },
+                "desired_payload": {
+                  "type": "string"
+                },
+                "device_id": {
+                  "type": "integer"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "expires_at": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "integer"
+                },
+                "last_execute_at": {
+                  "type": "integer"
+                },
+                "merge_desired": {
+                  "type": "boolean"
+                },
+                "next_execute_at": {
+                  "type": "integer"
+                },
+                "schedule_type": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "timezone": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/commands/schedule/cancel": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "取消设备定时指令",
+        "operationId": "cancelCommandSchedule",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/commands/schedule/list": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "分页查询设备定时指令",
+        "operationId": "listCommandSchedule",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "device_sn",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "status",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "default": 1,
+            "example": 1,
+            "name": "page",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "default": 20,
+            "example": 20,
+            "name": "page_size",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "list": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "device_id",
+                      "device_sn",
+                      "schedule_type",
+                      "desired_payload",
+                      "merge_desired",
+                      "timezone",
+                      "status",
+                      "created_at",
+                      "updated_at"
+                    ],
+                    "properties": {
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "cron_expr": {
+                        "type": "string"
+                      },
+                      "desired_payload": {
+                        "type": "string"
+                      },
+                      "device_id": {
+                        "type": "integer"
+                      },
+                      "device_sn": {
+                        "type": "string"
+                      },
+                      "expires_at": {
+                        "type": "integer"
+                      },
+                      "id": {
+                        "type": "integer"
+                      },
+                      "last_execute_at": {
+                        "type": "integer"
+                      },
+                      "merge_desired": {
+                        "type": "boolean"
+                      },
+                      "next_execute_at": {
+                        "type": "integer"
+                      },
+                      "schedule_type": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "timezone": {
+                        "type": "string"
+                      },
+                      "updated_at": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "page": {
+                  "type": "integer"
+                },
+                "page_size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/diagnosis/report": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "设备回传远程诊断结果",
+        "operationId": "reportDeviceDiagnosis",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn",
+                "diagnosis_id",
+                "success"
+              ],
+              "properties": {
+                "device_secret": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "diagnosis_id": {
+                  "type": "integer"
+                },
+                "failure_reason": {
+                  "type": "string"
+                },
+                "instruction_id": {
+                  "type": "integer"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "item",
+                      "status",
+                      "message"
+                    ],
+                    "properties": {
+                      "detail": {
+                        "type": "string"
+                      },
+                      "error_code": {
+                        "type": "integer"
+                      },
+                      "extra": {
+                        "type": "string"
+                      },
+                      "item": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "report_time": {
+                  "type": "integer"
+                },
+                "reported": {
+                  "type": "string"
+                },
+                "result": {
+                  "type": "string"
+                },
+                "success": {
+                  "type": "boolean"
+                },
+                "summary": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "diagnosis_id": {
+                  "type": "integer"
+                },
+                "instruction_id": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/logs/upload": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "设备运行日志批量上传",
+        "operationId": "uploadDeviceLogs",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn",
+                "logs"
+              ],
+              "properties": {
+                "device_secret": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "logs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "log_type",
+                      "log_level",
+                      "content",
+                      "report_time"
+                    ],
+                    "properties": {
+                      "content": {
+                        "type": "string"
+                      },
+                      "error_code": {
+                        "type": "integer"
+                      },
+                      "extra": {
+                        "type": "string"
+                      },
+                      "ip_address": {
+                        "type": "string"
+                      },
+                      "log_level": {
+                        "type": "string"
+                      },
+                      "log_type": {
+                        "type": "string"
+                      },
+                      "module": {
+                        "type": "string"
+                      },
+                      "report_source": {
+                        "type": "string"
+                      },
+                      "report_time": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "report_time": {
+                  "type": "integer"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "trigger_type": {
+                  "type": "string"
+                },
+                "upload_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "accepted_count": {
+                  "type": "integer"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "duplicate": {
+                  "type": "boolean"
+                },
+                "upload_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/register": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "设备首次注册（无需登录，Provisioning）",
+        "operationId": "registerDevice",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "sn",
+                "secret",
+                "timestamp",
+                "nonce",
+                "signature",
+                "mac",
+                "product_key"
+              ],
+              "properties": {
+                "firmware_version": {
+                  "type": "string"
+                },
+                "hardware_version": {
+                  "type": "string"
+                },
+                "mac": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "nonce": {
+                  "type": "string"
+                },
+                "product_key": {
+                  "type": "string"
+                },
+                "secret": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                },
+                "sn": {
+                  "type": "string"
+                },
+                "timestamp": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "activated": {
+                  "type": "boolean"
+                },
+                "activated_at": {
+                  "type": "integer"
+                },
+                "device_id": {
+                  "type": "integer"
+                },
+                "device_secret": {
+                  "type": "string"
+                },
+                "http_base_url": {
+                  "type": "string"
+                },
+                "mqtt_broker": {
+                  "type": "string"
+                },
+                "need_auth": {
+                  "type": "boolean"
+                },
+                "server_time": {
+                  "type": "integer"
+                },
+                "sn": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/report/status": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "设备统一状态上报（HTTP；主机+children+历史补传）。reported 为 JSON 对象字符串，推荐分组 power/storage/speakers/uwb/acoustic/runtime；report_mode=normal|energy_saving|emergency；响应 next_interval 为建议上报间隔秒数（充电优先 60s、紧急 10s、低电未充电 300s 等，见 device_status_report_api.md）",
+        "operationId": "deviceStatusReport",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn",
+                "timestamp"
+              ],
+              "properties": {
+                "battery": {
+                  "type": "integer"
+                },
+                "children": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "child_key": {
+                        "type": "string"
+                      },
+                      "child_name": {
+                        "type": "string"
+                      },
+                      "child_sn": {
+                        "type": "string"
+                      },
+                      "child_type": {
+                        "type": "string"
+                      },
+                      "metadata": {
+                        "type": "string"
+                      },
+                      "online": {
+                        "type": "boolean"
+                      },
+                      "reported": {
+                        "type": "string"
+                      },
+                      "timestamp": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "device_secret": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "firmware_version": {
+                  "type": "string"
+                },
+                "history": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "timestamp"
+                    ],
+                    "properties": {
+                      "battery": {
+                        "type": "integer"
+                      },
+                      "children": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "child_key": {
+                              "type": "string"
+                            },
+                            "child_name": {
+                              "type": "string"
+                            },
+                            "child_sn": {
+                              "type": "string"
+                            },
+                            "child_type": {
+                              "type": "string"
+                            },
+                            "metadata": {
+                              "type": "string"
+                            },
+                            "online": {
+                              "type": "boolean"
+                            },
+                            "reported": {
+                              "type": "string"
+                            },
+                            "timestamp": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      },
+                      "firmware_version": {
+                        "type": "string"
+                      },
+                      "ip": {
+                        "type": "string"
+                      },
+                      "online": {
+                        "type": "boolean"
+                      },
+                      "report_id": {
+                        "type": "string"
+                      },
+                      "reported": {
+                        "type": "string"
+                      },
+                      "run_state": {
+                        "type": "string"
+                      },
+                      "timestamp": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "ip": {
+                  "type": "string"
+                },
+                "online": {
+                  "type": "boolean"
+                },
+                "report_id": {
+                  "type": "string"
+                },
+                "reported": {
+                  "type": "string"
+                },
+                "run_state": {
+                  "type": "string"
+                },
+                "timestamp": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "accepted_reports": {
+                  "type": "integer"
+                },
+                "commands": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "instruction_id",
+                      "cmd",
+                      "command_code",
+                      "instruction_type",
+                      "params",
+                      "status",
+                      "priority",
+                      "retry_count",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "cmd": {
+                        "type": "string"
+                      },
+                      "command_code": {
+                        "type": "string"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "expires_at": {
+                        "type": "integer"
+                      },
+                      "instruction_id": {
+                        "type": "integer"
+                      },
+                      "instruction_type": {
+                        "type": "string"
+                      },
+                      "params": {
+                        "type": "string"
+                      },
+                      "priority": {
+                        "type": "integer"
+                      },
+                      "retry_count": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "next_interval": {
+                  "type": "integer"
+                },
+                "version": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/shadow": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询设备影子（JWT，需已绑定）",
+        "operationId": "getDeviceShadow",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "device_sn",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "command_code": {
+                  "type": "string"
+                },
+                "command_status": {
+                  "type": "string"
+                },
+                "delta": {
+                  "type": "string"
+                },
+                "desired": {
+                  "type": "string"
+                },
+                "device_id": {
+                  "type": "integer"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "expires_at": {
+                  "type": "integer"
+                },
+                "instruction_id": {
+                  "type": "integer"
+                },
+                "instruction_type": {
+                  "type": "string"
+                },
+                "last_report_time": {
+                  "type": "integer"
+                },
+                "metadata": {
+                  "type": "string"
+                },
+                "online": {
+                  "type": "boolean"
+                },
+                "queued_count": {
+                  "type": "integer"
+                },
+                "reported": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/shadow/desired": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "App 写入设备期望状态（JWT，需已绑定）",
+        "operationId": "updateDeviceShadowDesired",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn",
+                "desired"
+              ],
+              "properties": {
+                "desired": {
+                  "type": "string"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "merge": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "command_code": {
+                  "type": "string"
+                },
+                "command_status": {
+                  "type": "string"
+                },
+                "delta": {
+                  "type": "string"
+                },
+                "desired": {
+                  "type": "string"
+                },
+                "device_id": {
+                  "type": "integer"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "expires_at": {
+                  "type": "integer"
+                },
+                "instruction_id": {
+                  "type": "integer"
+                },
+                "instruction_type": {
+                  "type": "string"
+                },
+                "last_report_time": {
+                  "type": "integer"
+                },
+                "metadata": {
+                  "type": "string"
+                },
+                "online": {
+                  "type": "boolean"
+                },
+                "queued_count": {
+                  "type": "integer"
+                },
+                "reported": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/shadow/reported": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "App 写入设备当前实际上报状态（JWT，需已绑定）",
+        "operationId": "updateDeviceShadowReported",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "device_sn",
+                "reported"
+              ],
+              "properties": {
+                "device_sn": {
+                  "type": "string"
+                },
+                "reported": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "command_code": {
+                  "type": "string"
+                },
+                "command_status": {
+                  "type": "string"
+                },
+                "delta": {
+                  "type": "string"
+                },
+                "desired": {
+                  "type": "string"
+                },
+                "device_id": {
+                  "type": "integer"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "expires_at": {
+                  "type": "integer"
+                },
+                "instruction_id": {
+                  "type": "integer"
+                },
+                "instruction_type": {
+                  "type": "string"
+                },
+                "last_report_time": {
+                  "type": "integer"
+                },
+                "metadata": {
+                  "type": "string"
+                },
+                "online": {
+                  "type": "boolean"
+                },
+                "queued_count": {
+                  "type": "integer"
+                },
+                "reported": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/device/shadow/sync": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "设备影子一键同步（device_sn + device_secret）：聚合 reported/desired/delta 与待执行命令，断网重连后使用；client_version 低于服务端 version 时 version_stale=true",
+        "operationId": "syncDeviceShadow",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "device_sn",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "device_secret",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "client_version",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "default": 20,
+            "example": 20,
+            "name": "limit",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "command_code": {
+                  "type": "string"
+                },
+                "command_status": {
+                  "type": "string"
+                },
+                "delta": {
+                  "type": "string"
+                },
+                "desired": {
+                  "type": "string"
+                },
+                "device_id": {
+                  "type": "integer"
+                },
+                "device_sn": {
+                  "type": "string"
+                },
+                "expires_at": {
+                  "type": "integer"
+                },
+                "instruction_id": {
+                  "type": "integer"
+                },
+                "instruction_type": {
+                  "type": "string"
+                },
+                "last_report_time": {
+                  "type": "integer"
+                },
+                "metadata": {
+                  "type": "string"
+                },
+                "offline_hint": {
+                  "type": "string"
+                },
+                "online": {
+                  "type": "boolean"
+                },
+                "pending_commands": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "instruction_id",
+                      "cmd",
+                      "command_code",
+                      "instruction_type",
+                      "params",
+                      "status",
+                      "priority",
+                      "retry_count",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "cmd": {
+                        "type": "string"
+                      },
+                      "command_code": {
+                        "type": "string"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "expires_at": {
+                        "type": "integer"
+                      },
+                      "instruction_id": {
+                        "type": "integer"
+                      },
+                      "instruction_type": {
+                        "type": "string"
+                      },
+                      "params": {
+                        "type": "string"
+                      },
+                      "priority": {
+                        "type": "integer"
+                      },
+                      "retry_count": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                "queued_count": {
+                  "type": "integer"
+                },
+                "reported": {
+                  "type": "string"
+                },
+                "server_time": {
+                  "type": "integer"
+                },
+                "version": {
+                  "type": "integer"
+                },
+                "version_stale": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-date": "2026-04-21 11:24:05",
+  "x-description": "This is a goctl generated swagger file.",
+  "x-github": "https://github.com/zeromicro/go-zero",
+  "x-go-zero-doc": "https://go-zero.dev/",
+  "x-goctl-version": "1.10.1"
+}

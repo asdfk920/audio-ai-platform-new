@@ -1,0 +1,102 @@
+Name: device-api
+Host: 0.0.0.0
+Port: 8002
+
+Postgres:
+  DataSource: postgres://admin:admin123@localhost:5432/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai
+
+Redis:
+  Addr: 127.0.0.1:6379
+  Password: ""
+  DB: 0
+
+DeviceShadow:
+  HeartbeatTTLSeconds: 60
+  EnableOnlineSet: false
+  PubSubEnabled: true
+  EventChannelPrefix: "device:event:"
+  SeedTTLSeconds: 300
+
+# MQTT 状态上报：订阅 device/{sn}/report，JSON 内需 device_secret（与注册返回明文比对 bcrypt）
+# Broker 为空时使用 DeviceRegister.MqttBroker
+MqttIngest:
+  Enabled: false
+  Broker: ""
+  ClientID: "device-api-mqtt"
+  Username: ""
+  Password: ""
+  SubscribeTopic: "device/+/report"
+  QOS: 1
+
+# Redis notify-keyspace-events 须包含 E；监听 device:online:* 过期 → 影子离线 + Pub/Sub device_offline
+RedisKeyspace:
+  Enabled: false
+
+# 异步写 device_status 表并刷新 device.online_status / last_active_at
+StatusPersist:
+  QueueSize: 4096
+  Workers: 4
+
+# 影子 MQTT 下发：legacy device/{sn}/desired + device/shadow/{sn}/desired + device/shadow/{id}/desired 双写
+ShadowMQTT:
+  EnableLegacyTopics: true
+  PublishShadowBySN: true
+  PublishShadowByID: true
+  PublishJSONDelta: false
+  DesiredPublishQOS: 1
+  DeltaPublishQOS: 1
+
+# 状态上报响应 next_interval（秒）：充电优先恢复 60s；紧急 10s；低电未充电 300s；20–50% 未充电 120s
+StatusReport:
+  IntervalNormalSec: 60
+  IntervalMidRangeSec: 120
+  IntervalEnergySec: 300
+  IntervalEmergencySec: 10
+  IntervalMinSec: 10
+  IntervalMaxSec: 300
+  EnergyBatteryPercent: 20
+  MidRangeBatteryPercent: 50
+
+# App 设备状态查询：在线判定窗口（秒）、无绑定负缓存、按用户限流
+DeviceStatusQuery:
+  OnlineStaleSeconds: 300
+  DisableNegCache: false
+  NegCacheTTLSeconds: 60
+  RateLimitWindowSec: 60
+  RateLimitMaxPerUser: 60
+  DisableRateLimit: false
+
+Auth:
+  AccessSecret: audio-ai-platform-user-secret
+  AccessExpire: 3600
+
+# 设备 HTTP 定时状态上报 POST /api/device/status/report：单设备每分钟最大次数
+StatusReportHTTP:
+  RateLimitPerMinute: 60
+
+DeviceAuth:
+  TokenSecret: audio-ai-platform-device-secret
+  TokenExpireSeconds: 86400
+  TimestampToleranceSecond: 300
+  FailureThreshold: 5
+  LockSeconds: 900
+
+# 设备首次注册：可选产品白名单（空=不限制具体型号）；黑名单 SN 与入库一致为规范化大写
+# TrustedProxies 非空且直连 IP 落在其中时，才信任 X-Forwarded-For / X-Real-IP（空=仅用 TCP 源地址）
+# DisableRegisterIPRateLimit: false 时默认每 IP 每 60 秒最多 30 次注册（进程内）
+DeviceRegister:
+  MqttBroker: "tcp://localhost:1883"
+  HttpBaseUrl: "http://localhost:8002"
+  AllowedProductKeys: []
+  BlacklistSNs: []
+  SecretBcryptCost: 10
+  TrustedProxies: []
+  RateLimitWindowSec: 60
+  RateLimitMaxPerIP: 30
+  DisableRegisterIPRateLimit: false
+  ProductModelByKey: {}
+
+Log:
+  ServiceName: device-api
+  Mode: console
+  Level: info

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Audio AI Platform — API 文档</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
+  <style>
+    body { margin: 0; }
+    #bar { font-family: system-ui, sans-serif; padding: 10px 16px; background: #1b1b1b; color: #eee; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    #bar a { color: #7dd3fc; text-decoration: none; }
+    #bar a:hover { text-decoration: underline; }
+    #bar .sep { opacity: 0.5; }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <strong>API 文档</strong>
+    <span class="sep">|</span>
+    <a href="?spec=user">用户 user</a>
+    <a href="?spec=device">设备 device</a>
+    <a href="?spec=content">内容 content</a>
+    <a href="?spec=admin">后台 admin</a>
+    <span class="sep">|</span>
+    <span style="opacity:0.75;font-size:12px">微服务：services/*/xxx.api → goctl swagger；后台：admin → swag init</span>
+  </div>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js" crossorigin></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js" crossorigin></script>
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var spec = (q.get('spec') || 'user').toLowerCase();
+      var map = {
+        user: './user/user.json',
+        device: './device/device.json',
+        content: './content/content.json',
+        admin: './admin/admin.json'
+      };
+      var url = map[spec] || map.user;
+      window.ui = SwaggerUIBundle({
+        url: url,
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: 'StandaloneLayout'
+      });
+    })();
+  </script>
+</body>
+</html>

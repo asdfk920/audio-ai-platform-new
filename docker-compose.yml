@@ -1,0 +1,68 @@
+version: '3.8'
+# 叠加网关 / Kafka(Redpanda) / MQTT：docker compose -f docker-compose.yml -f docker-compose.platform.yml up -d
+# 说明见 deploy/README.md
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: audio-platform-postgres
+    environment:
+      POSTGRES_DB: audio_platform
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      # 与中文注释、迁移脚本 UTF-8 一致；避免部分客户端/管道按 C 区域出现乱码
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+    # 主机 5433 → 容器 5432（避免与本机已安装的 PostgreSQL 抢 5432；Navicat/微服务请连 localhost:5433）
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # 首次初始化按序执行（含 password_algo，与 InsertUser 一致）；已有数据卷不会重跑
+      - ./scripts/db/migrations/001_init.sql:/docker-entrypoint-initdb.d/01_init.sql
+      - ./scripts/db/migrations/002_user_register_oauth.sql:/docker-entrypoint-initdb.d/02_oauth.sql
+      - ./scripts/db/migrations/002_register_security.sql:/docker-entrypoint-initdb.d/03_password_algo.sql
+      - ./scripts/db/migrations/003_users_extended_fields.sql:/docker-entrypoint-initdb.d/04_extended.sql
+      - ./scripts/db/migrations/004_users_mobile_unique_playback_device_nullable.sql:/docker-entrypoint-initdb.d/05_mobile_unique.sql
+      - ./scripts/db/migrations/005_user_realname_auth.sql:/docker-entrypoint-initdb.d/06_realname.sql
+      - ./scripts/db/migrations/006_user_realname_idcard_photos.sql:/docker-entrypoint-initdb.d/07_realname_photos.sql
+      - ./scripts/db/migrations/007_user_cancellation.sql:/docker-entrypoint-initdb.d/08_cancellation.sql
+      - ./scripts/db/migrations/008_user_center_schema.sql:/docker-entrypoint-initdb.d/09_user_center.sql
+      - ./scripts/db/migrations/009_user_schema_optimize.sql:/docker-entrypoint-initdb.d/10_user_optimize.sql
+    networks:
+      - audio-platform
+
+  redis:
+    image: redis:7-alpine
+    container_name: audio-platform-redis
+    command: redis-server --appendonly yes --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - audio-platform
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: audio-platform-localstack
+    environment:
+      - SERVICES=s3,sqs,dynamodb
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+    ports:
+      - "4566:4566"
+    volumes:
+      - localstack_data:/tmp/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - audio-platform
+
+volumes:
+  postgres_data:
+  redis_data:
+  localstack_data:
+
+networks:
+  audio-platform:
+    driver: bridge

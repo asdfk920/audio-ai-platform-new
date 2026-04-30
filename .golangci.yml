@@ -1,0 +1,10 @@
+# CI / 本地 golangci-lint 共用配置（与 workflow 中 golangci-lint v1.64.x 一致）
+# go-zero 使用 json:",optional" 等标签，会误报 staticcheck SA5008
+run:
+  timeout: 5m
+
+linters-settings:
+  staticcheck:
+    checks:
+      - all
+      - -SA5008

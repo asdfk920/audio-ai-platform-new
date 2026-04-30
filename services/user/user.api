@@ -1,0 +1,621 @@
+syntax = "v1"
+
+info (
+	title:   "用户服务 API"
+	desc:    "用户注册、登录、认证等功能"
+	author:  "audio-ai-platform"
+	version: "v1"
+)
+
+type (
+	// 发送验证码请求（邮箱或手机二选一；scene 可选：register|reset|bind|login，login 用于统一登录接口的验证码登录）
+	SendVerifyCodeReq {
+		Email  string `json:"email,optional"`
+		Mobile string `json:"mobile,optional"`
+		Scene  string `json:"scene,optional"`
+	}
+	// 发送验证码成功时业务 data（HTTP 外层为 code/msg/data，由服务端 errorx.Success 包装）
+	SendVerifyCodeResp {
+		ExpireSeconds int `json:"expire_seconds"`
+	}
+	// 注册请求（邮箱或手机二选一，需先发验证码；注册成功后密码加盐存储）
+	RegisterReq {
+		Email      string `json:"email,optional"`
+		Mobile     string `json:"mobile,optional"`
+		Password   string `json:"password"`
+		VerifyCode string `json:"verify_code"`
+		Nickname   string `json:"nickname,optional"`
+		Avatar     string `json:"avatar,optional"`
+	}
+	// 注册响应
+	RegisterResp {
+		UserId int64 `json:"user_id"`
+	}
+	// 登录请求（邮箱或手机二选一 + 密码；第三方登录走 OAuth 回调，无需本接口）
+	LoginReq {
+		Email    string `json:"email,optional"`
+		Mobile   string `json:"mobile,optional"`
+		Password string `json:"password"`
+	}
+	// 登录响应
+	LoginResp {
+		UserId       int64  `json:"user_id"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int64  `json:"expires_in"`
+	}
+	// 刷新 token 请求
+	RefreshTokenReq {
+		RefreshToken string `json:"refresh_token"`
+	}
+	// 刷新 token 响应
+	RefreshTokenResp {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int64  `json:"expires_in"`
+	}
+	// 用户信息
+	UserInfo {
+		UserId           int64  `json:"user_id"`
+		Email            string `json:"email"`
+		Mobile           string `json:"mobile"`
+		Nickname         string `json:"nickname"`
+		Avatar           string `json:"avatar"`
+		Status           int32  `json:"status"`
+		RealNameStatus   int32  `json:"real_name_status"`
+		RealNameCertType int32  `json:"real_name_cert_type,optional"`
+		RealNameAt       int64  `json:"real_name_at,optional"`
+		Constellation        string `json:"constellation,optional"`
+		Age                  int    `json:"age,optional"`
+		Signature            string `json:"signature,optional"`
+		Bio                  string `json:"bio,optional"`
+		BirthdayVisibility   int    `json:"birthday_visibility,optional"`
+		GenderVisibility     int    `json:"gender_visibility,optional"`
+		ProfileComplete      int    `json:"profile_complete,optional"`
+		ProfileCompleteScore int    `json:"profile_complete_score,optional"`
+		Hobbies              string `json:"hobbies,optional"`
+		Location             string `json:"location,optional"`
+	}
+	// 更新用户基本信息请求（仅需 Header 携带有效 token，用户身份从 JWT 解析；body 只传要改的资料字段）
+	UpdateUserInfoReq {
+		Nickname string `json:"nickname,optional"`
+		Avatar   string `json:"avatar,optional"`
+		Birthday string `json:"birthday,optional"`
+		Gender   int    `json:"gender,optional"`
+		Constellation        string `json:"constellation,optional"`
+		Age                  int    `json:"age,optional"`
+		Signature            string `json:"signature,optional"`
+		Bio                  string `json:"bio,optional"`
+		BirthdayVisibility   int    `json:"birthday_visibility,optional"`
+		GenderVisibility     int    `json:"gender_visibility,optional"`
+		ProfileComplete      int    `json:"profile_complete,optional"`
+		ProfileCompleteScore int    `json:"profile_complete_score,optional"`
+		Hobbies              string `json:"hobbies,optional"`
+		Location             string `json:"location,optional"`
+	}
+	// 修改密码（已登录，验证旧密码）
+	ChangePasswordReq {
+		OldPassword        string `json:"old_password"`
+		NewPassword        string `json:"new_password"`
+		NewPasswordConfirm string `json:"new_password_confirm"`
+	}
+	// 重置密码（忘记旧密码，邮箱/手机号 + 验证码）
+	ResetPasswordReq {
+		Email              string `json:"email,optional"`
+		Mobile             string `json:"mobile,optional"`
+		VerifyCode         string `json:"verify_code"`
+		NewPassword        string `json:"new_password"`
+		NewPasswordConfirm string `json:"new_password_confirm"`
+	}
+	// 绑定邮箱/手机号（已登录，邮箱或手机号二选一 + 6位验证码）。若误传换绑字段，接口将提示改用 /rebind。
+	BindContactReq {
+		Email      string `json:"email,optional"`
+		Mobile     string `json:"mobile,optional"`
+		VerifyCode string `json:"verify_code,optional"`
+		OldMobile     string `json:"old_mobile,optional"`
+		OldEmail      string `json:"old_email,optional"`
+		OldVerifyCode string `json:"old_verify_code,optional"`
+		NewMobile     string `json:"new_mobile,optional"`
+		NewEmail      string `json:"new_email,optional"`
+		NewVerifyCode string `json:"new_verify_code,optional"`
+	}
+	// 换绑邮箱/手机号（已登录：先验证旧账号验证码，再验证新账号验证码）
+	RebindContactReq {
+		OldEmail      string `json:"old_email,optional"`
+		OldMobile     string `json:"old_mobile,optional"`
+		OldVerifyCode string `json:"old_verify_code"`
+		NewEmail      string `json:"new_email,optional"`
+		NewMobile     string `json:"new_mobile,optional"`
+		NewVerifyCode string `json:"new_verify_code"`
+	}
+	// 实名认证换绑：旧手机/邮箱不可收码时，凭姓名+身份证号与新号验证码换绑（须已通过个人身份证实名）
+	RealnameRebindReq {
+		NewEmail      string `json:"new_email,optional"`
+		NewMobile     string `json:"new_mobile,optional"`
+		NewVerifyCode string `json:"new_verify_code"`
+		Password      string `json:"password,optional"`
+		RealName      string `json:"real_name"`
+		IdNumber      string `json:"id_number"`
+	}
+	// 提交实名：cert_type 1 个人身份证 2 企业统一社会信用代码
+	RealNameSubmitReq {
+		CertType              int16  `json:"cert_type"`
+		RealName              string `json:"real_name"`
+		IdNumber              string `json:"id_number"`
+		IdPhotoBase64         string `json:"id_photo_base64,optional"`
+		IdCardFrontBase64     string `json:"id_card_front_base64,optional"`
+		IdCardBackBase64      string `json:"id_card_back_base64,optional"`
+		FaceImageBase64       string `json:"face_image_base64,optional"`
+		VerifyCode            string `json:"verify_code,optional"`
+	}
+	RealNameSubmitResp {
+		RealNameStatus int32  `json:"real_name_status"`
+		Message        string `json:"message"`
+		RejectReason   string `json:"reject_reason,optional"`
+		AuthRecordId   int64  `json:"auth_record_id"`
+	}
+	RealNameStatusResp {
+		RealNameStatus int32  `json:"real_name_status"`
+		CertType       int32  `json:"cert_type"`
+		SubStatus      string `json:"sub_status,optional"`
+		Message        string `json:"message"`
+		FailReason     string `json:"fail_reason,optional"`
+		UpdatedAt      int64  `json:"updated_at"`
+	}
+	RealNameAuditInfoResp {
+		AuthRecordId      int64  `json:"auth_record_id"`
+		AuthStatus        int32  `json:"auth_status"`
+		RealNameMasked    string `json:"real_name_masked"`
+		IdNumberLast4     string `json:"id_number_last4"`
+		CertType          int32  `json:"cert_type"`
+		IdCardFrontRef    string `json:"id_card_front_ref,optional"`
+		IdCardBackRef     string `json:"id_card_back_ref,optional"`
+		FaceDataRef       string `json:"face_data_ref,optional"`
+		FailReason        string `json:"fail_reason,optional"`
+		ReviewerNote      string `json:"reviewer_note,optional"`
+		ThirdPartyFlowNo  string `json:"third_party_flow_no,optional"`
+		CreatedAt         int64  `json:"created_at"`
+		ReviewedAt        int64  `json:"reviewed_at,optional"`
+	}
+	ApplyAccountCancellationReq {
+		Password     string `json:"password,optional"`
+		Reason       string `json:"reason,optional"`
+		AgreementAck bool   `json:"agreement_ack"`
+	}
+	ApplyAccountCancellationResp {
+		CoolingEndAt int64 `json:"cooling_end_at"`
+	}
+	WithdrawAccountCancellationResp {
+		Message           string `json:"message"`
+		UserId            int64  `json:"user_id"`
+		Status            string `json:"status"`
+		WithdrawnAt       int64  `json:"withdrawn_at"`
+		CoolingEndCleared bool   `json:"cooling_end_cleared"`
+	}
+	GetAccountCancellationStatusResp {
+		Phase        string `json:"phase"`
+		CoolingEndAt int64  `json:"cooling_end_at,optional"`
+	}
+	GetAccountCancellationConfirmResp {
+		Title        string   `json:"title"`
+		Consequences []string `json:"consequences"`
+	}
+	// OAuth 回调请求（code/state 由第三方携带）
+	OAuthCallbackReq {
+		Code  string `form:"code"`
+		State string `form:"state,optional"`
+	}
+	// OAuth 登录响应（与登录一致）
+	OAuthLoginResp {
+		UserId       int64  `json:"user_id"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int64  `json:"expires_in"`
+	}
+
+	// 会员权益信息（供 App 展示与前端权限控制）
+	MemberBenefit {
+		BenefitCode string `json:"benefit_code"`
+		BenefitName string `json:"benefit_name"`
+		Description string `json:"description,optional"`
+	}
+
+	// 当前登录用户会员权益响应（仅本人；含等级展示字段与档案到期日）
+	UserMemberBenefitsResp {
+		UserId               int64           `json:"user_id"`
+		LevelCode            string          `json:"level_code"` // 当前生效等级（过期或无档会回落 ordinary）
+		LevelName            string          `json:"level_name"` // member_level.level_name
+		LevelSort            int32           `json:"level_sort"` // member_level.sort，越小越靠前，可作「几档」展示
+		ExpireAt             int64           `json:"expire_at,optional"` // 当前生效权益的到期 Unix 秒；永久/普通无截止为 0
+		IsPermanent          bool            `json:"is_permanent"`
+		RecordExpireAt       int64           `json:"record_expire_at,optional"` // user_member 档案中的到期日（可能已过期）；无行为 0
+		SubscriptionActive   bool            `json:"subscription_active"` // 库内会员行有效且未过期或为永久
+		RegisterType         string          `json:"register_type,optional"` // user_member.register_type：pay/gift/admin 等
+		MemberSince          int64           `json:"member_since,optional"` // user_member.created_at Unix 秒；无行为 0
+		IsExpired            bool            `json:"is_expired"` // 档案到期已过期且非永久
+		Benefits             []MemberBenefit `json:"benefits"`
+	}
+	// 会员预下单（package_code 为 member_package 上架 SKU，非等级编码；示例见迁移 036 种子：vip_monthly / vip_quarterly / vip_yearly）
+	CreateMemberOrderReq {
+		PackageCode string `json:"package_code"` // 须与 public.member_package.package_code 一致且 status=1 上架
+		PayType     int64  `json:"pay_type"`     // 1微信 2支付宝 3余额（须 1–3，见 create_member_order_logic 校验）
+	}
+	CreateMemberOrderResp {
+		OrderNo              string `json:"order_no"`
+		AmountCent           int64  `json:"amount_cent"`
+		AmountYuan           string `json:"amount_yuan"`
+		OriginalAmountCent   int64  `json:"original_amount_cent"`
+		DiscountCent         int64  `json:"discount_cent"`
+		BizScene             string `json:"biz_scene"`
+		PackageName          string `json:"package_name"`
+		PackageCode          string `json:"package_code"`
+		DurationDays         int64  `json:"duration_days"`
+		PreviewExpireAt      int64  `json:"preview_expire_at"`
+		PayType              int64  `json:"pay_type"`
+	}
+	MemberAutoRenewInfoResp {
+		AutoRenew               bool   `json:"auto_renew"`
+		AutoRenewPackageCode    string `json:"auto_renew_package_code,optional"`
+		AutoRenewPayType        int64  `json:"auto_renew_pay_type,optional"`
+		AutoRenewUpdatedAt      int64  `json:"auto_renew_updated_at,optional"`
+	}
+	SetMemberAutoRenewReq {
+		Enabled     bool   `json:"enabled"`
+		PackageCode string `json:"package_code,optional"`
+		PayType     int64  `json:"pay_type,optional"`
+	}
+	PayMemberOrderReq {
+		OrderNo string `json:"order_no"`
+	}
+	PayMemberOrderResp {
+		OrderNo string `json:"order_no"`
+		PayType int64  `json:"pay_type"`
+	}
+	MemberPayCallbackReq {
+		OrderNo string `json:"order_no"`
+		TradeNo string `json:"trade_no"`
+		Sign    string `json:"sign"`
+	}
+	MemberUnsubscribeReq {
+		ReasonCode string `json:"reason_code"` // price|features|low_usage|switch_platform|service|other
+		Feedback   string `json:"feedback,optional"`
+	}
+	MemberUnsubscribeResp {
+		Success bool `json:"success"`
+	}
+	MemberUnsubscribeRevokeReq {
+	}
+
+	// 用户绑定设备（device 须已在平台注册；一设备同时仅允许绑定一个用户）
+	BindUserDeviceReq {
+		DeviceSn      string `json:"device_sn"`
+		DeviceName    string `json:"device_name,optional"`
+		DeviceModel   string `json:"device_model,optional"`
+		SystemVersion string `json:"system_version,optional"`
+	}
+	BindUserDeviceResp {
+		UserId     int64  `json:"user_id"`
+		DeviceSn   string `json:"device_sn"`
+		DeviceName string `json:"device_name"`
+		BindTime   string `json:"bind_time"`
+	}
+	UnbindUserDeviceReq {
+		DeviceSn string `json:"device_sn"`
+	}
+	UnbindUserDeviceResp {
+		DeviceSn string `json:"device_sn"`
+		UserId   int64  `json:"user_id"`
+		Status   int64  `json:"status"`
+	}
+	UserDeviceItem {
+		DeviceSn      string `json:"device_sn"`
+		DeviceName    string `json:"device_name"`
+		DeviceModel   string `json:"device_model"`
+		SystemVersion string `json:"system_version"`
+		BindTime      string `json:"bind_time"`
+		AccessMode string `json:"access_mode,optional"`
+		Role string `json:"role,optional"`
+		PermissionLevel string `json:"permission_level,optional"`
+		Permission string `json:"permission,optional"`
+		OwnerUserId int64 `json:"owner_user_id,optional"`
+		ShareId int64 `json:"share_id,optional"`
+		FamilyId int64 `json:"family_id,optional"`
+	}
+	// 查询已绑定设备（GET 查询参数，均可选；多条件 AND，子串匹配）
+	ListUserDevicesReq {
+		DeviceName  string `form:"device_name,optional"`
+		DeviceSn    string `form:"device_sn,optional"`
+		DeviceModel string `form:"device_model,optional"`
+		Page int `form:"page,optional"`
+		PageSize int `form:"page_size,optional"`
+	}
+	ListUserDevicesResp {
+		Total int `json:"total"`
+		List []UserDeviceItem `json:"list"`
+	}
+	FamilyCreateReq {
+		Name string `json:"name,optional"`
+	}
+	FamilyInfoResp {
+		FamilyId int64 `json:"family_id"`
+		Name string `json:"name"`
+		OwnerUserId int64 `json:"owner_user_id"`
+		CurrentRole string `json:"current_role"`
+		MemberCount int `json:"member_count"`
+		CreatedAt int64 `json:"created_at"`
+		UpdatedAt int64 `json:"updated_at"`
+	}
+	FamilyMemberInviteReq {
+		TargetUserId int64 `json:"target_user_id,optional"`
+		TargetAccount string `json:"target_account,optional"`
+		Role string `json:"role,optional"`
+		Remark string `json:"remark,optional"`
+		ExpireAt int64 `json:"expire_at,optional"`
+	}
+	FamilyMemberInviteResp {
+		FamilyId int64 `json:"family_id"`
+		InviteCode string `json:"invite_code"`
+		TargetUserId int64 `json:"target_user_id,optional"`
+		TargetAccount string `json:"target_account"`
+		Role string `json:"role"`
+		Status string `json:"status"`
+		ExpireAt int64 `json:"expire_at,optional"`
+	}
+	FamilyMemberAcceptReq {
+		InviteCode string `json:"invite_code"`
+	}
+	FamilyMemberRemoveReq {
+		UserId int64 `json:"user_id"`
+	}
+	FamilyMemberRoleUpdateReq {
+		UserId int64 `json:"user_id"`
+		Role string `json:"role"`
+	}
+	FamilyMemberItem {
+		UserId int64 `json:"user_id"`
+		Nickname string `json:"nickname"`
+		Email string `json:"email,optional"`
+		Mobile string `json:"mobile,optional"`
+		Role string `json:"role"`
+		Status int32 `json:"status"`
+		JoinedAt int64 `json:"joined_at"`
+		InvitedBy int64 `json:"invited_by"`
+	}
+	FamilyMemberListResp {
+		Family FamilyInfoResp `json:"family"`
+		List []FamilyMemberItem `json:"list"`
+	}
+	DeviceShareCreateReq {
+		DeviceSn string `json:"device_sn"`
+		TargetUserId int64 `json:"target_user_id,optional"`
+		TargetAccount string `json:"target_account,optional"`
+		ShareType string `json:"share_type,optional"`
+		PermissionLevel string `json:"permission_level,optional"`
+		Permission string `json:"permission,optional"`
+		StartAt int64 `json:"start_at,optional"`
+		EndAt int64 `json:"end_at,optional"`
+		Remark string `json:"remark,optional"`
+	}
+	DeviceShareAcceptReq {
+		InviteCode string `json:"invite_code"`
+	}
+	DeviceShareRevokeReq {
+		ShareId int64 `json:"share_id"`
+	}
+	DeviceShareQuitReq {
+		ShareId int64 `json:"share_id"`
+	}
+	DeviceShareDetailReq {
+		ShareId int64 `form:"share_id"`
+	}
+	DeviceShareItem {
+		ShareId int64 `json:"share_id"`
+		FamilyId int64 `json:"family_id"`
+		DeviceId int64 `json:"device_id"`
+		DeviceSn string `json:"device_sn"`
+		DeviceName string `json:"device_name"`
+		OwnerUserId int64 `json:"owner_user_id"`
+		OwnerNickname string `json:"owner_nickname,optional"`
+		SharedUserId int64 `json:"shared_user_id"`
+		SharedNickname string `json:"shared_user_nickname,optional"`
+		TargetAccount string `json:"target_account,optional"`
+		InviteCode string `json:"invite_code,optional"`
+		ShareType string `json:"share_type"`
+		PermissionLevel string `json:"permission_level"`
+		Permission string `json:"permission,optional"`
+		Status string `json:"status"`
+		FamilyName string `json:"family_name,optional"`
+		StartAt int64 `json:"start_at,optional"`
+		EndAt int64 `json:"end_at,optional"`
+		CreatedAt int64 `json:"created_at"`
+		ConfirmedAt int64 `json:"confirmed_at,optional"`
+	}
+	DeviceShareListResp {
+		List []DeviceShareItem `json:"list"`
+	}
+)
+
+service user-api {
+	@doc "发送验证码（邮箱或手机二选一，1分钟有效，1分钟最多3条，超过提示3分钟后重试）"
+	@handler sendVerifyCode
+	post /api/v1/user/verify/send (SendVerifyCodeReq) returns (SendVerifyCodeResp)
+
+	@doc "用户注册（需先发验证码；按邮箱/手机判断是否已注册；密码加盐存储）"
+	@handler register
+	post /api/v1/user/register (RegisterReq) returns (RegisterResp)
+
+	@doc "统一登录：account 或 email/mobile + password（密码登录）或 verify_code（验证码登录/静默注册，先发 verify/send scene=login）；微信/Google 走 OAuth"
+	@handler login
+	post /api/v1/user/login (LoginReq) returns (LoginResp)
+
+	@doc "刷新 Token：使用 refresh_token 换取新的 access_token（无需重新登录）"
+	@handler refreshToken
+	post /api/v1/user/token/refresh (RefreshTokenReq) returns (RefreshTokenResp)
+
+	@doc "忘记旧密码：邮箱/手机号发送验证码后，验证验证码重置密码（新密码需输入两次且一致，且不能与旧密码一致）"
+	@handler resetPassword
+	post /api/v1/user/password/reset (ResetPasswordReq) returns (UserInfo)
+
+	@doc "微信 OAuth 直接登录（授权后回调，自动创建/绑定用户并返回 token，无需单独注册）"
+	@handler oauthWechatCallback
+	get /api/v1/user/oauth/wechat/callback (OAuthCallbackReq) returns (OAuthLoginResp)
+
+	@doc "Google OAuth 直接登录（授权后回调，自动创建/绑定用户并返回 token，无需单独注册）"
+	@handler oauthGoogleCallback
+	get /api/v1/user/oauth/google/callback (OAuthCallbackReq) returns (OAuthLoginResp)
+}
+
+@server (
+	jwt:    Auth
+	prefix: /api/v1/user
+)
+service user-api {
+	@doc "更新用户基本信息（Header 携带 token，从 JWT 解析用户；body 传 nickname/avatar 等可选字段，勿传 user_id）"
+	@handler updateUserInfo
+	put /info (UpdateUserInfoReq) returns (UserInfo)
+
+	@doc "修改密码：验证旧密码后修改（新密码需输入两次且一致，且不能与旧密码一致）"
+	@handler changePassword
+	put /password/change (ChangePasswordReq) returns (UserInfo)
+
+	@doc "绑定邮箱/手机号（已登录，邮箱或手机号二选一 + 验证码；验证码校验成功后进行绑定）"
+	@handler bindContact
+	put /bind (BindContactReq) returns (UserInfo)
+
+	@doc "查询当前登录用户会员档案与权益（仅本人；含等级名称/排序、档案到期、开通时间、权益列表）"
+	@handler getUserMemberBenefits
+	get /member/benefits returns (UserMemberBenefitsResp)
+
+	@doc "会员中心：会员状态与权益（与 benefits 一致，含 is_expired）"
+	@handler getUserMemberInfo
+	get /member/info returns (UserMemberBenefitsResp)
+
+	@doc "会员套餐预下单：package_code 为上架套餐编码；pay_type 1微信 2支付宝 3余额"
+	@handler createMemberOrder
+	post /member/create_order (CreateMemberOrderReq) returns (CreateMemberOrderResp)
+
+	@doc "发起支付：余额直接成功；微信/支付宝返回 mock 调起参数，支付成功后由回调履约"
+	@handler payMemberOrder
+	post /member/pay (PayMemberOrderReq) returns (PayMemberOrderResp)
+
+	@doc "查询自动续费意向（占位字段，非真实代扣）"
+	@handler getMemberAutoRenew
+	get /member/auto_renew returns (MemberAutoRenewInfoResp)
+
+	@doc "设置自动续费开关与意向套餐/支付方式（需已有 user_member 行；不真实扣款）"
+	@handler setMemberAutoRenew
+	post /member/auto_renew (SetMemberAutoRenewReq) returns (MemberAutoRenewInfoResp)
+
+	@doc "会员退订：当前周期内仍有效，到期后终止；关闭自动续费并记录原因"
+	@handler unsubscribeMember
+	post /member/unsubscribe (MemberUnsubscribeReq) returns (MemberUnsubscribeResp)
+
+	@doc "撤销会员退订标记（不自动恢复自动续费）"
+	@handler revokeMemberUnsubscribe
+	post /member/unsubscribe/revoke (MemberUnsubscribeRevokeReq) returns (MemberUnsubscribeResp)
+
+	@doc "绑定已注册设备（JWT；device_sn 全局唯一；已被他人绑定返回冲突；本人重复绑定返回提示）"
+	@handler bindUserDevice
+	post /device/bind (BindUserDeviceReq) returns (BindUserDeviceResp)
+
+	@doc "解绑设备（仅本人已绑定设备）"
+	@handler unbindUserDevice
+	post /device/unbind (UnbindUserDeviceReq) returns (UnbindUserDeviceResp)
+
+	@doc "查询当前用户已绑定设备（可选筛选：device_name 绑定别名、device_sn 序列号、device_model 设备表型号；多条件 AND）"
+	@handler listUserDevices
+	get /device/list (ListUserDevicesReq) returns (ListUserDevicesResp)
+
+	@doc "显式创建家庭"
+	@handler createFamily
+	post /family/create (FamilyCreateReq) returns (FamilyInfoResp)
+
+	@doc "查询当前家庭"
+	@handler getCurrentFamily
+	get /family/current returns (FamilyInfoResp)
+
+	@doc "邀请家庭成员"
+	@handler inviteFamilyMember
+	post /family/member/invite (FamilyMemberInviteReq) returns (FamilyMemberInviteResp)
+
+	@doc "接受家庭邀请"
+	@handler acceptFamilyMember
+	post /family/member/accept (FamilyMemberAcceptReq) returns (FamilyInfoResp)
+
+	@doc "移除家庭成员"
+	@handler removeFamilyMember
+	post /family/member/remove (FamilyMemberRemoveReq)
+
+	@doc "更新家庭成员角色"
+	@handler updateFamilyMemberRole
+	post /family/member/role/update (FamilyMemberRoleUpdateReq)
+
+	@doc "查询家庭成员列表"
+	@handler listFamilyMembers
+	get /family/member/list returns (FamilyMemberListResp)
+
+	@doc "创建设备共享邀请"
+	@handler createDeviceShare
+	post /device/share/create (DeviceShareCreateReq) returns (DeviceShareItem)
+
+	@doc "接受设备共享邀请"
+	@handler acceptDeviceShare
+	post /device/share/accept (DeviceShareAcceptReq) returns (DeviceShareItem)
+
+	@doc "撤销设备共享"
+	@handler revokeDeviceShare
+	post /device/share/revoke (DeviceShareRevokeReq)
+
+	@doc "退出设备共享"
+	@handler quitDeviceShare
+	post /device/share/quit (DeviceShareQuitReq)
+
+	@doc "查询我发出的共享"
+	@handler listSentDeviceShares
+	get /device/share/sent returns (DeviceShareListResp)
+
+	@doc "查询我收到的共享"
+	@handler listReceivedDeviceShares
+	get /device/share/received returns (DeviceShareListResp)
+
+	@doc "查询共享详情"
+	@handler getDeviceShareDetail
+	get /device/share/detail (DeviceShareDetailReq) returns (DeviceShareItem)
+
+	@doc "换绑邮箱/手机号（已登录：旧账号验证码通过 + 新账号验证码通过后完成换绑）"
+	@handler rebindContact
+	put /rebind (RebindContactReq) returns (UserInfo)
+
+	@doc "实名换绑：旧邮箱/手机不可收码时，凭姓名+身份证号+新号验证码（scene=bind）换绑；须已通过个人身份证实名"
+	@handler realnameRebind
+	put /rebind/realname (RealnameRebindReq) returns (UserInfo)
+
+	@doc "提交实名认证（Mock/三方核验 + 可选人工审核）"
+	@handler submitRealName
+	post /realname/submit (RealNameSubmitReq) returns (RealNameSubmitResp)
+
+	@doc "查询实名认证总状态"
+	@handler getRealNameStatus
+	get /realname/status returns (RealNameStatusResp)
+
+	@doc "获取最近一次实名提交的脱敏审核信息"
+	@handler getRealNameAuditInfo
+	get /realname/audit returns (RealNameAuditInfoResp)
+
+	@doc "申请注销账号（校验后进入冷静期，并吊销 refresh token）"
+	@handler applyAccountCancellation
+	post /cancellation/apply (ApplyAccountCancellationReq) returns (ApplyAccountCancellationResp)
+
+	@doc "撤销注销申请（仅冷静期内）"
+	@handler withdrawAccountCancellation
+	post /cancellation/withdraw returns (WithdrawAccountCancellationResp)
+
+	@doc "查询注销状态：normal / cooling_off / cancelled"
+	@handler getAccountCancellationStatus
+	get /cancellation/status returns (GetAccountCancellationStatusResp)
+
+	@doc "注销二次确认页说明文案"
+	@handler getAccountCancellationConfirm
+	get /cancellation/confirm returns (GetAccountCancellationConfirmResp)
+}
+

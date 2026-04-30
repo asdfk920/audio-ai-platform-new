@@ -1,0 +1,81 @@
+Name: api-gateway
+Host: 0.0.0.0
+Port: 8080
+
+# 日志配置
+Log:
+  Level: info
+  Format: json
+
+# JWT 认证配置
+JWT:
+  Secret: audio-ai-platform-gateway-secret
+  ExpireHours: 24
+  # 不需要认证的路由白名单（支持通配符）
+  SkipPaths:
+    - /api/v1/user/login
+    - /api/v1/user/register
+    - /api/v1/user/refresh-token
+    - /health
+
+# 限流配置
+RateLimit:
+  # 全局限流：每秒请求数
+  GlobalRPS: 1000
+  # IP 限流：每个 IP 每秒请求数
+  IPRPS: 100
+  # 用户限流：每个用户每秒请求数
+  UserRPS: 50
+  # 限流窗口大小（秒）
+  WindowSeconds: 1
+
+# 路由配置：将请求转发到对应微服务
+Routes:
+  # 后台管理服务
+  - PathPrefix: "/api/v1/platform-"
+    Target: "http://127.0.0.1:8000"
+    Timeout: 30s
+    Name: admin-service
+    
+  # 用户服务
+  - PathPrefix: "/api/v1/user"
+    Target: "http://127.0.0.1:8001"
+    Timeout: 15s
+    Name: user-service
+    
+  # 内容服务
+  - PathPrefix: "/api/v1/content"
+    Target: "http://127.0.0.1:8003"
+    Timeout: 20s
+    Name: content-service
+
+# CORS 配置
+CORS:
+  AllowOrigins:
+    - "http://localhost:9527"
+    - "http://127.0.0.1:9527"
+    - "*"
+  AllowMethods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+    - PATCH
+  AllowHeaders:
+    - Origin
+    - Content-Type
+    - Accept
+    - Authorization
+    - X-Requested-With
+  ExposeHeaders:
+    - Content-Length
+    - Content-Type
+  MaxAge: 86400
+  AllowCredentials: true
+
+# Redis 配置（用于限流）
+Redis:
+  Addr: localhost:6379
+  Password: ""
+  DB: 0

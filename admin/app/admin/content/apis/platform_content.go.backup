@@ -1,0 +1,1393 @@
+﻿package apis
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/go-admin-team/go-admin-core/sdk/api"
+	"github.com/go-admin-team/go-admin-core/sdk/pkg/jwtauth/user"
+	"github.com/google/uuid"
+
+	"go-admin/app/admin/models"
+	"go-admin/common/file_store"
+)
+
+// PlatformContent 骞冲彴鍐呭绠＄悊 API
+type PlatformContent struct {
+	api.Api
+}
+
+// List 鍚庡彴鍐呭鍒嗛〉鍒楄〃
+// @Summary 鍚庡彴鍐呭鍒嗛〉鍒楄〃
+// @Tags 骞冲彴鍐呭
+// @Param page query int false "椤电爜(榛樿1)"
+// @Param page_size query int false "姣忛〉鏉℃暟(榛樿10)"
+// @Param title query string false "鏍囬妯＄硦"
+// @Param artist query string false "鑹烘湳瀹舵ā绯?
+// @Param category_id query int false "鍒嗙被ID"
+// @Param vip_level query int false "浼氬憳绛夌骇"
+// @Param status query int false "鐘舵€?0/1/2)"
+// @Param is_delete query int false "鏄惁鍒犻櫎(0/1;榛樿0)"
+// @Router /api/v1/platform-content/list [get]
+// @Security Bearer
+func (e PlatformContent) List(c *gin.Context) {
+	if err := e.MakeContext(c).MakeOrm().Errors; err != nil {
+		e.Error(500, err, "鏈嶅姟鍒濆鍖栧け璐?)
+		return
+	}
+
+	page, _ := strconv.Atoi(strings.TrimSpace(c.DefaultQuery("page", "1")))
+	if page <= 0 {
+		page = 1
+	}
+	pageSize, _ := strconv.Atoi(strings.TrimSpace(c.DefaultQuery("page_size", "10")))
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+	if pageSize > 200 {
+		pageSize = 200
+	}
+
+	title := strings.TrimSpace(c.Query("title"))
+	artist := strings.TrimSpace(c.Query("artist"))
+	categoryID := strings.TrimSpace(c.Query("category_id"))
+	vipLevel := strings.TrimSpace(c.Query("vip_level"))
+	status := strings.TrimSpace(c.Query("status"))
+	isDelete := strings.TrimSpace(c.DefaultQuery("is_delete", "0"))
+
+	base := e.Orm.Table("content")
+	// 榛樿鍙煡鏈垹闄わ紱鍏佽鍚庡彴浼?is_delete=1 鏌ョ湅宸插垹闄?
+	if isDelete == "" {
+		isDelete = "0"
+	}
+	if isDelete == "0" || isDelete == "1" {
+		base = base.Where("is_deleted = ?", isDelete)
+	} else {
+		e.Error(400, errors.New("bad request"), "is_delete 鍙兘鏄?0 鎴?1")
+		return
+	}
+
+	if title != "" {
+		base = base.Where("title ILIKE ?", "%"+title+"%")
+	}
+	if artist != "" {
+		base = base.Where("artist ILIKE ?", "%"+artist+"%")
+	}
+	if categoryID != "" {
+		n, err := strconv.ParseInt(categoryID, 10, 64)
+		if err != nil || n < 0 {
+			e.Error(400, err, "category_id 鏃犳晥")
+			return
+		}
+		if n == 0 {
+			base = base.Where("category_id IS NULL")
+		} else {
+			base = base.Where("category_id = ?", n)
+		}
+	}
+	if vipLevel != "" {
+		n, err := strconv.ParseInt(vipLevel, 10, 16)
+		if err != nil || n < 0 || n > 3 {
+			e.Error(400, err, "vip_level 鏃犳晥")
+			return
+		}
+		base = base.Where("vip_level = ?", n)
+	}
+	if status != "" {
+		n, err := strconv.ParseInt(status, 10, 16)
+		if err != nil || n < 0 || n > 3 {
+			e.Error(400, err, "status 鏃犳晥")
+			return
+		}
+		base = base.Where("status = ?", n)
+	}
+
+	var total int64
+	if err := base.Count(&total).Error; err != nil {
+		e.Error(500, err, "鏌ヨ鎬绘暟澶辫触")
+		return
+	}
+
+	offset := (page - 1) * pageSize
+	type row struct {
+		ID         int64     `gorm:"column:id"`
+		Title      string    `gorm:"column:title"`
+		Artist     string    `gorm:"column:artist"`
+		CoverURL   string    `gorm:"column:cover_url"`
+		Duration   int       `gorm:"column:duration_sec"`
+		VipLevel   int16     `gorm:"column:vip_level"`
+		Status     int16     `gorm:"column:status"`
+		IsDeleted  int16     `gorm:"column:is_deleted"`
+		CategoryID *int64    `gorm:"column:category_id"`
+		SortOrder  int       `gorm:"column:sort_order"`
+		CreatedAt  time.Time `gorm:"column:created_at"`
+		UpdatedAt  time.Time `gorm:"column:updated_at"`
+	}
+	var rows []row
+	if err := base.
+		Select("id,title,artist,cover_url,duration_sec,vip_level,status,is_deleted,category_id,sort_order,created_at,updated_at").
+		Order("sort_order DESC, updated_at DESC, id DESC").
+		Limit(pageSize).
+		Offset(offset).
+		Scan(&rows).Error; err != nil {
+		e.Error(500, err, "鏌ヨ鍒楄〃澶辫触")
+		return
+	}
+
+	// 鎵归噺鍏宠仈鍒嗙被鍚?
+	catName := map[int64]string{}
+	{
+		var catIDs []int64
+		seen := map[int64]bool{}
+		for _, r := range rows {
+			if r.CategoryID != nil && *r.CategoryID > 0 && !seen[*r.CategoryID] {
+				seen[*r.CategoryID] = true
+				catIDs = append(catIDs, *r.CategoryID)
+			}
+		}
+		if len(catIDs) > 0 {
+			var cats []struct {
+				ID   int64  `gorm:"column:id"`
+				Name string `gorm:"column:name"`
+			}
+			_ = e.Orm.Table("content_category").Select("id,name").Where("id IN ?", catIDs).Scan(&cats).Error
+			for _, c2 := range cats {
+				catName[c2.ID] = strings.TrimSpace(c2.Name)
+			}
+		}
+	}
+
+	// 鎵归噺鍏宠仈鏍囩鍚嶏紙杩斿洖 string 鍒楄〃锛?
+	tagMap := map[int64][]string{}
+	{
+		var cids []int64
+		for _, r := range rows {
+			cids = append(cids, r.ID)
+		}
+		if len(cids) > 0 {
+			type tagRow struct {
+				ContentID int64  `gorm:"column:content_id"`
+				TagName   string `gorm:"column:tag_name"`
+			}
+			var trs []tagRow
+			_ = e.Orm.Raw(`
+SELECT ctr.content_id, ct.tag_name
+FROM content_tag_relation ctr
+INNER JOIN content_tag ct ON ct.id = ctr.tag_id
+WHERE ctr.content_id IN ?
+ORDER BY ct.id ASC`, cids).Scan(&trs).Error
+			for _, tr := range trs {
+				tagMap[tr.ContentID] = append(tagMap[tr.ContentID], strings.TrimSpace(tr.TagName))
+			}
+		}
+	}
+
+	out := make([]gin.H, 0, len(rows))
+	for _, r := range rows {
+		var cat string
+		if r.CategoryID != nil && *r.CategoryID > 0 {
+			cat = catName[*r.CategoryID]
+		}
+		out = append(out, gin.H{
+			"id":            r.ID,
+			"title":         r.Title,
+			"artist":        r.Artist,
+			"cover_url":     r.CoverURL,
+			"duration":      r.Duration,
+			"vip_level":     r.VipLevel,
+			"vip_text":      vipText(int32(r.VipLevel)),
+			"status":        r.Status,
+			"status_text":   statusText(int32(r.Status)),
+			"is_delete":     r.IsDeleted,
+			"category_name": cat,
+			"tag_list":      tagMap[r.ID],
+			"create_time":   r.CreatedAt.Format("2006-01-02 15:04:05"),
+			"update_time":   r.UpdatedAt.Format("2006-01-02 15:04:05"),
+			"operator":      "",
+		})
+	}
+
+	e.OK(gin.H{
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+		"list":      out,
+	}, "success")
+}
+
+func statusText(st int32) string {
+	switch st {
+	case 0:
+		return "鏈笂鏋?
+	case 1:
+		return "宸蹭笂鏋?
+	case 2:
+		return "宸蹭笅鏋?
+	case 3:
+		return "瀹℃牳涓?
+	default:
+		return "鏈煡"
+	}
+}
+
+func vipText(v int32) string {
+	if v <= 0 {
+		return "鍏嶈垂"
+	}
+	return "浼氬憳涓撲韩"
+}
+
+// Detail 鍚庡彴鍐呭璇︽儏锛堣繑鍥炲叏閲忓瓧娈?+ 鍒嗙被鍚?+ 鏍囩锛?
+// @Summary 鍚庡彴鍐呭璇︽儏
+// @Tags 骞冲彴鍐呭
+// @Param content_id query int true "鍐呭ID"
+// @Router /api/v1/platform-content/detail [get]
+// @Security Bearer
+func (e PlatformContent) Detail(c *gin.Context) {
+	if err := e.MakeContext(c).MakeOrm().Errors; err != nil {
+		e.Error(500, err, "鏈嶅姟鍒濆鍖栧け璐?)
+		return
+	}
+
+	s := strings.TrimSpace(c.Query("content_id"))
+	if s == "" {
+		e.Error(400, errors.New("bad request"), "content_id 涓嶈兘涓虹┖")
+		return
+	}
+	contentID, err := strconv.ParseInt(s, 10, 64)
+	if err != nil || contentID <= 0 {
+		e.Error(400, err, "content_id 鏃犳晥")
+		return
+	}
+
+	// 1) 鏌ヨ鍐呭鍏ㄩ噺瀛楁锛堝厑璁告煡鐪嬪凡鍒犻櫎/宸蹭笅鏋讹級
+	type contentRow struct {
+		ID         int64           `gorm:"column:id"`
+		Title      string          `gorm:"column:title"`
+		Artist     string          `gorm:"column:artist"`
+		Duration   int             `gorm:"column:duration_sec"`
+		CoverURL   string          `gorm:"column:cover_url"`
+		AudioURL   string          `gorm:"column:audio_url"`
+		Format     string          `gorm:"column:format"`
+		SizeBytes  int64           `gorm:"column:size_bytes"`
+		CategoryID *int64          `gorm:"column:category_id"`
+		VipLevel   int16           `gorm:"column:vip_level"`
+		Status     int16           `gorm:"column:status"`
+		IsDeleted  int16           `gorm:"column:is_deleted"`
+		SortOrder  int             `gorm:"column:sort_order"`
+		SpatialRaw json.RawMessage `gorm:"column:spatial_params"`
+		CreatedAt  time.Time       `gorm:"column:created_at"`
+		UpdatedAt  time.Time       `gorm:"column:updated_at"`
+	}
+	var row contentRow
+	if err := e.Orm.Table("content").
+		Select("id,title,artist,duration_sec,cover_url,audio_url,format,COALESCE(size_bytes,0) AS size_bytes,category_id,vip_level,status,is_deleted,sort_order,spatial_params,created_at,updated_at").
+		Where("id = ?", contentID).
+		Limit(1).
+		Scan(&row).Error; err != nil {
+		e.Error(500, err, "鏌ヨ鍐呭澶辫触")
+		return
+	}
+	if row.ID == 0 {
+		e.Error(404, errors.New("not found"), "鍐呭涓嶅瓨鍦?)
+		return
+	}
+
+	// 2) 鍒嗙被鍚嶇О
+	categoryName := ""
+	if row.CategoryID != nil && *row.CategoryID > 0 {
+		var cat struct {
+			Name string `gorm:"column:name"`
+		}
+		_ = e.Orm.Table("content_category").Select("name").Where("id = ?", *row.CategoryID).Limit(1).Scan(&cat).Error
+		categoryName = strings.TrimSpace(cat.Name)
+	}
+
+	// 3) 鏍囩鍒楄〃
+	type tagItem struct {
+		TagID   int64  `json:"tag_id" gorm:"column:tag_id"`
+		TagName string `json:"tag_name" gorm:"column:tag_name"`
+	}
+	var tags []tagItem
+	_ = e.Orm.Raw(`
+SELECT ct.id AS tag_id, ct.tag_name
+FROM content_tag_relation ctr
+INNER JOIN content_tag ct ON ct.id = ctr.tag_id
+WHERE ctr.content_id = ?
+ORDER BY ct.id ASC`, contentID).Scan(&tags).Error
+
+	// operator 瀛楁褰撳墠 content 琛ㄦ棤瀵瑰簲鍒楋紙淇濈暀杩斿洖瀛楁浣嗙疆绌猴紝渚夸簬鍚庣画鎵╁睍锛?
+	operator := ""
+
+	e.OK(gin.H{
+		"id":            row.ID,
+		"title":         row.Title,
+		"artist":        row.Artist,
+		"duration":      row.Duration,
+		"cover_url":     row.CoverURL,
+		"audio_url":     row.AudioURL,
+		"format":        row.Format,
+		"file_size":     row.SizeBytes,
+		"category_id":   row.CategoryID,
+		"category_name": categoryName,
+		"vip_level":     row.VipLevel,
+		"spatial_params": func() any {
+			if len(row.SpatialRaw) == 0 {
+				return nil
+			}
+			return row.SpatialRaw
+		}(),
+		"status":      row.Status,
+		"is_delete":   row.IsDeleted,
+		"sort":        row.SortOrder,
+		"tag_list":    tags,
+		"create_time": row.CreatedAt.Format("2006-01-02 15:04:05"),
+		"update_time": row.UpdatedAt.Format("2006-01-02 15:04:05"),
+		"operator":    operator,
+	}, "success")
+}
+
+// Online 鍐呭涓婃灦锛堝箓绛夛級
+// @Summary 鍐呭涓婃灦
+// @Tags 骞冲彴鍐呭
+// @Accept application/json
+// @Accept multipart/form-data
+// @Param content_id formData int true "鍐呭ID"
+// @Router /api/v1/platform-content/online [post]
+// @Security Bearer
+func (e PlatformContent) Online(c *gin.Context) {
+	if err := e.MakeContext(c).MakeOrm().Errors; err != nil {
+		e.Error(500, err, "鏈嶅姟鍒濆鍖栧け璐?)
+		return
+	}
+
+	// 鍏煎锛歠orm 鎴?json
+	var contentID int64
+	if s := strings.TrimSpace(c.PostForm("content_id")); s != "" {
+		n, err := strconv.ParseInt(s, 10, 64)
+		if err == nil {
+			contentID = n
+		}
+	} else {
+		var body struct {
+			ContentID int64 `json:"content_id"`
+		}
+		_ = c.ShouldBindJSON(&body)
+		contentID = body.ContentID
+	}
+	if contentID <= 0 {
+		e.Error(400, errors.New("bad request"), "content_id 涓嶈兘涓虹┖")
+		return
+	}
+
+	// 璇诲彇褰撳墠鐘舵€侊紝鏍￠獙鏄惁宸插垹闄?
+	var row struct {
+		ID        int64 `gorm:"column:id"`
+		Status    int32 `gorm:"column:status"`
+		IsDeleted int16 `gorm:"column:is_deleted"`
+	}
+	if err := e.Orm.Table("content").
+		Select("id, status, is_deleted").
+		Where("id = ?", contentID).
+		Limit(1).
+		Scan(&row).Error; err != nil {
+		e.Error(500, err, "鏌ヨ鍐呭澶辫触")
+		return
+	}
+	if row.ID == 0 || row.IsDeleted != 0 {
+		e.Error(404, errors.New("not found"), "鍐呭涓嶅瓨鍦ㄦ垨宸插垹闄?)
+		return
+	}
+
+	// 鐘舵€佹祦杞細浠呭厑璁?0/2 -> 1锛? 骞傜瓑锛涘叾浠栫姸鎬佹嫆缁?
+	if row.Status == 1 {
+		// 骞傜瓑锛氬凡涓婃灦鐩存帴鎴愬姛锛屽悓鏃跺埛鏂扮紦瀛橈紙閬垮厤鍚庡彴鍏堟敼浜嗚祫婧?URL锛?
+		go e.refreshContentCaches(contentID)
+		e.OK(gin.H{"content_id": contentID}, "鍐呭涓婃灦鎴愬姛")
+		return
+	}
+	if row.Status != 0 && row.Status != 2 {
+		e.Error(400, errors.New("bad request"), "褰撳墠鐘舵€佷笉鍏佽涓婃灦")
+		return
+	}
+
+	if err := e.Orm.Table("content").
+		Where("id = ? AND is_deleted = 0", contentID).
+		Updates(map[string]any{
+			"status":     1,
+			"updated_at": time.Now(),
+		}).Error; err != nil {
+		e.Error(500, err, "鍐呭涓婃灦澶辫触")
+		return
+	}
+
+	// 璁板綍鎿嶄綔鏃ュ織
+	go func() {
+		operator := user.GetUserId(c)
+		ipAddress := c.ClientIP()
+		userAgent := c.Request.UserAgent()
+
+		log := models.ContentLog{
+			ContentId:     contentID,
+			Operator:      fmt.Sprintf("%d", operator),
+			Operation:     "publish",
+			ChangedFields: `{"status":1}`,
+			IpAddress:     ipAddress,
+			UserAgent:     userAgent,
+			CreateBy:      operator,
+		}
+
+		if err := e.Orm.Create(&log).Error; err != nil {
+			e.Logger.Errorf("璁板綍鍐呭涓婃灦鏃ュ織澶辫触锛?v", err)
+		}
+	}()
+
+	// 鍒锋柊鍐呭鏈嶅姟缂撳瓨锛氳鎯呯紦瀛?+ 鍒楄〃/鎺ㄨ崘缂撳瓨鐗堟湰锛坆est-effort锛?
+	go e.refreshContentCaches(contentID)
+
+	e.OK(gin.H{"content_id": contentID}, "鍐呭涓婃灦鎴愬姛")
+}
+
+// Offline 鍐呭涓嬫灦锛堝箓绛夛級
+// @Summary 鍐呭涓嬫灦
+// @Tags 骞冲彴鍐呭
+// @Accept application/json
+// @Accept multipart/form-data
+// @Param content_id formData int true "鍐呭ID"
+// @Router /api/v1/platform-content/offline [post]
+// @Security Bearer
+func (e PlatformContent) Offline(c *gin.Context) {
+	if err := e.MakeContext(c).MakeOrm().Errors; err != nil {
+		e.Error(500, err, "鏈嶅姟鍒濆鍖栧け璐?)
+		return
+	}
+
+	// 鍏煎锛歠orm 鎴?json
+	var contentID int64
+	if s := strings.TrimSpace(c.PostForm("content_id")); s != "" {
+		n, err := strconv.ParseInt(s, 10, 64)
+		if err == nil {
+			contentID = n
+		}
+	} else {
+		var body struct {
+			ContentID int64 `json:"content_id"`
+		}
+		_ = c.ShouldBindJSON(&body)
+		contentID = body.ContentID
+	}
+	if contentID <= 0 {
+		e.Error(400, errors.New("bad request"), "content_id 涓嶈兘涓虹┖")
+		return
+	}
+
+	// 璇诲彇褰撳墠鐘舵€侊紝鏍￠獙鏄惁宸插垹闄?
+	var row struct {
+		ID        int64 `gorm:"column:id"`
+		Status    int32 `gorm:"column:status"`
+		IsDeleted int16 `gorm:"column:is_deleted"`
+	}
+	if err := e.Orm.Table("content").
+		Select("id, status, is_deleted").
+		Where("id = ?", contentID).
+		Limit(1).
+		Scan(&row).Error; err != nil {
+		e.Error(500, err, "鏌ヨ鍐呭澶辫触")
+		return
+	}
+	if row.ID == 0 || row.IsDeleted != 0 {
+		e.Error(404, errors.New("not found"), "鍐呭涓嶅瓨鍦ㄦ垨宸插垹闄?)
+		return
+	}
+
+	// 骞傜瓑锛氬凡涓嬫灦鐩存帴鎴愬姛锛屼絾浠嶅埛鏂扮紦瀛橈紙閬垮厤璇︽儏缂撳瓨娈嬬暀锛?
+	if row.Status == 2 {
+		go e.refreshContentCaches(contentID)
+		e.OK(gin.H{"content_id": contentID}, "鍐呭涓嬫灦鎴愬姛")
+		return
+	}
+
+	if err := e.Orm.Table("content").
+		Where("id = ? AND is_deleted = 0", contentID).
+		Updates(map[string]any{
+			"status":     2,
+			"updated_at": time.Now(),
+		}).Error; err != nil {
+		e.Error(500, err, "鍐呭涓嬫灦澶辫触")
+		return
+	}
+
+	// 璁板綍鎿嶄綔鏃ュ織
+	go func() {
+		operator := user.GetUserId(c)
+		ipAddress := c.ClientIP()
+		userAgent := c.Request.UserAgent()
+
+		log := models.ContentLog{
+			ContentId:     contentID,
+			Operator:      fmt.Sprintf("%d", operator),
+			Operation:     "unpublish",
+			ChangedFields: `{"status":2}`,
+			IpAddress:     ipAddress,
+			UserAgent:     userAgent,
+			CreateBy:      operator,
+		}
+
+		if err := e.Orm.Create(&log).Error; err != nil {
+			e.Logger.Errorf("璁板綍鍐呭涓嬫灦鏃ュ織澶辫触锛?v", err)
+		}
+	}()
+
+	go e.refreshContentCaches(contentID)
+	e.OK(gin.H{"content_id": contentID}, "鍐呭涓嬫灦鎴愬姛")
+}
+
+// Delete 鍐呭杞垹锛堝箓绛夛級
+// @Summary 鍒犻櫎鍐呭锛堣蒋鍒狅級
+// @Tags 骞冲彴鍐呭
+// @Accept application/json
+// @Accept multipart/form-data
+// @Param content_id formData int true "鍐呭ID"
+// @Router /api/v1/platform-content/delete [post]
+// @Security Bearer
+func (e PlatformContent) Delete(c *gin.Context) {
+	if err := e.MakeContext(c).MakeOrm().Errors; err != nil {
+		e.Error(500, err, "鏈嶅姟鍒濆鍖栧け璐?)
+		return
+	}
+
+	// 鍏煎锛歠orm 鎴?json
+	var contentID int64
+	if s := strings.TrimSpace(c.PostForm("content_id")); s != "" {
+		n, err := strconv.ParseInt(s, 10, 64)
+		if err == nil {
+			contentID = n
+		}
+	} else {
+		var body struct {
+			ContentID int64 `json:"content_id"`
+		}
+		_ = c.ShouldBindJSON(&body)
+		contentID = body.ContentID
+	}
+	if contentID <= 0 {
+		e.Error(400, errors.New("bad request"), "content_id 涓嶈兘涓虹┖")
+		return
+	}
+
+	// 鑻ヤ笉瀛樺湪锛氭寜骞傜瓑鍙繑鍥炴垚鍔燂紝涔熷彲 404锛涜繖閲屾寜浣犳枃妗ｂ€滃啀娆″垹闄や笉鎶ラ敊鈥濆鐞嗕负鎴愬姛
+	var row struct {
+		ID        int64 `gorm:"column:id"`
+		IsDeleted int16 `gorm:"column:is_deleted"`
+	}
+	if err := e.Orm.Table("content").
+		Select("id, is_deleted").
+		Where("id = ?", contentID).
+		Limit(1).
+		Scan(&row).Error; err != nil {
+		e.Error(500, err, "鏌ヨ鍐呭澶辫触")
+		return
+	}
+	if row.ID == 0 {
+		e.OK(gin.H{"content_id": contentID}, "鍒犻櫎鍐呭鎴愬姛")
+		return
+	}
+	if row.IsDeleted != 0 {
+		// 骞傜瓑锛氬凡鍒犻櫎鐩存帴鎴愬姛锛屼絾浠嶅埛鏂扮紦瀛?
+		go e.refreshContentCaches(contentID)
+
+	// 检查是否被收藏引用
+
+	var favoriteCount int64
+
+\tif err := e.Orm.Table("user_favorite_content").
+
+		Where("content_id = ? AND deleted_at IS NULL", contentID).
+
+		Count(&favoriteCount).Error; err != nil {
+
+	\te.Error(500, err, "检查收藏引用失败")
+
+	\treturn
+
+	}
+
+\tif favoriteCount > 0 {
+
+\t\te.Error(400, errors.New("bad request"),
+
+	\t\tfmt.Sprintf("内容已被 %d 个用户收藏，无法删除", favoriteCount))
+
+\t\treturn
+
+\t}
+
+
+
+\t// 检查是否有下载记录
+
+\tvar downloadCount int64
+
+\tif err := e.Orm.Table("user_download").
+
+		Where("content_id = ? AND deleted_at IS NULL", contentID).
+
+		Count(&downloadCount).Error; err != nil {
+
+	\te.Error(500, err, "检查下载引用失败")
+
+	\treturn
+
+	}
+
+\tif downloadCount > 0 {
+
+\t\te.Error(400, errors.New("bad request"),
+
+	\t\tfmt.Sprintf("内容已被下载 %d 次，无法删除", downloadCount))
+
+\t\treturn
+
+\t}
+
+
+
+\t// 检查是否有播放记录（最近 30 天）
+
+\tthirtyDaysAgo := time.Now().AddDate(0, 0, -30)
+
+\tvar playCount int64
+
+\tif err := e.Orm.Table("user_play_record").
+
+		Where("content_id = ? AND play_time >= ?", contentID, thirtyDaysAgo).
+
+		Count(&playCount).Error; err != nil {
+
+	\te.Error(500, err, "检查播放引用失败")
+
+	\treturn
+
+	}
+
+\tif playCount > 0 {
+
+\t\te.Error(400, errors.New("bad request"),
+
+	\t\tfmt.Sprintf("内容在最近 30 天有 %d 次播放记录，无法删除", playCount))
+
+\t\treturn
+
+\t}
+		Where("id = ? AND is_deleted = 0", contentID).
+		Updates(map[string]any{
+			"is_deleted": 1,
+			"status":     2, // 鍒犻櫎鍚庡己鍒朵笅鏋讹紝纭繚鍓嶇鍏ュ彛闅愯棌
+			"updated_at": time.Now(),
+		}).Error; err != nil {
+		e.Error(500, err, "鍒犻櫎鍐呭澶辫触")
+		return
+	}
+
+	// 璁板綍鎿嶄綔鏃ュ織
+	go func() {
+		operator := user.GetUserId(c)
+		ipAddress := c.ClientIP()
+		userAgent := c.Request.UserAgent()
+
+		log := models.ContentLog{
+			ContentId:     contentID,
+			Operator:      fmt.Sprintf("%d", operator),
+			Operation:     "delete",
+			ChangedFields: `{"is_deleted":1,"status":2}`,
+			IpAddress:     ipAddress,
+			UserAgent:     userAgent,
+			CreateBy:      operator,
+		}
+
+		if err := e.Orm.Create(&log).Error; err != nil {
+			e.Logger.Errorf("璁板綍鍐呭鍒犻櫎鏃ュ織澶辫触锛?v", err)
+		}
+	}()
+
+	go e.refreshContentCaches(contentID)
+	e.OK(gin.H{"content_id": contentID}, "鍒犻櫎鍐呭鎴愬姛")
+}
+
+// Update 缂栬緫鍐呭锛堟敮鎸侀儴鍒嗘洿鏂帮級
+// @Summary 缂栬緫鍐呭
+// @Tags 骞冲彴鍐呭
+// @Accept multipart/form-data
+// @Param content_id formData int true "鍐呭ID"
+// @Param title formData string false "鏍囬"
+// @Param artist formData string false "鑹烘湳瀹?
+// @Param category_id formData int false "鍒嗙被ID"
+// @Param tag_ids formData string false "鏍囩ID鍒楄〃(閫楀彿鍒嗛殧锛涗紶绌哄瓧绗︿覆琛ㄧず娓呯┖)"
+// @Param vip_level formData int false "浼氬憳绛夌骇(0/1/2/3)"
+// @Param duration formData int false "鏃堕暱(绉?"
+// @Param spatial_params formData string false "绌洪棿鍙傛暟JSON"
+// @Param cover formData file false "灏侀潰鏂囦欢"
+// @Param audio formData file false "闊抽鏂囦欢"
+// @Param cover_url formData string false "灏侀潰URL(鍙浛浠ｆ枃浠?"
+// @Param audio_url formData string false "闊抽URL(鍙浛浠ｆ枃浠?"
+// @Param status formData int false "鐘舵€?0鑽夌/1涓婃灦/2涓嬫灦)"
+// @Router /api/v1/platform-content/update [post]
+// @Security Bearer
+func (e PlatformContent) Update(c *gin.Context) {
+	if err := e.MakeContext(c).MakeOrm().Errors; err != nil {
+		e.Error(500, err, "鏈嶅姟鍒濆鍖栧け璐?)
+		return
+	}
+
+	cidStr, ok := c.GetPostForm("content_id")
+	if !ok || strings.TrimSpace(cidStr) == "" {
+		e.Error(400, errors.New("bad request"), "content_id 涓嶈兘涓虹┖")
+		return
+	}
+	contentID, err := strconv.ParseInt(strings.TrimSpace(cidStr), 10, 64)
+	if err != nil || contentID <= 0 {
+		e.Error(400, err, "content_id 鏃犳晥")
+		return
+	}
+
+	// 鍐呭瀛樺湪涓旀湭鍒犻櫎
+	var exists int64
+	if err := e.Orm.Table("content").Where("id = ? AND is_deleted = 0", contentID).Count(&exists).Error; err != nil {
+		e.Error(500, err, "鏌ヨ鍐呭澶辫触")
+		return
+	}
+	if exists == 0 {
+		e.Error(404, errors.New("not found"), "鍐呭涓嶅瓨鍦ㄦ垨宸插垹闄?)
+		return
+	}
+
+	updates := make(map[string]any)
+
+	if v, has := c.GetPostForm("title"); has {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			e.Error(400, errors.New("bad request"), "title 涓嶅厑璁镐负绌?)
+			return
+		}
+		updates["title"] = v
+	}
+	if v, has := c.GetPostForm("artist"); has {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			e.Error(400, errors.New("bad request"), "artist 涓嶅厑璁镐负绌?)
+			return
+		}
+		updates["artist"] = v
+	}
+	if v, has := c.GetPostForm("category_id"); has {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			updates["category_id"] = nil
+		} else {
+			n, err := strconv.ParseInt(v, 10, 64)
+			if err != nil || n < 0 {
+				e.Error(400, err, "category_id 鏃犳晥")
+				return
+			}
+			updates["category_id"] = n
+		}
+	}
+	if v, has := c.GetPostForm("vip_level"); has {
+		n, err := parseIntRange(v, 0, 3)
+		if err != nil {
+			e.Error(400, err, "vip_level 蹇呴』鏄?0/1/2/3")
+			return
+		}
+		updates["vip_level"] = n
+	}
+	if v, has := c.GetPostForm("duration"); has {
+		n, err := parseIntRange(v, 1, 24*60*60)
+		if err != nil {
+			e.Error(400, err, "duration 蹇呴』 > 0")
+			return
+		}
+		updates["duration_sec"] = n
+	}
+	if v, has := c.GetPostForm("status"); has {
+		n, err := parseIntRange(v, 0, 2)
+		if err != nil {
+			e.Error(400, err, "status 鍙兘鏄?0/1/2")
+			return
+		}
+		updates["status"] = n
+	}
+	if v, has := c.GetPostForm("spatial_params"); has {
+		v = strings.TrimSpace(v)
+		if v != "" {
+			var anyVal any
+			if err := json.Unmarshal([]byte(v), &anyVal); err != nil {
+				e.Error(400, err, "spatial_params 蹇呴』鏄悎娉?JSON")
+				return
+			}
+			updates["spatial_params"] = json.RawMessage(v)
+		} else {
+			updates["spatial_params"] = nil
+		}
+	}
+
+	coverURL, coverURLHas := c.GetPostForm("cover_url")
+	audioURL, audioURLHas := c.GetPostForm("audio_url")
+	coverURL = strings.TrimSpace(coverURL)
+	audioURL = strings.TrimSpace(audioURL)
+
+	// 鍙€夛細閲嶆柊涓婁紶 cover/audio 鏂囦欢
+	if fh, err := c.FormFile("cover"); err == nil && fh != nil {
+		u, upErr := e.uploadFormFile(c, fh, "content/cover")
+		if upErr != nil {
+			e.Error(400, upErr, upErr.Error())
+			return
+		}
+		coverURL = u
+		coverURLHas = true
+	}
+	if fh, err := c.FormFile("audio"); err == nil && fh != nil {
+		u, upErr := e.uploadFormFile(c, fh, "content/audio")
+		if upErr != nil {
+			e.Error(400, upErr, upErr.Error())
+			return
+		}
+		audioURL = u
+		audioURLHas = true
+	}
+
+	if coverURLHas {
+		if coverURL == "" {
+			e.Error(400, errors.New("bad request"), "cover_url 涓嶅厑璁镐负绌?)
+			return
+		}
+		if !looksLikeURL(coverURL) {
+			e.Error(400, errors.New("bad request"), "cover_url 鏍煎紡鏃犳晥")
+			return
+		}
+		updates["cover_url"] = coverURL
+	}
+	if audioURLHas {
+		if audioURL == "" {
+			e.Error(400, errors.New("bad request"), "audio_url 涓嶅厑璁镐负绌?)
+			return
+		}
+		if !looksLikeURL(audioURL) {
+			e.Error(400, errors.New("bad request"), "audio_url 鏍煎紡鏃犳晥")
+			return
+		}
+		updates["audio_url"] = audioURL
+	}
+
+	tagIDsRaw, tagIDsHas := c.GetPostForm("tag_ids")
+
+	if len(updates) == 0 && !tagIDsHas {
+		e.Error(400, errors.New("bad request"), "鏈彁渚涗换浣曞彲鏇存柊瀛楁")
+		return
+	}
+
+	updates["updated_at"] = time.Now()
+
+	tx := e.Orm.Begin()
+	if tx.Error != nil {
+		e.Error(500, tx.Error, "寮€鍚簨鍔″け璐?)
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	if len(updates) > 0 {
+		if err := tx.Table("content").Where("id = ? AND is_deleted = 0", contentID).Updates(updates).Error; err != nil {
+			tx.Rollback()
+			e.Error(500, err, "鏇存柊鍐呭澶辫触")
+			return
+		}
+	}
+
+	// 鏇存柊鏍囩锛氳嫢浼?tag_ids锛堝嵆浣夸负绌猴級灏辫鐩?
+	if tagIDsHas {
+		if err := tx.Exec(`DELETE FROM content_tag_relation WHERE content_id = ?`, contentID).Error; err != nil {
+			tx.Rollback()
+			e.Error(500, err, "娓呯悊鏃ф爣绛惧け璐?)
+			return
+		}
+		tagIDs := parseCSVInt64(tagIDsRaw)
+		for _, tid := range tagIDs {
+			_ = tx.Exec(`INSERT INTO content_tag_relation (content_id, tag_id, created_at) VALUES (?, ?, NOW())
+ON CONFLICT (content_id, tag_id) DO NOTHING`, contentID, tid).Error
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		e.Error(500, err, "鎻愪氦浜嬪姟澶辫触")
+		return
+	}
+
+	// 璁板綍鎿嶄綔鏃ュ織
+	go func() {
+		operator := user.GetUserId(c)
+		ipAddress := c.ClientIP()
+		userAgent := c.Request.UserAgent()
+
+		// 鏋勫缓淇敼瀛楁鍒楄〃锛堟帓闄?updated_at锛?
+		changedFields := make(map[string]interface{})
+		for k, v := range updates {
+			if k != "updated_at" {
+				changedFields[k] = v
+			}
+		}
+
+		// 搴忓垪鍖栦慨鏀圭殑瀛楁
+		changedFieldsJSON, _ := json.Marshal(changedFields)
+
+		// 鍐欏叆鏃ュ織
+		log := models.ContentLog{
+			ContentId:     contentID,
+			Operator:      fmt.Sprintf("%d", operator),
+			Operation:     "update",
+			ChangedFields: string(changedFieldsJSON),
+			IpAddress:     ipAddress,
+			UserAgent:     userAgent,
+			CreateBy:      operator,
+		}
+
+		if err := e.Orm.Create(&log).Error; err != nil {
+			e.Logger.Errorf("璁板綍鍐呭鏇存柊鏃ュ織澶辫触锛?v", err)
+		}
+	}()
+
+	// 鍒锋柊鍐呭鏈嶅姟缂撳瓨锛氳鎯呯紦瀛?+ 鍒楄〃/鎺ㄨ崘缂撳瓨鐗堟湰锛坆est-effort锛?
+	go e.refreshContentCaches(contentID)
+
+	e.OK(gin.H{"content_id": contentID}, "缂栬緫鍐呭鎴愬姛")
+}
+
+func looksLikeURL(s string) bool {
+	s = strings.TrimSpace(s)
+	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "/")
+}
+
+func (e PlatformContent) refreshContentCaches(contentID int64) {
+	base := strings.TrimSpace(os.Getenv("CONTENT_SERVICE_BASE_URL"))
+	secret := strings.TrimSpace(os.Getenv("CONTENT_INTERNAL_SECRET"))
+	if base == "" || secret == "" {
+		return
+	}
+	base = strings.TrimRight(base, "/")
+
+	// 1) 鍒犻櫎璇︽儏缂撳瓨
+	body, _ := json.Marshal(map[string]any{"content_id": contentID})
+	req1, _ := http.NewRequest(http.MethodPost, base+"/api/v1/content/internal/del-detail-cache", bytes.NewReader(body))
+	req1.Header.Set("Content-Type", "application/json")
+	req1.Header.Set("X-Internal-Secret", secret)
+
+	// 2) bump 鍒楄〃/鎺ㄨ崘缂撳瓨鐗堟湰
+	req2, _ := http.NewRequest(http.MethodPost, base+"/api/v1/content/internal/bump-list-cache", nil)
+	req2.Header.Set("X-Internal-Secret", secret)
+
+	client := &http.Client{Timeout: 2 * time.Second}
+	_, _ = client.Do(req1)
+	_, _ = client.Do(req2)
+}
+
+// Add 鏂板鍐呭
+// @Summary 鏂板鍐呭
+// @Tags 骞冲彴鍐呭
+// @Accept multipart/form-data
+// @Param title formData string true "鏍囬"
+// @Param artist formData string true "鑹烘湳瀹?
+// @Param category_id formData int false "鍒嗙被ID"
+// @Param tag_ids formData string false "鏍囩ID鍒楄〃(閫楀彿鍒嗛殧)"
+// @Param vip_level formData int true "浼氬憳绛夌骇(0/1/2/3)"
+// @Param duration formData int true "鏃堕暱(绉?"
+// @Param spatial_params formData string false "绌洪棿鍙傛暟JSON"
+// @Param cover formData file false "灏侀潰鏂囦欢"
+// @Param audio formData file false "闊抽鏂囦欢"
+// @Param cover_url formData string false "灏侀潰URL(鍙浛浠ｆ枃浠?"
+// @Param audio_url formData string false "闊抽URL(鍙浛浠ｆ枃浠?"
+// @Param status formData int true "鐘舵€?0鑽夌/1涓婃灦)"
+// @Router /api/v1/platform-content/add [post]
+// @Security Bearer
+func (e PlatformContent) Add(c *gin.Context) {
+	if err := e.MakeContext(c).MakeOrm().Errors; err != nil {
+		e.Error(500, err, "鏈嶅姟鍒濆鍖栧け璐?)
+		return
+	}
+
+	title := strings.TrimSpace(c.PostForm("title"))
+	artist := strings.TrimSpace(c.PostForm("artist"))
+	if title == "" || artist == "" {
+		e.Error(400, errors.New("bad request"), "title/artist 涓嶈兘涓虹┖")
+		return
+	}
+
+	vipLevel, err := parseIntRange(c.PostForm("vip_level"), 0, 3)
+	if err != nil {
+		e.Error(400, err, "vip_level 蹇呴』鏄?0/1/2/3")
+		return
+	}
+	duration, err := parseIntRange(c.PostForm("duration"), 1, 24*60*60)
+	if err != nil {
+		e.Error(400, err, "duration 蹇呴』 > 0")
+		return
+	}
+	status, err := parseIntRange(c.PostForm("status"), 0, 1)
+	if err != nil {
+		e.Error(400, err, "status 鍙兘鏄?0 鎴?1")
+		return
+	}
+
+	var categoryID *int64
+	if s := strings.TrimSpace(c.PostForm("category_id")); s != "" {
+		n, err := strconv.ParseInt(s, 10, 64)
+		if err != nil || n < 0 {
+			e.Error(400, err, "category_id 鏃犳晥")
+			return
+		}
+		categoryID = &n
+	}
+
+	spatial := strings.TrimSpace(c.PostForm("spatial_params"))
+	if spatial != "" {
+		var anyVal any
+		if err := json.Unmarshal([]byte(spatial), &anyVal); err != nil {
+			e.Error(400, err, "spatial_params 蹇呴』鏄悎娉?JSON")
+			return
+		}
+	}
+
+	coverURL := strings.TrimSpace(c.PostForm("cover_url"))
+	audioURL := strings.TrimSpace(c.PostForm("audio_url"))
+
+	// 鍏佽鐩存帴浼犳枃浠讹細cover/audio
+	if fh, err := c.FormFile("cover"); err == nil && fh != nil {
+		u, upErr := e.uploadFormFile(c, fh, "content/cover")
+		if upErr != nil {
+			e.Error(400, upErr, upErr.Error())
+			return
+		}
+		coverURL = u
+	}
+	if fh, err := c.FormFile("audio"); err == nil && fh != nil {
+		u, upErr := e.uploadFormFile(c, fh, "content/audio")
+		if upErr != nil {
+			e.Error(400, upErr, upErr.Error())
+			return
+		}
+		audioURL = u
+	}
+
+	if coverURL == "" || audioURL == "" {
+		e.Error(400, errors.New("bad request"), "cover_url/audio_url 涓嶈兘涓虹┖锛堟垨涓婁紶 cover/audio 鏂囦欢锛?)
+		return
+	}
+
+	tagIDs := parseCSVInt64(c.PostForm("tag_ids"))
+
+	now := time.Now()
+	op := user.GetUserId(c)
+
+	// 鍐?content 琛紙public.content锛?
+	type contentRow struct {
+		ID int64 `gorm:"column:id"`
+	}
+	// format/size 杩欓噷涓嶅己鍒惰姹傦紝鑻ヤ笂浼犳枃浠跺彲浠?header 鎺ㄦ柇锛涙澶勫厛钀界┖
+	insert := map[string]any{
+		"title":          title,
+		"artist":         artist,
+		"cover_url":      coverURL,
+		"audio_url":      audioURL,
+		"duration_sec":   duration,
+		"vip_level":      vipLevel,
+		"sort_order":     0,
+		"status":         status,
+		"is_deleted":     0,
+		"created_at":     now,
+		"updated_at":     now,
+		"spatial_params": nullJSON(spatial),
+	}
+	if categoryID != nil && *categoryID > 0 {
+		insert["category_id"] = *categoryID
+	}
+
+	tx := e.Orm.Begin()
+	if tx.Error != nil {
+		e.Error(500, tx.Error, "寮€鍚簨鍔″け璐?)
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	if err := tx.Table("content").Create(insert).Error; err != nil {
+		tx.Rollback()
+		e.Error(500, err, "鍐欏叆鍐呭澶辫触")
+		return
+	}
+	var cid int64
+	_ = tx.Raw("SELECT currval(pg_get_serial_sequence('content','id'))").Scan(&cid).Error
+	if cid <= 0 {
+		// 鍏滃簳锛氭寜 title+time 鍙栨渶鏂颁竴鏉★紙鏋佺骞跺彂涓嬩笉涓ユ牸锛?
+		_ = tx.Table("content").Select("id").Where("title = ?").Order("id DESC").Limit(1).Scan(&contentRow{}).Error
+	}
+
+	// 鏍囩鍏宠仈锛氭柊澧炴椂浠呮彃鍏?
+	for _, tid := range tagIDs {
+		_ = tx.Exec(`INSERT INTO content_tag_relation (content_id, tag_id, created_at) VALUES (?, ?, NOW())
+ON CONFLICT (content_id, tag_id) DO NOTHING`, cid, tid).Error
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		e.Error(500, err, "鎻愪氦浜嬪姟澶辫触")
+		return
+	}
+
+	// 璁板綍鎿嶄綔鏃ュ織
+	go func() {
+		operator := user.GetUserId(c)
+		ipAddress := c.ClientIP()
+		userAgent := c.Request.UserAgent()
+
+		// 鏋勫缓鍒涘缓瀛楁鍒楄〃
+		createdFields := map[string]interface{}{
+			"title":        title,
+			"artist":       artist,
+			"cover_url":    coverURL,
+			"audio_url":    audioURL,
+			"duration_sec": duration,
+			"vip_level":    vipLevel,
+			"status":       status,
+		}
+		if categoryID != nil && *categoryID > 0 {
+			createdFields["category_id"] = *categoryID
+		}
+		if spatial != "" {
+			createdFields["spatial_params"] = json.RawMessage(spatial)
+		}
+
+		// 搴忓垪鍖栧瓧娈?
+		createdFieldsJSON, _ := json.Marshal(createdFields)
+
+		// 鍐欏叆鏃ュ織
+		log := models.ContentLog{
+			ContentId:     cid,
+			Operator:      fmt.Sprintf("%d", operator),
+			Operation:     "create",
+			ChangedFields: string(createdFieldsJSON),
+			IpAddress:     ipAddress,
+			UserAgent:     userAgent,
+			CreateBy:      operator,
+		}
+
+		if err := e.Orm.Create(&log).Error; err != nil {
+			e.Logger.Errorf("璁板綍鍐呭鍒涘缓鏃ュ織澶辫触锛?v", err)
+		}
+	}()
+
+	// 鍒锋柊鍐呭鏈嶅姟缂撳瓨锛坆est-effort锛屼笉褰卞搷涓绘祦绋嬶級
+	go e.bumpContentServiceCache()
+
+	e.OK(gin.H{"content_id": cid, "operator": op}, "鏂板鍐呭鎴愬姛")
+}
+
+func parseIntRange(s string, min, max int) (int, error) {
+	s = strings.TrimSpace(s)
+	n, err := strconv.Atoi(s)
+	if err != nil || n < min || n > max {
+		return 0, fmt.Errorf("invalid")
+	}
+	return n, nil
+}
+
+func parseCSVInt64(s string) []int64 {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]int64, 0, len(parts))
+	seen := map[int64]bool{}
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		n, err := strconv.ParseInt(p, 10, 64)
+		if err != nil || n <= 0 {
+			continue
+		}
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+func nullJSON(s string) any {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	return json.RawMessage(s)
+}
+
+// uploadFormFile 浣跨敤涓庡叕鍏变笂浼犲悓婧愮殑 local/oss 閰嶇疆涓婁紶鏂囦欢锛岃繑鍥炲彲璁块棶 URL銆?
+func (e PlatformContent) uploadFormFile(c *gin.Context, fh *multipart.FileHeader, prefix string) (string, error) {
+	ext := strings.ToLower(filepath.Ext(fh.Filename))
+	size := fh.Size
+
+	// 绠€鍗曟牎楠岋細灏侀潰/闊抽鍒嗗埆鎸夌洰褰曞墠缂€鍖哄垎
+	if strings.Contains(prefix, "cover") {
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+			return "", fmt.Errorf("灏侀潰鏍煎紡浠呮敮鎸?jpg/png/webp")
+		}
+		if size > 10<<20 {
+			return "", fmt.Errorf("灏侀潰瓒呰繃闄愬埗锛堟渶澶?10MB锛?)
+		}
+	} else {
+		if ext != ".mp3" && ext != ".wav" && ext != ".flac" && ext != ".aac" {
+			return "", fmt.Errorf("闊抽鏍煎紡浠呮敮鎸?mp3/wav/flac/aac")
+		}
+		if size > 100<<20 {
+			return "", fmt.Errorf("闊抽瓒呰繃闄愬埗锛堟渶澶?100MB锛?)
+		}
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	buf := &bytes.Buffer{}
+	if _, err := io.Copy(buf, f); err != nil {
+		return "", err
+	}
+
+	day := time.Now().Format("20060102")
+	name := uuid.NewString()
+	objectKey := fmt.Sprintf("%s/%s/%s%s", strings.TrimRight(prefix, "/"), day, name, ext)
+
+	driver := strings.ToLower(strings.TrimSpace(os.Getenv("UPLOAD_STORAGE_DRIVER")))
+	if driver == "" {
+		driver = strings.ToLower(strings.TrimSpace(e.sysConfigValue("upload_storage_driver")))
+		if driver == "" {
+			driver = "local"
+		}
+	}
+
+	switch driver {
+	case "oss":
+		// 浠呭疄鐜?OSS锛堜笌鍏叡涓婁紶涓€鑷寸殑 env/sys_config 閿級
+		endpoint := firstNonEmpty(os.Getenv("OSS_ENDPOINT"), e.sysConfigValue("upload_storage_oss_endpoint"))
+		bucket := firstNonEmpty(os.Getenv("OSS_BUCKET_NAME"), e.sysConfigValue("upload_storage_oss_bucket"))
+		ak := strings.TrimSpace(os.Getenv("OSS_ACCESS_KEY_ID"))
+		sk := strings.TrimSpace(os.Getenv("OSS_ACCESS_KEY_SECRET"))
+		if endpoint == "" || bucket == "" || ak == "" || sk == "" {
+			return "", fmt.Errorf("oss 閰嶇疆缂哄け")
+		}
+
+		tmp, err := os.CreateTemp("", "admin-content-upload-*"+ext)
+		if err != nil {
+			return "", err
+		}
+		tmpPath := tmp.Name()
+		if _, err := tmp.Write(buf.Bytes()); err != nil {
+			tmp.Close()
+			_ = os.Remove(tmpPath)
+			return "", err
+		}
+		_ = tmp.Close()
+		defer os.Remove(tmpPath)
+
+		var eng file_store.ALiYunOSS
+		if err := eng.Setup(endpoint, ak, sk, bucket); err != nil {
+			return "", err
+		}
+		if err := eng.UpLoad(objectKey, tmpPath); err != nil {
+			return "", err
+		}
+		return e.publicURL(objectKey, c), nil
+	default:
+		// local锛氳惤鐩?static/uploadfile/ 涓?
+		baseDir := "static/uploadfile"
+		full := filepath.Join(baseDir, filepath.FromSlash(objectKey))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			return "", err
+		}
+		if err := os.WriteFile(full, buf.Bytes(), 0o644); err != nil {
+			return "", err
+		}
+		// public URL
+		return e.publicURL("/"+strings.TrimLeft(filepath.ToSlash(full), "/"), c), nil
+	}
+}
+
+func (e PlatformContent) sysConfigValue(key string) string {
+	key = strings.TrimSpace(key)
+	if key == "" || e.Orm == nil {
+		return ""
+	}
+	type row struct {
+		ConfigValue string `gorm:"column:config_value"`
+	}
+	var r row
+	_ = e.Orm.Table("sys_config").Select("config_value").
+		Where("deleted_at IS NULL AND config_key = ?", key).
+		Limit(1).
+		Scan(&r).Error
+	return strings.TrimSpace(r.ConfigValue)
+}
+
+func (e PlatformContent) publicURL(objectKey string, c *gin.Context) string {
+	base := strings.TrimSpace(os.Getenv("OSS_PUBLIC_BASE_URL"))
+	if base == "" {
+		base = e.sysConfigValue("upload_storage_public_base_url")
+	}
+	if base == "" {
+		// 閫€鍖栦负鏈湇鍔?host 鍓嶇紑
+		base = fmt.Sprintf("%s://%s", "http", c.Request.Host)
+	}
+	base = strings.TrimRight(base, "/")
+	objectKey = strings.TrimLeft(strings.TrimSpace(objectKey), "/")
+	return base + "/" + objectKey
+}
+
+func firstNonEmpty(a, b string) string {
+	if strings.TrimSpace(a) != "" {
+		return strings.TrimSpace(a)
+	}
+	return strings.TrimSpace(b)
+}
+
+func (e PlatformContent) bumpContentServiceCache() {
+	// 閫氳繃鐜鍙橀噺娉ㄥ叆鍐呭鏈嶅姟鍦板潃涓?secret锛堥伩鍏嶆妸 secret 鍐欏叆 repo锛?
+	base := strings.TrimSpace(os.Getenv("CONTENT_SERVICE_BASE_URL"))
+	secret := strings.TrimSpace(os.Getenv("CONTENT_INTERNAL_SECRET"))
+	if base == "" || secret == "" {
+		return
+	}
+	base = strings.TrimRight(base, "/")
+	req, _ := http.NewRequest(http.MethodPost, base+"/api/v1/content/internal/bump-list-cache", nil)
+	req.Header.Set("X-Internal-Secret", secret)
+	client := &http.Client{Timeout: 2 * time.Second}
+	_, _ = client.Do(req)
+}

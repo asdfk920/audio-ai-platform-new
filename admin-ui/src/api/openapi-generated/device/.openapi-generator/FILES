@@ -1,0 +1,17 @@
+.gitignore
+.npmignore
+.openapi-generator-ignore
+api.ts
+base.ts
+common.ts
+configuration.ts
+docs/BindDevice200Response.md
+docs/BindDeviceRequest.md
+docs/DefaultApi.md
+docs/GetDeviceList200Response.md
+docs/GetDeviceList200ResponseListInner.md
+docs/GetPlaylist200Response.md
+docs/GetPlaylist200ResponseListInner.md
+docs/HeartbeatRequest.md
+git_push.sh
+index.ts

@@ -1,0 +1,1 @@
+{"sessionId":"046601","runId":"pre-fix","hypothesisId":"H2_route_registered","location":"routes.go:RegisterHandlers","message":"registering routes (realname submit expected)","data":{"expectedMethod":"POST","expectedPath":"/api/v1/user/realname/submit"},"timestamp":1776309508580}

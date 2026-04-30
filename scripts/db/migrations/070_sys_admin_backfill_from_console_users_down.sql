@@ -1,0 +1,2 @@
+-- 回填无法无损回滚（未打标记区分手工行）。若需清空：仅限确认环境手动执行 truncate/delete）。
+-- TRUNCATE sys_admin RESTART IDENTITY;  -- 慎用
