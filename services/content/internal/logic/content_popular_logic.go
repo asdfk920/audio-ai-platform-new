@@ -241,15 +241,16 @@ func (l *ContentPopularLogic) getPlayStats(startTime *time.Time) (map[int64]int6
 	if startTime != nil {
 		query = `
 			SELECT content_id, COUNT(*) as play_count
-			FROM content_play_records
-			WHERE play_start_time >= $1
+			FROM play_history
+			WHERE started_at >= $1 AND status = 2
 			GROUP BY content_id
 		`
 		args = append(args, *startTime)
 	} else {
 		query = `
 			SELECT content_id, COUNT(*) as play_count
-			FROM content_play_records
+			FROM play_history
+			WHERE status = 2
 			GROUP BY content_id
 		`
 	}
@@ -314,8 +315,8 @@ func (l *ContentPopularLogic) getRecentPlayStats(days int) (map[int64]int64, err
 
 	query := `
 		SELECT content_id, COUNT(*) as recent_count
-		FROM content_play_records
-		WHERE play_start_time >= $1
+		FROM play_history
+		WHERE started_at >= $1 AND status = 2
 		GROUP BY content_id
 	`
 

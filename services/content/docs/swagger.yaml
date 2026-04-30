@@ -1,0 +1,335 @@
+basePath: /api/v1/content
+definitions:
+  types.PlayStartReq:
+    properties:
+      content_id:
+        description: 歌曲ID（必填）
+        type: integer
+      device_info:
+        description: 设备信息（可选）
+        type: string
+    type: object
+  types.SubscribeNotifyReq:
+    properties:
+      content_id:
+        description: 内容ID（必填）
+        type: integer
+      jump_url:
+        description: 跳转链接（可选）
+        type: string
+      notify_type:
+        description: 通知类型：1-新歌发布 2-专辑更新 3-动态（默认1）
+        type: integer
+      title:
+        description: 内容标题（必填）
+        type: string
+    type: object
+  types.SubscribeReq:
+    properties:
+      content_id:
+        description: 音频ID（必填）
+        type: integer
+      type:
+        description: 订阅类型：1-歌曲 2-歌手 3-专辑（可选，默认1）
+        type: integer
+    type: object
+  types.UnsubscribeReq:
+    properties:
+      content_id:
+        description: 音频ID（必填）
+        type: integer
+      type:
+        description: 订阅类型：1-歌曲 2-歌手 3-专辑（可选，默认1）
+        type: integer
+    type: object
+host: localhost:8003
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: 音频AI平台内容微服务接口文档，包含歌曲管理、播放记录、搜索、订阅、歌单、通知等功能
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: 内容微服务API文档
+  version: "1.0"
+paths:
+  /{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除歌曲，管理员或上传者才能删除，需要登录
+      parameters:
+      - description: 歌曲ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 无权限
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 歌曲不存在
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除歌曲
+      tags:
+      - 内容管理
+  /{id}/notify:
+    post:
+      consumes:
+      - application/json
+      description: 内容发布时触发通知给订阅用户（内部接口或管理员调用），需要登录
+      parameters:
+      - description: 内容ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 通知请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.SubscribeNotifyReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 发送订阅通知
+      tags:
+      - 通知管理
+  /{id}/subscribe:
+    delete:
+      consumes:
+      - application/json
+      description: 用户取消订阅歌曲/歌手/专辑，需要登录
+      parameters:
+      - description: 音频ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 取消订阅请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.UnsubscribeReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 取消订阅音频
+      tags:
+      - 订阅管理
+    post:
+      consumes:
+      - application/json
+      description: 用户订阅歌曲/歌手/专辑，需要登录
+      parameters:
+      - description: 音频ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 订阅请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.SubscribeReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 音频不存在
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 订阅音频
+      tags:
+      - 订阅管理
+  /artists/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 查看歌手详细信息，包含热门歌曲、专辑列表等
+      parameters:
+      - description: 歌手ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 歌手不存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取歌手详情
+      tags:
+      - 歌手管理
+  /play/start:
+    post:
+      consumes:
+      - application/json
+      description: 记录播放开始并返回播放地址，需要登录
+      parameters:
+      - description: 播放请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.PlayStartReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 播放开始
+      tags:
+      - 播放管理
+  /subscriptions:
+    get:
+      consumes:
+      - application/json
+      description: 查看用户订阅的音频列表，支持分页和类型筛选，需要登录
+      parameters:
+      - default: 1
+        description: 页码
+        format: int32
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        format: int32
+        in: query
+        name: page_size
+        type: integer
+      - description: 订阅类型：1-歌曲 2-歌手 3-专辑
+        format: int32
+        in: query
+        name: type
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取订阅列表
+      tags:
+      - 订阅管理
+securityDefinitions:
+  BearerAuth:
+    description: 请输入Bearer Token
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

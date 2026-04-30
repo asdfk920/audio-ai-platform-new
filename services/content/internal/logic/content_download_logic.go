@@ -167,14 +167,14 @@ func (l *ContentDownloadLogic) GetDownloadList(req *types.DownloadListReq, userI
 // formatStatus 格式化状态
 func (l *ContentDownloadLogic) formatStatus(status int16) string {
 	switch status {
-	case 1:
-		return "已完成"
-	case 2:
-		return "进行中"
-	case 3:
-		return "已取消"
 	case 0:
-		return "失败"
+		return "待下载"
+	case 1:
+		return "下载中"
+	case 2:
+		return "下载中"
+	case 3:
+		return "已下载"
 	default:
 		return "未知"
 	}

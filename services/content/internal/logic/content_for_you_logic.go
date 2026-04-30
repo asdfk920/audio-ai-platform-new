@@ -462,8 +462,9 @@ func (l *ContentForYouLogic) hotContentSupplement(userVipLevel int16, excludeIDs
 	}
 
 	rows, err := db.
-		Joins("LEFT JOIN content_play_records pr ON c.id = pr.content_id").
-		Order("COALESCE(pr.play_count, 0) DESC").
+		Joins("LEFT JOIN play_history ph ON c.id = ph.content_id AND ph.status = 2").
+		Group("c.id").
+		Order("COUNT(ph.id) DESC").
 		Limit(limit).
 		Rows()
 	if err != nil {

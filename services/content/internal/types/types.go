@@ -271,16 +271,16 @@ type DownloadSyncListReq struct{}
 
 // DownloadSyncItem 待同步项
 type DownloadSyncItem struct {
-	RecordID      int64  `json:"record_id"`
-	ContentID     int64  `json:"content_id"`
-	Title         string `json:"title"`
-	ContentName   string `json:"content_name"`
-	CoverURL      string `json:"cover_url"`
-	Status        string `json:"status"`
-	SyncStatus    int16  `json:"sync_status"`
+	RecordID       int64  `json:"record_id"`
+	ContentID      int64  `json:"content_id"`
+	Title          string `json:"title"`
+	ContentName    string `json:"content_name"`
+	CoverURL       string `json:"cover_url"`
+	Status         string `json:"status"`
+	SyncStatus     int16  `json:"sync_status"`
 	SyncStatusText string `json:"sync_status_text"`
-	DownloadTime  string `json:"download_time"`
-	CreatedAt     string `json:"created_at"`
+	DownloadTime   string `json:"download_time"`
+	CreatedAt      string `json:"created_at"`
 }
 
 // DownloadSyncListResp 同步列表响应
@@ -307,4 +307,314 @@ type DownloadSyncConfirmResp struct {
 type DownloadSyncCancelReq struct {
 	IDs       []int64 `json:"ids"`
 	RecordIDs []int64 `json:"record_ids,omitempty"`
+}
+
+// DownloadCompleteReq 确认下载完成请求
+type DownloadCompleteReq struct {
+	ContentID int64  `json:"content_id"`
+	FileSize  int64  `json:"file_size"`
+	LocalPath string `json:"local_path"`
+}
+
+// DownloadCompleteResp 确认下载完成响应
+type DownloadCompleteResp struct {
+	Success     bool   `json:"success"`
+	Message     string `json:"message"`
+	RecordID    int64  `json:"record_id"`
+	Status      string `json:"status"`
+	CompletedAt string `json:"completed_at"`
+}
+
+// ContentLikeResp 点赞/取消点赞响应
+type ContentLikeResp struct {
+	Success   bool   `json:"success"`
+	Message   string `json:"message"`
+	Liked     bool   `json:"liked"`
+	LikeCount int64  `json:"like_count"`
+}
+
+// LikeListItem 点赞列表单条数据
+type LikeListItem struct {
+	ContentID    int64  `json:"content_id"`
+	Title        string `json:"title"`
+	Artist       string `json:"artist"`
+	CoverURL     string `json:"cover_url"`
+	Duration     int    `json:"duration"`
+	LikedAt      string `json:"liked_at"`
+	VipLevel     int16  `json:"vip_level"`
+	IsVipContent bool   `json:"is_vip_content"`
+}
+
+// LikeListResp 点赞列表响应
+type LikeListResp struct {
+	Total    int64          `json:"total"`
+	List     []LikeListItem `json:"list"`
+	Page     int32          `json:"page"`
+	PageSize int32          `json:"page_size"`
+}
+
+// PlaylistCreateReq 创建歌单请求
+type PlaylistCreateReq struct {
+	Name        string `json:"name" form:"name"`               // 歌单名称（必填）
+	Description string `json:"description" form:"description"` // 歌单描述（可选）
+	CoverURL    string `json:"cover_url" form:"cover_url"`     // 封面图片URL（可选）
+}
+
+// PlaylistCreateResp 创建歌单响应
+type PlaylistCreateResp struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	CoverURL    string `json:"cover_url"`
+	SongCount   int    `json:"song_count"`
+	CreatedAt   string `json:"created_at"`
+}
+
+// PlaylistAddSongReq 添加歌曲到歌单请求
+type PlaylistAddSongReq struct {
+	ContentID int64 `json:"content_id" form:"content_id"` // 歌曲ID（必填）
+}
+
+// PlaylistAddSongResp 添加歌曲到歌单响应
+type PlaylistAddSongResp struct {
+	Success   bool   `json:"success"`
+	Message   string `json:"message"`
+	SongCount int    `json:"song_count"`
+}
+
+// PlaylistUpdateReq 更新歌单请求
+type PlaylistUpdateReq struct {
+	Name        string `json:"name" form:"name"`               // 歌单名称（可选）
+	Description string `json:"description" form:"description"` // 歌单描述（可选）
+	CoverURL    string `json:"cover_url" form:"cover_url"`     // 封面图片URL（可选）
+	IsPublic    *int16 `json:"is_public" form:"is_public"`     // 可见性：0-私有 1-公开（可选）
+}
+
+// PlaylistUpdateResp 更新歌单响应
+type PlaylistUpdateResp struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	CoverURL    string `json:"cover_url"`
+	SongCount   int    `json:"song_count"`
+	IsPublic    int16  `json:"is_public"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+// PlaylistDeleteResp 删除歌单响应
+type PlaylistDeleteResp struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// SubscribeReq 订阅请求
+type SubscribeReq struct {
+	ContentID int64 `json:"content_id" form:"content_id"` // 音频ID（必填）
+	Type      int16 `json:"type" form:"type"`             // 订阅类型：1-歌曲 2-歌手 3-专辑（可选，默认1）
+}
+
+// SubscribeResp 订阅响应
+type SubscribeResp struct {
+	Success        bool   `json:"success"`
+	Message        string `json:"message"`
+	ContentID      int64  `json:"content_id"`
+	SubscribeCount int64  `json:"subscribe_count"` // 更新后的订阅数
+}
+
+// UnsubscribeReq 取消订阅请求
+type UnsubscribeReq struct {
+	ContentID int64 `json:"content_id" form:"content_id"` // 音频ID（必填）
+	Type      int16 `json:"type" form:"type"`             // 订阅类型：1-歌曲 2-歌手 3-专辑（可选，默认1）
+}
+
+// UnsubscribeResp 取消订阅响应
+type UnsubscribeResp struct {
+	Success        bool   `json:"success"`
+	Message        string `json:"message"`
+	ContentID      int64  `json:"content_id"`
+	SubscribeCount int64  `json:"subscribe_count"` // 更新后的订阅数
+}
+
+// SubscribeListItem 订阅列表项
+type SubscribeListItem struct {
+	ID            int64  `json:"id"`
+	ContentID     int64  `json:"content_id"`
+	Title         string `json:"title"`
+	Artist        string `json:"artist"`
+	CoverURL      string `json:"cover_url"`
+	Duration      int    `json:"duration"`
+	VipLevel      int16  `json:"vip_level"`
+	SubscribeType int16  `json:"subscribe_type"` // 1-歌曲 2-歌手 3-专辑
+	SubscribedAt  string `json:"subscribed_at"`
+}
+
+// SubscribeListResp 订阅列表响应
+type SubscribeListResp struct {
+	Total    int64               `json:"total"`
+	List     []SubscribeListItem `json:"list"`
+	Page     int32               `json:"page"`
+	PageSize int32               `json:"page_size"`
+}
+
+// ArtistDetailResp 歌手详情响应
+type ArtistDetailResp struct {
+	ID         int64             `json:"id"`
+	Name       string            `json:"name"`
+	AvatarURL  string            `json:"avatar_url"`
+	Bio        string            `json:"bio"`
+	FanCount   int64             `json:"fan_count"`
+	SongCount  int64             `json:"song_count"`
+	AlbumCount int64             `json:"album_count"`
+	TotalPlays int64             `json:"total_plays"`
+	HotSongs   []ArtistHotSong   `json:"hot_songs"` // 热门歌曲列表
+	Albums     []ArtistAlbumItem `json:"albums"`    // 专辑列表
+}
+
+// ArtistHotSong 歌手热门歌曲
+type ArtistHotSong struct {
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	CoverURL  string `json:"cover_url"`
+	Duration  int    `json:"duration"`
+	PlayCount int64  `json:"play_count"`
+	VipLevel  int16  `json:"vip_level"`
+}
+
+// ArtistAlbumItem 歌手专辑项
+type ArtistAlbumItem struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	CoverURL    string `json:"cover_url"`
+	SongCount   int    `json:"song_count"`
+	PublishedAt string `json:"published_at"`
+}
+
+// SubscribeNotifyReq 订阅通知请求
+type SubscribeNotifyReq struct {
+	ContentID  int64  `json:"content_id" form:"content_id"`   // 内容ID（必填）
+	Title      string `json:"title" form:"title"`             // 内容标题（必填）
+	NotifyType int16  `json:"notify_type" form:"notify_type"` // 通知类型：1-新歌发布 2-专辑更新 3-动态（默认1）
+	JumpURL    string `json:"jump_url" form:"jump_url"`       // 跳转链接（可选）
+}
+
+// SubscribeNotifyResp 订阅通知响应
+type SubscribeNotifyResp struct {
+	Success      bool   `json:"success"`
+	Message      string `json:"message"`
+	TotalSent    int64  `json:"total_sent"`    // 发送总数
+	SuccessCount int64  `json:"success_count"` // 成功数
+	FailCount    int64  `json:"fail_count"`    // 失败数
+	NotifyLogID  int64  `json:"notify_log_id"` // 通知日志ID
+}
+
+// NotifyLogItem 通知日志项
+type NotifyLogItem struct {
+	ID         int64  `json:"id"`
+	UserID     int64  `json:"user_id"`
+	ContentID  int64  `json:"content_id"`
+	NotifyType int16  `json:"notify_type"`
+	Status     int16  `json:"status"` // 0-待发送 1-已发送 2-发送失败
+	SentAt     string `json:"sent_at,omitempty"`
+	ErrorMsg   string `json:"error_msg,omitempty"`
+	CreatedAt  string `json:"created_at"`
+}
+
+// PlayStartReq 播放开始请求
+type PlayStartReq struct {
+	ContentID  int64  `json:"content_id" form:"content_id"`   // 歌曲ID（必填）
+	DeviceInfo string `json:"device_info" form:"device_info"` // 设备信息（可选）
+}
+
+// PlayStartResp 播放开始响应
+type PlayStartResp struct {
+	PlayID    int64  `json:"play_id"`    // 播放记录ID
+	PlayURL   string `json:"play_url"`   // 播放地址
+	StartedAt string `json:"started_at"` // 开始时间
+}
+
+// PlayProgressReq 播放进度请求
+type PlayProgressReq struct {
+	PlayID   int64 `json:"play_id" form:"play_id"`   // 播放记录ID（必填）
+	Progress int   `json:"progress" form:"progress"` // 当前进度（秒）
+	Duration int   `json:"duration" form:"duration"` // 总时长（秒，可选）
+}
+
+// PlayCompleteReq 播放完成请求
+type PlayCompleteReq struct {
+	PlayID   int64 `json:"play_id" form:"play_id"`   // 播放记录ID（必填）
+	Duration int   `json:"duration" form:"duration"` // 实际播放时长（秒）
+}
+
+// PlayCompleteResp 播放完成响应
+type PlayCompleteResp struct {
+	Success  bool   `json:"success"`
+	Message  string `json:"message"`
+	Duration int    `json:"duration"`
+	PlayedAt string `json:"played_at"`
+}
+
+// PlayHistoryListItem 播放记录列表单条数据
+type PlayHistoryListItem struct {
+	PlayID      int64  `json:"play_id"`
+	ContentID   int64  `json:"content_id"`
+	Title       string `json:"title"`
+	Artist      string `json:"artist"`
+	CoverURL    string `json:"cover_url"`
+	Status      int16  `json:"status"`
+	Progress    int    `json:"progress"`
+	Duration    int    `json:"duration"`
+	PlayURL     string `json:"play_url"`
+	ClientIP    string `json:"client_ip"`
+	DeviceInfo  string `json:"device_info"`
+	StartedAt   string `json:"started_at"`
+	CompletedAt string `json:"completed_at"`
+	VipLevel    int16  `json:"vip_level"`
+}
+
+// PlayHistoryListResp 播放记录列表响应
+type PlayHistoryListResp struct {
+	Total    int64                 `json:"total"`
+	List     []PlayHistoryListItem `json:"list"`
+	Page     int32                 `json:"page"`
+	PageSize int32                 `json:"page_size"`
+}
+
+// SearchReq 搜索请求
+type SearchReq struct {
+	Keyword  string `json:"keyword" form:"keyword"`     // 搜索关键词
+	Type     string `json:"type" form:"type"`           // 搜索类型: all/title/artist/lyrics
+	Page     int32  `json:"page" form:"page"`           // 页码
+	PageSize int32  `json:"page_size" form:"page_size"` // 每页数量
+}
+
+// SearchItem 搜索结果项
+type SearchItem struct {
+	ID          int64    `json:"id"`
+	Title       string   `json:"title"`
+	Artist      string   `json:"artist"`
+	CoverURL    string   `json:"cover_url"`
+	Duration    int      `json:"duration"`
+	VipLevel    int16    `json:"vip_level"`
+	MatchFields []string `json:"match_fields"` // 匹配的字段: title/artist/lyrics
+	Score       float64  `json:"score"`        // 相关度分数
+}
+
+// SearchResp 搜索响应
+type SearchResp struct {
+	Total    int64        `json:"total"`
+	List     []SearchItem `json:"list"`
+	Page     int32        `json:"page"`
+	PageSize int32        `json:"page_size"`
+}
+
+// ContentDeleteReq 删除歌曲请求
+type ContentDeleteReq struct {
+	ContentID int64  `json:"content_id"` // 歌曲ID（必填）
+	Reason    string `json:"reason"`     // 删除原因（可选）
+}
+
+// ContentDeleteResp 删除歌曲响应
+type ContentDeleteResp struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }

@@ -51,10 +51,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: contentStreamHandler(serverCtx),
 			},
 			{
-				// 下载歌曲（必须登录，浏览器弹出保存对话框）
+				// 下载歌曲（必须登录，返回"下载中"状态）
 				Method:  http.MethodGet,
 				Path:    "/download/:id",
 				Handler: contentDownloadHandler(serverCtx),
+			},
+			{
+				// 确认下载完成（必须登录，更新状态为已下载）
+				Method:  http.MethodPost,
+				Path:    "/download/complete",
+				Handler: downloadCompleteHandler(serverCtx),
 			},
 			{
 				// 删除下载记录（必须登录）
@@ -93,10 +99,112 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: downloadSyncCancelHandler(serverCtx),
 			},
 			{
-				// 内容详情（必须登录）
+				// 歌单相关接口（必须在 /:id 之前注册）
+				Method:  http.MethodPost,
+				Path:    "/playlists",
+				Handler: contentPlaylistCreateHandler(serverCtx),
+			},
+			{
+				// 更新歌单（必须登录，只有创建者才能修改）
+				Method:  http.MethodPut,
+				Path:    "/playlists/:id",
+				Handler: contentPlaylistUpdateHandler(serverCtx),
+			},
+			{
+				// 删除歌单（必须登录，只有创建者才能删除）
+				Method:  http.MethodDelete,
+				Path:    "/playlists/:id",
+				Handler: contentPlaylistDeleteHandler(serverCtx),
+			},
+			{
+				// 添加歌曲到歌单（必须登录）
+				Method:  http.MethodPost,
+				Path:    "/playlists/:id/songs",
+				Handler: contentPlaylistAddSongHandler(serverCtx),
+			},
+			{
+				// 订阅音频（必须登录）
+				Method:  http.MethodPost,
+				Path:    "/:id/subscribe",
+				Handler: contentSubscribeHandler(serverCtx),
+			},
+			{
+				// 取消订阅音频（必须登录）
+				Method:  http.MethodDelete,
+				Path:    "/:id/subscribe",
+				Handler: contentUnsubscribeHandler(serverCtx),
+			},
+			{
+				// 订阅列表（必须登录，查看用户订阅的音频）
+				Method:  http.MethodGet,
+				Path:    "/subscriptions",
+				Handler: contentSubscribeListHandler(serverCtx),
+			},
+			{
+				// 歌手详情（查看歌手信息、热门歌曲、专辑列表）
+				Method:  http.MethodGet,
+				Path:    "/artists/:id",
+				Handler: contentArtistDetailHandler(serverCtx),
+			},
+			{
+				// 订阅通知（必须登录，内容发布时触发通知给订阅用户）
+				Method:  http.MethodPost,
+				Path:    "/:id/notify",
+				Handler: contentSubscribeNotifyHandler(serverCtx),
+			},
+			{
+				// 点赞列表（必须登录，查看用户点赞的歌曲）
+				Method:  http.MethodGet,
+				Path:    "/likes",
+				Handler: contentLikeListHandler(serverCtx),
+			},
+			{
+				// 播放开始（必须登录）
+				Method:  http.MethodPost,
+				Path:    "/play/start",
+				Handler: contentPlayStartHandler(serverCtx),
+			},
+			{
+				// 播放进度（必须登录，用于断点续播）
+				Method:  http.MethodPost,
+				Path:    "/play/progress",
+				Handler: contentPlayProgressHandler(serverCtx),
+			},
+			{
+				// 播放完成（必须登录）
+				Method:  http.MethodPost,
+				Path:    "/play/complete",
+				Handler: contentPlayCompleteHandler(serverCtx),
+			},
+			{
+				// 播放记录列表（必须登录）
+				Method:  http.MethodGet,
+				Path:    "/play/history",
+				Handler: contentPlayHistoryListHandler(serverCtx),
+			},
+			{
+				// 搜索歌曲
+				Method:  http.MethodGet,
+				Path:    "/search",
+				Handler: contentSearchHandler(serverCtx),
+			},
+			{
+				// 删除歌曲（必须登录，管理员或上传者）
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: contentDeleteHandler(serverCtx),
+			},
+			{
+				// 内容详情（必须登录）- 放在最后，避免覆盖具体路径
 				Method:  http.MethodGet,
 				Path:    "/:id",
 				Handler: contentDetailHandler(serverCtx),
+			},
+			{
+				// 点赞/取消点赞（必须登录，切换点赞状态）
+				Method:  http.MethodPost,
+				Path:    "/:id/like",
+				Handler: contentLikeHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/content"),
