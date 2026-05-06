@@ -10,6 +10,19 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @syncDeleteDownloadRecords 批量同步删除
+// @Summary      批量同步删除
+// @Description  App 清理本地缓存后，同步删除云端记录
+// @Tags         下载服务
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "请求参数"
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/download/sync-delete [post]
+// @Security     BearerAuth
 // syncDeleteDownloadRecordsHandler 批量同步删除下载记录处理器
 // POST /api/v1/user/download/sync-delete
 // 用途：App 清理本地缓存后，同步删除云端对应的下载记录

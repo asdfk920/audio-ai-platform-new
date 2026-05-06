@@ -65,3 +65,21 @@ func devicePauseHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DevicePauseHandler 设备暂停
+// @Summary      设备暂停
+// @Description  用户通过 App 向设备下发暂停指令
+// @Tags         设备控制
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DevicePauseReq  true  "设备暂停请求"
+// @Success      200  {object}  types.DevicePauseResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/cmd/pause [post]
+// @Security     BearerAuth
+func DevicePauseHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return devicePauseHandler(svcCtx)
+}
+

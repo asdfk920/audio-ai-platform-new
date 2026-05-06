@@ -51,3 +51,21 @@ func deviceAuthHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	}
 }
+
+// DeviceAuthHandler 设备认证
+// @Summary      设备认证
+// @Description  设备使用 token 向云端认证身份，获取设备信息
+// @Tags         设备管理
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DeviceAuthReq  true  "设备认证请求"
+// @Success      200  {object}  types.DeviceAuthResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/auth [post]
+// @Security     BearerAuth
+func DeviceAuthHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceAuthHandler(svcCtx)
+}
+

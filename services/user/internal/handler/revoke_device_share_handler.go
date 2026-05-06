@@ -10,6 +10,19 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @RevokeDeviceShare 撤销设备共享
+// @Summary      撤销设备共享
+// @Description  撤销已共享的设备权限
+// @Tags         设备分享
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "请求参数"
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/device/share/revoke [post]
+// @Security     BearerAuth
 // RevokeDeviceShareHandler 撤销设备共享处理器
 // POST /api/v1/user/device/share/revoke
 // 用途：设备所有者撤销设备共享，收回设备使用权

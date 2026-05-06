@@ -11,6 +11,18 @@ import (
 )
 
 // GetDeviceShareDetailHandler 查询设备共享详情处理器
+// @Summary      共享详情
+// @Description  查询指定设备共享的详细信息
+// @Tags         设备分享
+// @Accept       json
+// @Produce      json
+// @Param        share_id  query  string  true  "共享 ID"
+// @Success      200  {object}  types.DeviceShareItem  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/device/share/detail [get]
+// @Security     BearerAuth
 // GET /api/v1/user/device/share/detail
 // 用途：查询指定设备共享的详细信息
 func GetDeviceShareDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {

@@ -1,3 +1,24 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+// @title           用户服务 API 文档
+// @version         1.0
+// @description     音频 AI 平台用户服务接口文档，包含用户登录、注册、个人信息、家庭管理、设备分享、下载管理、实名认证等功能
+
+// @contact.name   API Support
+// @contact.url    http://www.swagger.io/support
+// @contact.email  support@swagger.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8001
+// @BasePath  /api/v1/user
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description 请输入 Bearer Token
+
 package main
 
 import (
@@ -25,6 +46,9 @@ import (
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/rest/httpx"
+
+	_ "github.com/jacklau/audio-ai-platform/services/user/docs"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 var configFile = flag.String("f", "etc/user.yaml", "the config file")
@@ -229,6 +253,47 @@ func main() {
 	defer func() { server.Stop() }()
 
 	ctx := svc.NewServiceContext(c, db)
+
+	// 添加 Swagger UI 路由（必须在 RegisterHandlers 之前）
+	swaggerHandler := httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8001/swagger/doc.json"),
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("list"),
+		httpSwagger.DomID("swagger-ui"),
+	)
+
+	server.AddRoutes([]rest.Route{
+		{
+			Method: http.MethodGet,
+			Path:   "/swagger/",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				swaggerHandler.ServeHTTP(w, r)
+			},
+		},
+		{
+			Method: http.MethodGet,
+			Path:   "/swagger/index.html",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				swaggerHandler.ServeHTTP(w, r)
+			},
+		},
+		{
+			Method: http.MethodGet,
+			Path:   "/swagger/doc.json",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				http.ServeFile(w, r, "./docs/swagger.json")
+			},
+		},
+		{
+			Method: http.MethodGet,
+			Path:   "/swagger/:path",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				swaggerHandler.ServeHTTP(w, r)
+			},
+		},
+	})
+
 	handler.RegisterHandlers(server, ctx)
 
 	// 启动账号注销定时任务

@@ -13,8 +13,17 @@ import (
 )
 
 // LoginHandler 用户登录处理器
-// POST /api/v1/user/login
-// 用途：用户通过账号密码或验证码登录系统，返回 JWT token
+// @Summary      用户登录
+// @Description  用户通过账号密码或验证码登录系统，返回 JWT token
+// @Tags         用户认证
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "登录请求"
+// @Success      200  {object}  errorx.Response  "登录成功，返回 token 信息"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "账号或密码错误"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/login [post]
 func LoginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.LoginReq

@@ -67,3 +67,21 @@ func deviceVolumeUpHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DeviceVolumeUpHandler 设备音量加
+// @Summary      设备音量加
+// @Description  用户通过 App 向设备下发音量加指令
+// @Tags         设备控制
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DeviceVolumeUpReq  true  "设备音量加请求"
+// @Success      200  {object}  types.DeviceVolumeUpResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/cmd/volume_up [post]
+// @Security     BearerAuth
+func DeviceVolumeUpHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceVolumeUpHandler(svcCtx)
+}
+

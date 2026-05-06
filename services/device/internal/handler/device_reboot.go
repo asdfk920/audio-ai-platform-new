@@ -51,3 +51,21 @@ func deviceRebootHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	}
 }
+
+// DeviceRebootHandler 设备重启
+// @Summary      设备重启
+// @Description  用户通过 App 向设备下发重启指令
+// @Tags         设备控制
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DeviceRebootReq  true  "设备重启请求"
+// @Success      200  {object}  types.DeviceRebootResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/cmd/reboot [post]
+// @Security     BearerAuth
+func DeviceRebootHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceRebootHandler(svcCtx)
+}
+

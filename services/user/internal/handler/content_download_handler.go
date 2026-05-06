@@ -10,6 +10,18 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @contentDownload 流式下载
+// @Summary      流式下载
+// @Description  流式传输私有格式内容，同时保存到本地
+// @Tags         下载服务
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/content/download/stream [get]
+// @Security     BearerAuth
 // contentDownloadHandler 内容流式下载处理器
 // GET /api/v1/user/content/download/stream
 // 用途：流式传输私有格式内容，支持边下边播和异步保存本地

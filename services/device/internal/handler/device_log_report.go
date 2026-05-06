@@ -109,3 +109,20 @@ func deviceLogReportHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	}
 }
+
+// DeviceLogReportHandler 设备日志上报
+// @Summary      设备日志上报
+// @Description  设备通过 HTTP POST 请求上报运行日志
+// @Tags         设备日志
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/log [post]
+// @Security     BearerAuth
+func DeviceLogReportHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceLogReportHandler(svcCtx)
+}
+

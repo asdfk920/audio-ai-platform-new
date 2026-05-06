@@ -51,3 +51,20 @@ func deviceShadowQueryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DeviceShadowQueryHandler 设备影子查询
+// @Summary      设备影子查询
+// @Description  查询指定设备的最新状态数据
+// @Tags         设备影子
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  types.DeviceShadowInfo  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/shadow [get]
+// @Security     BearerAuth
+func DeviceShadowQueryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceShadowQueryHandler(svcCtx)
+}
+

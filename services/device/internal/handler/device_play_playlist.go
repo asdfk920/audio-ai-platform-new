@@ -67,3 +67,21 @@ func devicePlayPlaylistHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DevicePlayPlaylistHandler 设备播放歌单
+// @Summary      设备播放歌单
+// @Description  用户通过 App 向设备下发播放歌单指令
+// @Tags         设备控制
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DevicePlayPlaylistReq  true  "设备播放歌单请求"
+// @Success      200  {object}  types.DevicePlayPlaylistResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/cmd/play_playlist [post]
+// @Security     BearerAuth
+func DevicePlayPlaylistHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return devicePlayPlaylistHandler(svcCtx)
+}
+

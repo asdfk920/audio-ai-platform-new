@@ -52,3 +52,20 @@ func deviceShadowReportHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	}
 }
+
+// DeviceShadowReportHandler 设备影子上报
+// @Summary      设备影子上报
+// @Description  设备定时采集状态数据上报云端
+// @Tags         设备影子
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/shadow/report [post]
+// @Security     BearerAuth
+func DeviceShadowReportHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceShadowReportHandler(svcCtx)
+}
+

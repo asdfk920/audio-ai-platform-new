@@ -56,6 +56,20 @@ Auth:
   AccessSecret: audio-ai-platform-user-secret
   AccessExpire: 3600
 
+# Spotify OAuth 配置（需要在 Spotify Developer Dashboard 创建应用）
+Spotify:
+  ClientID: "your-spotify-client-id"
+  ClientSecret: "your-spotify-client-secret"
+  CallbackBaseURL: "http://localhost:8003"  # 回调基础地址
+  MockMode: true  # 开发测试模式，使用模拟数据（生产环境请设为false）
+
+# QQ音乐 OAuth 配置（需要在 QQ音乐开放平台 创建应用）
+QQMusic:
+  AppID: "your-qq-music-app-id"
+  AppSecret: "your-qq-music-app-secret"
+  CallbackBaseURL: "http://localhost:8003"  # 回调基础地址
+  MockMode: true  # 开发测试模式，使用模拟数据（生产环境请设为false）
+
 Log:
   ServiceName: content-api
   Mode: console

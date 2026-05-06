@@ -63,3 +63,20 @@ func deviceDiagnoseHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DeviceDiagnoseHandler 设备远程诊断
+// @Summary      设备远程诊断
+// @Description  用户通过 App 发起设备远程诊断
+// @Tags         设备管理
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/diagnose [post]
+// @Security     BearerAuth
+func DeviceDiagnoseHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceDiagnoseHandler(svcCtx)
+}
+

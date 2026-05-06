@@ -65,3 +65,21 @@ func devicePrevHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DevicePrevHandler 设备上一首
+// @Summary      设备上一首
+// @Description  用户通过 App 向设备下发上一首指令
+// @Tags         设备控制
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DevicePrevReq  true  "设备上一首请求"
+// @Success      200  {object}  types.DevicePrevResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/cmd/prev [post]
+// @Security     BearerAuth
+func DevicePrevHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return devicePrevHandler(svcCtx)
+}
+

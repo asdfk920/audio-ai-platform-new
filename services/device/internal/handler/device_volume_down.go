@@ -67,3 +67,21 @@ func deviceVolumeDownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DeviceVolumeDownHandler 设备音量减
+// @Summary      设备音量减
+// @Description  用户通过 App 向设备下发音量减指令
+// @Tags         设备控制
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DeviceVolumeDownReq  true  "设备音量减请求"
+// @Success      200  {object}  types.DeviceVolumeDownResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/cmd/volume_down [post]
+// @Security     BearerAuth
+func DeviceVolumeDownHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceVolumeDownHandler(svcCtx)
+}
+

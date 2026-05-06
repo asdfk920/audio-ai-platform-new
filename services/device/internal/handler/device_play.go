@@ -53,3 +53,21 @@ func devicePlayHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DevicePlayHandler 设备播放
+// @Summary      设备播放
+// @Description  用户通过 App 向设备下发播放指令
+// @Tags         设备控制
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DevicePlayReq  true  "设备播放请求"
+// @Success      200  {object}  types.DevicePlayResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/cmd/play [post]
+// @Security     BearerAuth
+func DevicePlayHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return devicePlayHandler(svcCtx)
+}
+

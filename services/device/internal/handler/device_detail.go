@@ -53,3 +53,21 @@ func deviceDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DeviceDetailHandler 设备详情
+// @Summary      设备详情
+// @Description  查询指定设备的详细信息
+// @Tags         设备管理
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DeviceDetailReq  true  "设备详情请求"
+// @Success      200  {object}  types.DeviceDetailResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/detail [post]
+// @Security     BearerAuth
+func DeviceDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceDetailHandler(svcCtx)
+}
+

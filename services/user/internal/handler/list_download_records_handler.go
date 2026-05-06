@@ -11,6 +11,20 @@ import (
 )
 
 // listDownloadRecordsHandler 查询用户下载记录列表处理器
+// @Summary      下载记录列表
+// @Description  查询当前用户的下载记录列表
+// @Tags         下载服务
+// @Accept       json
+// @Produce      json
+// @Param        page  query  int  false  "页码"
+// @Param        page_size  query  int  false  "每页数量"
+// @Param        status  query  string  false  "状态筛选"
+// @Success      200  {object}  types.ListDownloadRecordsResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/download/records [get]
+// @Security     BearerAuth
 // GET /api/v1/user/download/records
 // 用途：查询当前用户的下载记录列表，支持分页、状态筛选、关键词搜索
 func listDownloadRecordsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {

@@ -435,6 +435,34 @@ type UnsubscribeResp struct {
 	SubscribeCount int64  `json:"subscribe_count"` // 更新后的订阅数
 }
 
+// ArtistSubscribeReq 订阅艺术家请求
+type ArtistSubscribeReq struct {
+	ArtistID int64 `json:"artist_id" form:"artist_id"` // 艺术家 ID（必填）
+}
+
+// ArtistSubscribeResp 订阅艺术家响应
+type ArtistSubscribeResp struct {
+	Success    bool   `json:"success"`
+	Message    string `json:"message"`
+	ArtistID   int64  `json:"artist_id"`
+	ArtistName string `json:"artist_name"`
+	FanCount   int64  `json:"fan_count"` // 更新后的粉丝数
+}
+
+// ArtistUnsubscribeReq 取消订阅艺术家请求
+type ArtistUnsubscribeReq struct {
+	ArtistID int64 `json:"artist_id" form:"artist_id"` // 艺术家 ID（必填）
+}
+
+// ArtistUnsubscribeResp 取消订阅艺术家响应
+type ArtistUnsubscribeResp struct {
+	Success    bool   `json:"success"`
+	Message    string `json:"message"`
+	ArtistID   int64  `json:"artist_id"`
+	ArtistName string `json:"artist_name"`
+	FanCount   int64  `json:"fan_count"` // 更新后的粉丝数
+}
+
 // SubscribeListItem 订阅列表项
 type SubscribeListItem struct {
 	ID            int64  `json:"id"`
@@ -617,4 +645,275 @@ type ContentDeleteReq struct {
 type ContentDeleteResp struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
+}
+
+// SpotifyAuthReq Spotify授权请求（发起授权）
+type SpotifyAuthReq struct {
+	CallbackURL string `json:"callback_url" form:"callback_url"` // 回调地址（可选）
+}
+
+// SpotifyAuthResp Spotify授权响应（返回授权链接）
+type SpotifyAuthResp struct {
+	AuthURL string `json:"auth_url"` // 授权链接
+}
+
+// SpotifyCallbackReq Spotify回调请求
+type SpotifyCallbackReq struct {
+	Code  string `json:"code" form:"code"`   // 授权码
+	State string `json:"state" form:"state"` // 状态参数
+}
+
+// SpotifyCallbackResp Spotify回调响应
+type SpotifyCallbackResp struct {
+	Success       bool   `json:"success"`
+	Message       string `json:"message"`
+	SpotifyUserID string `json:"spotify_user_id"` // Spotify用户ID
+	DisplayName   string `json:"display_name"`    // 用户昵称
+	AvatarURL     string `json:"avatar_url"`      // 用户头像
+}
+
+// SpotifyBindingInfo 绑定信息
+type SpotifyBindingInfo struct {
+	ID            int64  `json:"id"`
+	UserID        int64  `json:"user_id"`
+	SpotifyUserID string `json:"spotify_user_id"`
+	DisplayName   string `json:"display_name"`
+	AvatarURL     string `json:"avatar_url"`
+	IsActive      bool   `json:"is_active"`
+	BoundAt       string `json:"bound_at"`
+}
+
+// SpotifyBindingStatusResp 绑定状态响应
+type SpotifyBindingStatusResp struct {
+	IsBound bool                `json:"is_bound"`
+	Info    *SpotifyBindingInfo `json:"info,omitempty"`
+}
+
+// SpotifyPlaylistTrackReq 获取歌单歌曲请求
+type SpotifyPlaylistTrackReq struct {
+	PlaylistID string `json:"playlist_id" form:"playlist_id"` // 歌单ID
+	Limit      int    `json:"limit" form:"limit"`             // 每页数量
+	Offset     int    `json:"offset" form:"offset"`           // 偏移量
+}
+
+// SpotifyTrackInfo 歌曲信息
+type SpotifyTrackInfo struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Artists     []string `json:"artists"`
+	Album       string   `json:"album"`
+	AlbumImage  string   `json:"album_image"`
+	DurationMs  int      `json:"duration_ms"`
+	ExternalURL string   `json:"external_url"`
+	PreviewURL  string   `json:"preview_url,omitempty"`
+}
+
+// SpotifyPlaylistTrackResp 歌单歌曲响应
+type SpotifyPlaylistTrackResp struct {
+	Total  int                `json:"total"`
+	Limit  int                `json:"limit"`
+	Offset int                `json:"offset"`
+	Items  []SpotifyTrackInfo `json:"items"`
+}
+
+// SpotifyPlaylistInfo 歌单信息
+type SpotifyPlaylistInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Cover       string `json:"cover"`
+	SongCount   int    `json:"song_count"`
+	Owner       string `json:"owner"`
+	Description string `json:"description,omitempty"`
+}
+
+// SpotifyPlaylistListResp 歌单列表响应
+type SpotifyPlaylistListResp struct {
+	Total int                   `json:"total"`
+	Items []SpotifyPlaylistInfo `json:"items"`
+}
+
+// QQMusicAuthReq QQ音乐授权请求
+type QQMusicAuthReq struct {
+	CallbackURL string `json:"callback_url" form:"callback_url"` // 回调地址（可选）
+}
+
+// QQMusicAuthResp QQ音乐授权响应
+type QQMusicAuthResp struct {
+	AuthURL string `json:"auth_url"` // 授权链接
+}
+
+// QQMusicCallbackReq QQ音乐回调请求
+type QQMusicCallbackReq struct {
+	Code  string `json:"code" form:"code"`   // 授权码
+	State string `json:"state" form:"state"` // 状态参数
+}
+
+// QQMusicCallbackResp QQ音乐回调响应
+type QQMusicCallbackResp struct {
+	Success          bool                    `json:"success"`
+	Message          string                  `json:"message"`
+	QQOpenID         string                  `json:"qq_openid"`                    // QQ OpenID
+	QQUnionID        string                  `json:"qq_unionid"`                   // QQ UnionID（可选）
+	Nickname         string                  `json:"nickname"`                     // 用户昵称
+	AvatarURL        string                  `json:"avatar_url"`                   // 用户头像
+	MusicLibraryInfo *map[string]interface{} `json:"music_library_info,omitempty"` // 音乐库信息
+}
+
+// QQMusicBindingInfo QQ音乐绑定信息
+type QQMusicBindingInfo struct {
+	ID               int64                   `json:"id"`
+	UserID           int64                   `json:"user_id"`
+	QQOpenID         string                  `json:"qq_openid"`
+	QQUnionID        string                  `json:"qq_unionid"`
+	Nickname         string                  `json:"nickname"`
+	AvatarURL        string                  `json:"avatar_url"`
+	MusicLibraryInfo *map[string]interface{} `json:"music_library_info,omitempty"`
+	IsActive         bool                    `json:"is_active"`
+	BoundAt          string                  `json:"bound_at"`
+}
+
+// QQMusicBindingStatusResp QQ音乐绑定状态响应
+type QQMusicBindingStatusResp struct {
+	IsBound bool                `json:"is_bound"`
+	Info    *QQMusicBindingInfo `json:"info,omitempty"`
+}
+
+// QQMusicPlaylistTrackReq 获取歌单歌曲请求
+type QQMusicPlaylistTrackReq struct {
+	PlaylistID string `json:"playlist_id" form:"playlist_id"` // 歌单ID
+	Limit      int    `json:"limit" form:"limit"`             // 每页数量
+	Offset     int    `json:"offset" form:"offset"`           // 偏移量
+}
+
+// QQMusicTrackInfo 歌曲信息
+type QQMusicTrackInfo struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Artists     []string `json:"artists"`
+	Album       string   `json:"album"`
+	AlbumImage  string   `json:"album_image"`
+	DurationMs  int      `json:"duration_ms"`
+	ExternalURL string   `json:"external_url"`
+	PreviewURL  string   `json:"preview_url,omitempty"`
+}
+
+// QQMusicPlaylistTrackResp 歌单歌曲响应
+type QQMusicPlaylistTrackResp struct {
+	Total  int                `json:"total"`
+	Limit  int                `json:"limit"`
+	Offset int                `json:"offset"`
+	Items  []QQMusicTrackInfo `json:"items"`
+}
+
+// QQMusicPlaylistInfo QQ音乐歌单信息
+type QQMusicPlaylistInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Cover       string `json:"cover"`
+	SongCount   int    `json:"song_count"`
+	Owner       string `json:"owner"`
+	Description string `json:"description,omitempty"`
+}
+
+// QQMusicPlaylistListResp QQ音乐歌单列表响应
+type QQMusicPlaylistListResp struct {
+	Total int                   `json:"total"`
+	Items []QQMusicPlaylistInfo `json:"items"`
+}
+
+// ImportPlaylistReq 导入歌单请求
+type ImportPlaylistReq struct {
+	Platform     string `json:"platform"`                // 平台: spotify, qq-music
+	PlaylistID   string `json:"playlist_id"`             // 第三方歌单ID
+	PlaylistName string `json:"playlist_name,omitempty"` // 歌单名称（可选，如果为空则使用第三方名称）
+}
+
+// ImportPlaylistResp 导入歌单响应
+type ImportPlaylistResp struct {
+	Success       bool   `json:"success"`
+	Message       string `json:"message"`
+	PlaylistID    int64  `json:"playlist_id"`    // 本地歌单ID
+	PlaylistName  string `json:"playlist_name"`  // 本地歌单名称
+	ImportedCount int    `json:"imported_count"` // 导入的歌曲数量
+	TotalCount    int    `json:"total_count"`    // 歌单总歌曲数量
+}
+
+// LocalSongInfo 本地歌曲信息
+type LocalSongInfo struct {
+	ID          int64  `json:"id"`
+	Title       string `json:"title"`
+	Artist      string `json:"artist"`
+	Album       string `json:"album"`
+	CoverURL    string `json:"cover_url"`
+	Duration    int    `json:"duration"`
+	ExternalURL string `json:"external_url,omitempty"`
+	Source      string `json:"source"`    // 来源: spotify, qq-music
+	SourceID    string `json:"source_id"` // 第三方歌曲ID
+	CreatedAt   string `json:"created_at"`
+}
+
+// LocalPlaylistInfo 本地歌单信息
+type LocalPlaylistInfo struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	CoverURL    string `json:"cover_url"`
+	SongCount   int    `json:"song_count"`
+	OwnerID     int64  `json:"owner_id"`
+	OwnerName   string `json:"owner_name"`
+	Description string `json:"description,omitempty"`
+	IsPublic    bool   `json:"is_public"`
+	Source      string `json:"source"`              // 来源: local, spotify, qq-music
+	SourceID    string `json:"source_id,omitempty"` // 第三方歌单ID
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+// PlaylistSongInfo 歌单歌曲关联信息
+type PlaylistSongInfo struct {
+	PlaylistID int64  `json:"playlist_id"`
+	SongID     int64  `json:"song_id"`
+	SortOrder  int    `json:"sort_order"`
+	AddedAt    string `json:"added_at"`
+}
+
+// SpotifyFavoriteTrack Spotify 收藏歌曲信息
+type SpotifyFavoriteTrack struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Artists     []string `json:"artists"`
+	Album       string   `json:"album"`
+	AlbumImage  string   `json:"album_image"`
+	DurationMs  int      `json:"duration_ms"`
+	ExternalURL string   `json:"external_url"`
+	PreviewURL  string   `json:"preview_url,omitempty"`
+	AddedAt     string   `json:"added_at"`
+}
+
+// SpotifyFavoriteListResp Spotify 收藏列表响应
+type SpotifyFavoriteListResp struct {
+	Total  int                    `json:"total"`
+	Limit  int                    `json:"limit"`
+	Offset int                    `json:"offset"`
+	Items  []SpotifyFavoriteTrack `json:"items"`
+}
+
+// QQMusicFavoriteTrack QQ 音乐收藏歌曲信息
+type QQMusicFavoriteTrack struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Artists     []string `json:"artists"`
+	Album       string   `json:"album"`
+	AlbumImage  string   `json:"album_image"`
+	DurationMs  int      `json:"duration_ms"`
+	ExternalURL string   `json:"external_url"`
+	PreviewURL  string   `json:"preview_url,omitempty"`
+	AddedAt     string   `json:"added_at"`
+}
+
+// QQMusicFavoriteListResp QQ 音乐收藏列表响应
+type QQMusicFavoriteListResp struct {
+	Total  int                    `json:"total"`
+	Limit  int                    `json:"limit"`
+	Offset int                    `json:"offset"`
+	Items  []QQMusicFavoriteTrack `json:"items"`
 }

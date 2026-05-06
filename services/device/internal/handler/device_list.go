@@ -41,3 +41,20 @@ func deviceListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DeviceListHandler 设备列表
+// @Summary      设备列表
+// @Description  查询当前用户已绑定的设备列表
+// @Tags         设备管理
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  types.DeviceListResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/list [get]
+// @Security     BearerAuth
+func DeviceListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceListHandler(svcCtx)
+}
+

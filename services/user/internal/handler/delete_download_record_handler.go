@@ -10,6 +10,18 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @deleteDownloadRecord 删除下载记录
+// @Summary      删除下载记录
+// @Description  用户主动删除单条下载记录
+// @Tags         下载服务
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/download/delete [delete]
+// @Security     BearerAuth
 // deleteDownloadRecordHandler 删除下载记录处理器（单条删除）
 // DELETE /api/v1/user/download/delete
 // 用途：用户主动删除单条下载记录，同时前端删除本地文件

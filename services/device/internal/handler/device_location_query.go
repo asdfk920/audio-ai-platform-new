@@ -51,3 +51,20 @@ func deviceLocationQueryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DeviceLocationQueryHandler 设备位置查询
+// @Summary      设备位置查询
+// @Description  查询指定设备的最新 UWB 定位数据
+// @Tags         设备位置
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  types.DeviceLocationResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/location [get]
+// @Security     BearerAuth
+func DeviceLocationQueryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceLocationQueryHandler(svcCtx)
+}
+

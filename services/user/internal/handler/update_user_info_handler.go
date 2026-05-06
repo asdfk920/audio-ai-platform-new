@@ -13,6 +13,18 @@ import (
 )
 
 // UpdateUserInfoHandler 更新用户资料处理器
+// @Summary      更新用户资料
+// @Description  已登录用户更新个人资料，如昵称、头像等
+// @Tags         用户信息
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "用户信息更新请求"
+// @Success      200  {object}  errorx.Response  "更新成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/info [put]
+// @Security     BearerAuth
 // POST /api/v1/user/info/update
 // 用途：已登录用户更新个人资料，JWT 定身份，body 传要改的字段
 func UpdateUserInfoHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {

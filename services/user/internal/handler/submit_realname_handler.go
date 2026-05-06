@@ -15,6 +15,19 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @SubmitRealName 提交实名信息
+// @Summary      提交实名信息
+// @Description  提交实名认证申请，等待后台审核
+// @Tags         实名认证
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "请求参数"
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/realname/submit [post]
+// @Security     BearerAuth
 // SubmitRealNameHandler 提交实名认证处理器
 // POST /api/v1/user/realname/submit
 // 用途：用户提交实名认证信息（姓名、身份证号、证件照片等），等待后台审核

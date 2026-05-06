@@ -10,6 +10,19 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @AcceptFamilyMember 接受邀请
+// @Summary      接受邀请
+// @Description  接受加入家庭组的邀请
+// @Tags         家庭管理
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "请求参数"
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/family/member/accept [post]
+// @Security     BearerAuth
 // AcceptFamilyMemberHandler 接受家庭邀请处理器
 // POST /api/v1/user/family/member/accept
 // 用途：用户接受家庭邀请，加入家庭

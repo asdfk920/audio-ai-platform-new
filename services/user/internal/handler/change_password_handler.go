@@ -13,6 +13,18 @@ import (
 )
 
 // ChangePasswordHandler 修改密码处理器
+// @Summary      修改密码
+// @Description  修改当前用户的登录密码，需验证旧密码
+// @Tags         密码管理
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "修改密码请求"
+// @Success      200  {object}  errorx.Response  "修改成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/password/change [put]
+// @Security     BearerAuth
 // POST /api/v1/user/password/change
 // 用途：已登录用户修改密码，需验证旧密码
 func ChangePasswordHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {

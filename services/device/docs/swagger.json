@@ -1,0 +1,2343 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "设备微服务 API 文档，包含设备管理、设备控制、设备状态查询等接口",
+        "title": "Device Service API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8002",
+    "basePath": "/api/v1",
+    "paths": {
+        "/api/v1/device/auth": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "设备使用 token 向云端认证身份，获取设备信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备管理"
+                ],
+                "summary": "设备认证",
+                "parameters": [
+                    {
+                        "description": "设备认证请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceAuthReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceAuthResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/bind": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户将设备绑定到自己的账户下",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备管理"
+                ],
+                "summary": "设备绑定",
+                "parameters": [
+                    {
+                        "description": "设备绑定请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceBindReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceBindResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/cmd/next": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 向设备下发下一首指令",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备控制"
+                ],
+                "summary": "设备下一首",
+                "parameters": [
+                    {
+                        "description": "设备下一首请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceNextReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceNextResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/cmd/pause": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 向设备下发暂停指令",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备控制"
+                ],
+                "summary": "设备暂停",
+                "parameters": [
+                    {
+                        "description": "设备暂停请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DevicePauseReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DevicePauseResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/cmd/play": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 向设备下发播放指令",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备控制"
+                ],
+                "summary": "设备播放",
+                "parameters": [
+                    {
+                        "description": "设备播放请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DevicePlayReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DevicePlayResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/cmd/play_playlist": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 向设备下发播放歌单指令",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备控制"
+                ],
+                "summary": "设备播放歌单",
+                "parameters": [
+                    {
+                        "description": "设备播放歌单请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DevicePlayPlaylistReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DevicePlayPlaylistResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/cmd/prev": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 向设备下发上一首指令",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备控制"
+                ],
+                "summary": "设备上一首",
+                "parameters": [
+                    {
+                        "description": "设备上一首请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DevicePrevReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DevicePrevResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/cmd/reboot": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 向设备下发重启指令",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备控制"
+                ],
+                "summary": "设备重启",
+                "parameters": [
+                    {
+                        "description": "设备重启请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceRebootReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceRebootResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/cmd/resume": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 向设备下发继续播放指令",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备控制"
+                ],
+                "summary": "设备继续播放",
+                "parameters": [
+                    {
+                        "description": "设备继续播放请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceResumeReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceResumeResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/cmd/set_loop": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 向设备下发设置循环播放指令",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备控制"
+                ],
+                "summary": "设备设置循环播放",
+                "parameters": [
+                    {
+                        "description": "设备设置循环播放请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceSetLoopReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceSetLoopResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/cmd/set_shuffle": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 向设备下发设置随机播放指令",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备控制"
+                ],
+                "summary": "设备设置随机播放",
+                "parameters": [
+                    {
+                        "description": "设备设置随机播放请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceSetShuffleReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceSetShuffleResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/cmd/volume_down": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 向设备下发音量减指令",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备控制"
+                ],
+                "summary": "设备音量减",
+                "parameters": [
+                    {
+                        "description": "设备音量减请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceVolumeDownReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceVolumeDownResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/cmd/volume_up": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 向设备下发音量加指令",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备控制"
+                ],
+                "summary": "设备音量加",
+                "parameters": [
+                    {
+                        "description": "设备音量加请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceVolumeUpReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceVolumeUpResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/detail": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "查询指定设备的详细信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备管理"
+                ],
+                "summary": "设备详情",
+                "parameters": [
+                    {
+                        "description": "设备详情请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceDetailReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceDetailResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/diagnose": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "用户通过 App 发起设备远程诊断",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备管理"
+                ],
+                "summary": "设备远程诊断",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "查询当前用户已绑定的设备列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备管理"
+                ],
+                "summary": "设备列表",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceListResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/location": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "查询指定设备的最新 UWB 定位数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备位置"
+                ],
+                "summary": "设备位置查询",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceLocationResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/log": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "设备通过 HTTP POST 请求上报运行日志",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备日志"
+                ],
+                "summary": "设备日志上报",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/shadow": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "查询指定设备的最新状态数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备影子"
+                ],
+                "summary": "设备影子查询",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceShadowInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/shadow/report": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "设备定时采集状态数据上报云端",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备影子"
+                ],
+                "summary": "设备影子上报",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/status/playback": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "查询设备当前播放状态",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备状态"
+                ],
+                "summary": "设备播放状态查询",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "设备序列号",
+                        "name": "sn",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DevicePlaybackStatusResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/status/progress": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "查询设备当前播放进度",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备状态"
+                ],
+                "summary": "设备播放进度查询",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "设备序列号",
+                        "name": "sn",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DevicePlaybackProgressResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/status/report": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "设备定时上报状态数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备状态"
+                ],
+                "summary": "设备状态上报",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/device/status/update": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "设备上报自身状态变化",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备状态"
+                ],
+                "summary": "设备状态更新",
+                "parameters": [
+                    {
+                        "description": "设备状态更新请求",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceStatusUpdateReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/types.DeviceStatusUpdateResp"
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未登录",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/errorx.Response"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "errorx.Response": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceAuthReq": {
+            "type": "object",
+            "required": [
+                "sn",
+                "token"
+            ],
+            "properties": {
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                },
+                "token": {
+                    "description": "注册时获取的认证 token",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceAuthResp": {
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "description": "设备 ID",
+                    "type": "integer"
+                },
+                "firmware_version": {
+                    "description": "固件版本号",
+                    "type": "string"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "model": {
+                    "description": "设备型号",
+                    "type": "string"
+                },
+                "sn": {
+                    "description": "设备序列号",
+                    "type": "string"
+                },
+                "success": {
+                    "description": "是否认证成功",
+                    "type": "boolean"
+                }
+            }
+        },
+        "types.DeviceBindReq": {
+            "type": "object",
+            "required": [
+                "sn"
+            ],
+            "properties": {
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceBindResp": {
+            "type": "object",
+            "properties": {
+                "bound_at": {
+                    "description": "绑定时间",
+                    "type": "string"
+                },
+                "sn": {
+                    "description": "设备序列号",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceDetailReq": {
+            "type": "object",
+            "required": [
+                "sn"
+            ],
+            "properties": {
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceDetailResp": {
+            "type": "object",
+            "properties": {
+                "bound_at": {
+                    "description": "绑定时间",
+                    "type": "string"
+                },
+                "firmware_version": {
+                    "description": "固件版本号",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "设备 ID",
+                    "type": "integer"
+                },
+                "is_bound": {
+                    "description": "是否已绑定当前用户",
+                    "type": "boolean"
+                },
+                "model": {
+                    "description": "设备型号",
+                    "type": "string"
+                },
+                "online_status": {
+                    "description": "在线状态：1-在线、0-离线",
+                    "type": "integer"
+                },
+                "shadow": {
+                    "description": "设备影子信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.DeviceShadowInfo"
+                        }
+                    ]
+                },
+                "sn": {
+                    "description": "设备序列号",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceListItem": {
+            "type": "object",
+            "properties": {
+                "battery": {
+                    "description": "电量百分比",
+                    "type": "integer"
+                },
+                "bound_at": {
+                    "description": "绑定时间",
+                    "type": "string"
+                },
+                "firmware_version": {
+                    "description": "固件版本号",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "设备 ID",
+                    "type": "integer"
+                },
+                "model": {
+                    "description": "设备型号",
+                    "type": "string"
+                },
+                "online_status": {
+                    "description": "在线状态：1-在线、0-离线",
+                    "type": "integer"
+                },
+                "run_state": {
+                    "description": "运行状态",
+                    "type": "string"
+                },
+                "sn": {
+                    "description": "设备序列号",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceListResp": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "description": "设备列表",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.DeviceListItem"
+                    }
+                },
+                "total": {
+                    "description": "设备总数",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.DeviceLocationResp": {
+            "type": "object",
+            "properties": {
+                "accuracy": {
+                    "description": "定位精度（米）",
+                    "type": "number"
+                },
+                "is_latest": {
+                    "description": "是否为最新位置",
+                    "type": "boolean"
+                },
+                "last_report_time": {
+                    "description": "最后上报时间",
+                    "type": "string"
+                },
+                "online": {
+                    "description": "在线状态：online/offline",
+                    "type": "string"
+                },
+                "sn": {
+                    "description": "设备序列号",
+                    "type": "string"
+                },
+                "uwb": {
+                    "description": "UWB定位数据",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.UWBPosition"
+                        }
+                    ]
+                }
+            }
+        },
+        "types.DeviceNextReq": {
+            "type": "object",
+            "required": [
+                "action",
+                "sn"
+            ],
+            "properties": {
+                "action": {
+                    "description": "操作类型：next",
+                    "type": "string"
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceNextResp": {
+            "type": "object",
+            "properties": {
+                "instruction_id": {
+                    "description": "指令 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "指令状态：delivered-已下发, cached-已缓存",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DevicePauseReq": {
+            "type": "object",
+            "required": [
+                "action",
+                "sn"
+            ],
+            "properties": {
+                "action": {
+                    "description": "操作类型：pause",
+                    "type": "string"
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DevicePauseResp": {
+            "type": "object",
+            "properties": {
+                "instruction_id": {
+                    "description": "指令 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "指令状态：delivered-已下发, cached-已缓存",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DevicePlayPlaylistParams": {
+            "type": "object",
+            "required": [
+                "playlist_id"
+            ],
+            "properties": {
+                "playlist_id": {
+                    "description": "歌单ID，必填参数",
+                    "type": "string"
+                },
+                "start_index": {
+                    "description": "起始播放索引，可选，默认0",
+                    "type": "integer"
+                },
+                "volume": {
+                    "description": "播放音量，可选，范围0-100",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.DevicePlayPlaylistReq": {
+            "type": "object",
+            "required": [
+                "action",
+                "params",
+                "sn"
+            ],
+            "properties": {
+                "action": {
+                    "description": "操作类型：play_playlist",
+                    "type": "string"
+                },
+                "params": {
+                    "description": "播放歌单参数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.DevicePlayPlaylistParams"
+                        }
+                    ]
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DevicePlayPlaylistResp": {
+            "type": "object",
+            "properties": {
+                "instruction_id": {
+                    "description": "指令 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "playlist": {
+                    "description": "歌单信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.DevicePlaylistInfo"
+                        }
+                    ]
+                },
+                "status": {
+                    "description": "指令状态：delivered-已下发, cached-已缓存",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DevicePlayReq": {
+            "type": "object",
+            "required": [
+                "action",
+                "sn"
+            ],
+            "properties": {
+                "action": {
+                    "description": "操作类型：play/pause/stop/next/prev",
+                    "type": "string"
+                },
+                "media_url": {
+                    "description": "媒体资源 URL",
+                    "type": "string"
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                },
+                "volume": {
+                    "description": "音量 0-100",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.DevicePlayResp": {
+            "type": "object",
+            "properties": {
+                "instruction_id": {
+                    "description": "指令 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "指令状态：delivered-已下发, cached-已缓存",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DevicePlaybackProgressResp": {
+            "type": "object",
+            "properties": {
+                "current_time": {
+                    "description": "当前播放位置（秒）",
+                    "type": "integer"
+                },
+                "duration": {
+                    "description": "总时长（秒）",
+                    "type": "integer"
+                },
+                "note": {
+                    "description": "备注信息（设备离线时显示）",
+                    "type": "string"
+                },
+                "online": {
+                    "description": "设备在线状态：true-在线、false-离线",
+                    "type": "boolean"
+                },
+                "percentage": {
+                    "description": "播放进度百分比（保留一位小数）",
+                    "type": "number"
+                },
+                "remaining_time": {
+                    "description": "剩余时间（秒）",
+                    "type": "integer"
+                },
+                "sn": {
+                    "description": "设备序列号",
+                    "type": "string"
+                },
+                "timestamp": {
+                    "description": "进度记录时间",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DevicePlaybackStatus": {
+            "type": "object",
+            "properties": {
+                "current_song": {
+                    "description": "当前播放歌曲信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.PlaybackCurrentSong"
+                        }
+                    ]
+                },
+                "mode": {
+                    "description": "播放模式信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.PlaybackMode"
+                        }
+                    ]
+                },
+                "progress": {
+                    "description": "播放进度信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.PlaybackProgress"
+                        }
+                    ]
+                },
+                "queue_length": {
+                    "description": "播放队列歌曲数量",
+                    "type": "integer"
+                },
+                "state": {
+                    "description": "播放状态：playing-播放中、paused-已暂停、stopped-已停止",
+                    "type": "string"
+                },
+                "volume": {
+                    "description": "当前音量值，范围0-100",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.DevicePlaybackStatusResp": {
+            "type": "object",
+            "properties": {
+                "last_update": {
+                    "description": "最后更新时间",
+                    "type": "string"
+                },
+                "online": {
+                    "description": "设备在线状态：true-在线、false-离线",
+                    "type": "boolean"
+                },
+                "playback": {
+                    "description": "播放状态信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.DevicePlaybackStatus"
+                        }
+                    ]
+                },
+                "sn": {
+                    "description": "设备序列号",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DevicePlaylistInfo": {
+            "type": "object",
+            "properties": {
+                "first_song": {
+                    "description": "第一首歌曲信息",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.SongInfo"
+                        }
+                    ]
+                },
+                "id": {
+                    "description": "歌单ID",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "歌单名称",
+                    "type": "string"
+                },
+                "total_count": {
+                    "description": "歌曲总数",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.DevicePrevReq": {
+            "type": "object",
+            "required": [
+                "action",
+                "sn"
+            ],
+            "properties": {
+                "action": {
+                    "description": "操作类型：prev",
+                    "type": "string"
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DevicePrevResp": {
+            "type": "object",
+            "properties": {
+                "instruction_id": {
+                    "description": "指令 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "指令状态：delivered-已下发, cached-已缓存",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceRebootReq": {
+            "type": "object",
+            "required": [
+                "action",
+                "sn"
+            ],
+            "properties": {
+                "action": {
+                    "description": "操作类型：reboot",
+                    "type": "string"
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceRebootResp": {
+            "type": "object",
+            "properties": {
+                "instruction_id": {
+                    "description": "指令 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "指令状态：delivered-已下发, cached-已缓存",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceResumeReq": {
+            "type": "object",
+            "required": [
+                "action",
+                "sn"
+            ],
+            "properties": {
+                "action": {
+                    "description": "操作类型：resume",
+                    "type": "string"
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                },
+                "volume": {
+                    "description": "音量 0-100",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.DeviceResumeResp": {
+            "type": "object",
+            "properties": {
+                "instruction_id": {
+                    "description": "指令 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "指令状态：delivered-已下发, cached-已缓存",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceSetLoopParams": {
+            "type": "object",
+            "required": [
+                "mode"
+            ],
+            "properties": {
+                "mode": {
+                    "description": "循环模式：off-关闭循环、one-单曲循环、all-列表循环",
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "one",
+                        "all"
+                    ]
+                }
+            }
+        },
+        "types.DeviceSetLoopReq": {
+            "type": "object",
+            "required": [
+                "action",
+                "params",
+                "sn"
+            ],
+            "properties": {
+                "action": {
+                    "description": "操作类型：set_loop",
+                    "type": "string"
+                },
+                "params": {
+                    "description": "循环播放参数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.DeviceSetLoopParams"
+                        }
+                    ]
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceSetLoopResp": {
+            "type": "object",
+            "properties": {
+                "instruction_id": {
+                    "description": "指令 ID",
+                    "type": "integer"
+                },
+                "loop": {
+                    "description": "设置后的循环模式",
+                    "type": "string"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "指令状态：delivered-已下发, cached-已缓存",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceSetShuffleParams": {
+            "type": "object",
+            "required": [
+                "enable"
+            ],
+            "properties": {
+                "enable": {
+                    "description": "随机播放开关：true-开启随机播放、false-关闭随机播放",
+                    "type": "boolean"
+                }
+            }
+        },
+        "types.DeviceSetShuffleReq": {
+            "type": "object",
+            "required": [
+                "action",
+                "params",
+                "sn"
+            ],
+            "properties": {
+                "action": {
+                    "description": "操作类型：set_shuffle",
+                    "type": "string"
+                },
+                "params": {
+                    "description": "随机播放参数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.DeviceSetShuffleParams"
+                        }
+                    ]
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceSetShuffleResp": {
+            "type": "object",
+            "properties": {
+                "instruction_id": {
+                    "description": "指令 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "shuffle": {
+                    "description": "设置后的随机播放状态：true-已开启、false-已关闭",
+                    "type": "boolean"
+                },
+                "status": {
+                    "description": "指令状态：delivered-已下发, cached-已缓存",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceShadowInfo": {
+            "type": "object",
+            "properties": {
+                "battery": {
+                    "description": "电量百分比",
+                    "type": "integer"
+                },
+                "firmware_version": {
+                    "description": "固件版本号",
+                    "type": "string"
+                },
+                "ip": {
+                    "description": "设备 IP 地址",
+                    "type": "string"
+                },
+                "last_active_ms": {
+                    "description": "最后活跃时间（毫秒时间戳）",
+                    "type": "integer"
+                },
+                "run_state": {
+                    "description": "运行状态",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceStatusUpdateReq": {
+            "type": "object",
+            "required": [
+                "online_status",
+                "sn"
+            ],
+            "properties": {
+                "online_status": {
+                    "description": "在线状态：1-在线、0-离线",
+                    "type": "integer"
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceStatusUpdateResp": {
+            "type": "object",
+            "properties": {
+                "online_status": {
+                    "description": "在线状态",
+                    "type": "integer"
+                },
+                "sn": {
+                    "description": "设备序列号",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "更新时间",
+                    "type": "string"
+                }
+            }
+        },
+        "types.DeviceVolumeDownParams": {
+            "type": "object",
+            "properties": {
+                "step": {
+                    "description": "音量减量，默认5，范围0-20",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.DeviceVolumeDownReq": {
+            "type": "object",
+            "required": [
+                "action",
+                "sn"
+            ],
+            "properties": {
+                "action": {
+                    "description": "操作类型：volume_down",
+                    "type": "string"
+                },
+                "params": {
+                    "description": "音量减参数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.DeviceVolumeDownParams"
+                        }
+                    ]
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                },
+                "step": {
+                    "description": "音量减量，默认5，范围0-20",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.DeviceVolumeDownResp": {
+            "type": "object",
+            "properties": {
+                "current_volume": {
+                    "description": "当前音量值",
+                    "type": "integer"
+                },
+                "instruction_id": {
+                    "description": "指令 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "指令状态：delivered-已下发, cached-已缓存",
+                    "type": "string"
+                },
+                "target_volume": {
+                    "description": "目标音量值",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.DeviceVolumeUpParams": {
+            "type": "object",
+            "properties": {
+                "step": {
+                    "description": "音量增量，默认5，范围0-20",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.DeviceVolumeUpReq": {
+            "type": "object",
+            "required": [
+                "action",
+                "sn"
+            ],
+            "properties": {
+                "action": {
+                    "description": "操作类型：volume_up",
+                    "type": "string"
+                },
+                "params": {
+                    "description": "音量加参数",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.DeviceVolumeUpParams"
+                        }
+                    ]
+                },
+                "sn": {
+                    "description": "设备序列号，16位字母数字组合",
+                    "type": "string"
+                },
+                "step": {
+                    "description": "音量增量，默认5，范围0-20",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.DeviceVolumeUpResp": {
+            "type": "object",
+            "properties": {
+                "current_volume": {
+                    "description": "当前音量值",
+                    "type": "integer"
+                },
+                "instruction_id": {
+                    "description": "指令 ID",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "提示信息",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "指令状态：delivered-已下发, cached-已缓存",
+                    "type": "string"
+                },
+                "target_volume": {
+                    "description": "目标音量值",
+                    "type": "integer"
+                }
+            }
+        },
+        "types.PlaybackCurrentSong": {
+            "type": "object",
+            "properties": {
+                "album": {
+                    "description": "专辑名称",
+                    "type": "string"
+                },
+                "artist": {
+                    "description": "艺术家",
+                    "type": "string"
+                },
+                "duration": {
+                    "description": "总时长（秒）",
+                    "type": "integer"
+                },
+                "media_name": {
+                    "description": "歌曲名称",
+                    "type": "string"
+                },
+                "media_url": {
+                    "description": "音频地址",
+                    "type": "string"
+                }
+            }
+        },
+        "types.PlaybackMode": {
+            "type": "object",
+            "properties": {
+                "loop": {
+                    "description": "循环模式：off-关闭循环、one-单曲循环、all-列表循环",
+                    "type": "string"
+                },
+                "shuffle": {
+                    "description": "随机播放：true-开启随机播放、false-关闭随机播放",
+                    "type": "boolean"
+                }
+            }
+        },
+        "types.PlaybackProgress": {
+            "type": "object",
+            "properties": {
+                "current_time": {
+                    "description": "当前播放位置（秒）",
+                    "type": "integer"
+                },
+                "duration": {
+                    "description": "总时长（秒）",
+                    "type": "integer"
+                },
+                "percentage": {
+                    "description": "播放进度百分比",
+                    "type": "number"
+                }
+            }
+        },
+        "types.SongInfo": {
+            "type": "object",
+            "properties": {
+                "artist": {
+                    "description": "歌手名称",
+                    "type": "string"
+                },
+                "duration": {
+                    "description": "歌曲时长（秒）",
+                    "type": "integer"
+                },
+                "song_name": {
+                    "description": "歌曲名称",
+                    "type": "string"
+                }
+            }
+        },
+        "types.UWBPosition": {
+            "type": "object",
+            "properties": {
+                "x": {
+                    "description": "X坐标（米）",
+                    "type": "number"
+                },
+                "y": {
+                    "description": "Y坐标（米）",
+                    "type": "number"
+                },
+                "z": {
+                    "description": "Z坐标（米）",
+                    "type": "number"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

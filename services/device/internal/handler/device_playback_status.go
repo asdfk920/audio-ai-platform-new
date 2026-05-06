@@ -70,3 +70,21 @@ func devicePlaybackStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DevicePlaybackStatusHandler 设备播放状态查询
+// @Summary      设备播放状态查询
+// @Description  查询设备当前播放状态
+// @Tags         设备状态
+// @Accept       json
+// @Produce      json
+// @Param        sn  query  string  true  "设备序列号"
+// @Success      200  {object}  types.DevicePlaybackStatusResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/status/playback [get]
+// @Security     BearerAuth
+func DevicePlaybackStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return devicePlaybackStatusHandler(svcCtx)
+}
+

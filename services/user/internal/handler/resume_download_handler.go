@@ -10,6 +10,19 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @resumeDownload 继续下载
+// @Summary      继续下载
+// @Description  中断后继续下载，返回断点位置
+// @Tags         下载服务
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "请求参数"
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/download/resume [post]
+// @Security     BearerAuth
 // resumeDownloadHandler 继续下载（断点续传）处理器
 // POST /api/v1/user/download/resume
 // 用途：中断后继续下载，返回断点位置，不需要重新开始

@@ -52,3 +52,21 @@ func deviceBindHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DeviceBindHandler 设备绑定
+// @Summary      设备绑定
+// @Description  用户将设备绑定到自己的账户下
+// @Tags         设备管理
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DeviceBindReq  true  "设备绑定请求"
+// @Success      200  {object}  types.DeviceBindResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/bind [post]
+// @Security     BearerAuth
+func DeviceBindHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceBindHandler(svcCtx)
+}
+

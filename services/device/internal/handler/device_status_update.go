@@ -51,3 +51,21 @@ func deviceStatusUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	}
 }
+
+// DeviceStatusUpdateHandler 设备状态更新
+// @Summary      设备状态更新
+// @Description  设备上报自身状态变化
+// @Tags         设备状态
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DeviceStatusUpdateReq  true  "设备状态更新请求"
+// @Success      200  {object}  types.DeviceStatusUpdateResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/status/update [post]
+// @Security     BearerAuth
+func DeviceStatusUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceStatusUpdateHandler(svcCtx)
+}
+

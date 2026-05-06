@@ -1,5 +1,29 @@
 basePath: /api/v1/content
 definitions:
+  types.ArtistSubscribeReq:
+    properties:
+      artist_id:
+        description: 艺术家 ID（必填）
+        type: integer
+    type: object
+  types.ArtistUnsubscribeReq:
+    properties:
+      artist_id:
+        description: 艺术家 ID（必填）
+        type: integer
+    type: object
+  types.ImportPlaylistReq:
+    properties:
+      platform:
+        description: '平台: spotify, qq-music'
+        type: string
+      playlist_id:
+        description: 第三方歌单ID
+        type: string
+      playlist_name:
+        description: 歌单名称（可选，如果为空则使用第三方名称）
+        type: string
+    type: object
   types.PlayStartReq:
     properties:
       content_id:
@@ -7,6 +31,175 @@ definitions:
         type: integer
       device_info:
         description: 设备信息（可选）
+        type: string
+    type: object
+  types.QQMusicBindingInfo:
+    properties:
+      avatar_url:
+        type: string
+      bound_at:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      music_library_info:
+        additionalProperties: true
+        type: object
+      nickname:
+        type: string
+      qq_openid:
+        type: string
+      qq_unionid:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  types.QQMusicBindingStatusResp:
+    properties:
+      info:
+        $ref: '#/definitions/types.QQMusicBindingInfo'
+      is_bound:
+        type: boolean
+    type: object
+  types.QQMusicPlaylistInfo:
+    properties:
+      cover:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      owner:
+        type: string
+      song_count:
+        type: integer
+    type: object
+  types.QQMusicPlaylistListResp:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/types.QQMusicPlaylistInfo'
+        type: array
+      total:
+        type: integer
+    type: object
+  types.QQMusicPlaylistTrackResp:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/types.QQMusicTrackInfo'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  types.QQMusicTrackInfo:
+    properties:
+      album:
+        type: string
+      album_image:
+        type: string
+      artists:
+        items:
+          type: string
+        type: array
+      duration_ms:
+        type: integer
+      external_url:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      preview_url:
+        type: string
+    type: object
+  types.SpotifyBindingInfo:
+    properties:
+      avatar_url:
+        type: string
+      bound_at:
+        type: string
+      display_name:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      spotify_user_id:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  types.SpotifyBindingStatusResp:
+    properties:
+      info:
+        $ref: '#/definitions/types.SpotifyBindingInfo'
+      is_bound:
+        type: boolean
+    type: object
+  types.SpotifyPlaylistInfo:
+    properties:
+      cover:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      owner:
+        type: string
+      song_count:
+        type: integer
+    type: object
+  types.SpotifyPlaylistListResp:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/types.SpotifyPlaylistInfo'
+        type: array
+      total:
+        type: integer
+    type: object
+  types.SpotifyPlaylistTrackResp:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/types.SpotifyTrackInfo'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  types.SpotifyTrackInfo:
+    properties:
+      album:
+        type: string
+      album_image:
+        type: string
+      artists:
+        items:
+          type: string
+        type: array
+      duration_ms:
+        type: integer
+      external_url:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      preview_url:
         type: string
     type: object
   types.SubscribeNotifyReq:
@@ -255,6 +448,146 @@ paths:
       summary: 获取歌手详情
       tags:
       - 歌手管理
+  /artists/subscribe:
+    post:
+      consumes:
+      - application/json
+      description: 用户订阅指定的艺术家，需要登录
+      parameters:
+      - description: 订阅艺术家请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.ArtistSubscribeReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 艺术家不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 订阅艺术家
+      tags:
+      - 艺术家管理
+  /artists/unsubscribe:
+    post:
+      consumes:
+      - application/json
+      description: 用户取消订阅指定的艺术家，需要登录
+      parameters:
+      - description: 取消订阅艺术家请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.ArtistUnsubscribeReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 艺术家不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 取消订阅艺术家
+      tags:
+      - 艺术家管理
+  /import/playlist:
+    post:
+      consumes:
+      - application/json
+      description: 将Spotify或QQ音乐的歌单导入到本地，需要登录
+      parameters:
+      - description: 导入歌单请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.ImportPlaylistReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 歌单数量限制
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 第三方歌单不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 导入第三方歌单
+      tags:
+      - 歌单管理
   /play/start:
     post:
       consumes:
@@ -285,6 +618,540 @@ paths:
       summary: 播放开始
       tags:
       - 播放管理
+  /qq-music/auth:
+    get:
+      consumes:
+      - application/json
+      description: 生成OAuth授权链接，支持两种模式：1)默认返回JSON授权链接 2)redirect模式直接跳转
+      parameters:
+      - description: 回调地址（可选）
+        in: query
+        name: callback_url
+        type: string
+      - description: 是否直接跳转（true=302重定向，默认false=返回JSON）
+        in: query
+        name: redirect
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回授权链接
+          schema:
+            additionalProperties: true
+            type: object
+        "302":
+          description: 跳转到QQ音乐授权页面
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取QQ音乐授权链接
+      tags:
+      - QQ音乐绑定
+  /qq-music/callback:
+    get:
+      consumes:
+      - application/json
+      description: 接收QQ音乐回调，使用授权码换取AccessToken并绑定账号
+      parameters:
+      - description: 授权码
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: 状态参数
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: 是否直接跳转（true=302重定向，默认false=返回JSON）
+        in: query
+        name: redirect
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 绑定成功
+          schema:
+            additionalProperties: true
+            type: object
+        "302":
+          description: 绑定成功，跳转到成功页面
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: QQ音乐授权回调
+      tags:
+      - QQ音乐绑定
+  /qq-music/favorites:
+    get:
+      consumes:
+      - application/json
+      description: 获取用户 QQ 音乐账号的收藏歌曲列表，需要登录并已绑定 QQ 音乐
+      parameters:
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 未绑定 QQ 音乐
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取 QQ 音乐收藏歌曲列表
+      tags:
+      - QQ 音乐
+  /qq-music/playlist/tracks:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定QQ音乐歌单中的歌曲列表
+      parameters:
+      - description: 歌单ID
+        in: query
+        name: playlist_id
+        required: true
+        type: string
+      - description: 每页数量（默认20，最大100）
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移量（默认0）
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/types.QQMusicPlaylistTrackResp'
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 未绑定QQ音乐
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取QQ音乐歌单歌曲
+      tags:
+      - QQ音乐绑定
+  /qq-music/playlists:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前用户的QQ音乐歌单列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/types.QQMusicPlaylistListResp'
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 未绑定QQ音乐
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取QQ音乐歌单列表
+      tags:
+      - QQ音乐绑定
+  /qq-music/status:
+    get:
+      consumes:
+      - application/json
+      description: 查询当前用户的QQ音乐绑定状态和信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/types.QQMusicBindingStatusResp'
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 查询QQ音乐绑定状态
+      tags:
+      - QQ音乐绑定
+  /qq-music/unbind:
+    post:
+      consumes:
+      - application/json
+      description: 解除当前用户的QQ音乐绑定关系
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 未绑定
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 解绑QQ音乐账号
+      tags:
+      - QQ音乐绑定
+  /spotify/auth:
+    get:
+      consumes:
+      - application/json
+      description: 生成OAuth授权链接，支持两种模式：1)默认返回JSON授权链接 2)redirect模式直接跳转
+      parameters:
+      - description: 回调地址（可选）
+        in: query
+        name: callback_url
+        type: string
+      - description: 是否直接跳转（true=302重定向，默认false=返回JSON）
+        in: query
+        name: redirect
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回授权链接
+          schema:
+            additionalProperties: true
+            type: object
+        "302":
+          description: 跳转到Spotify授权页面
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取Spotify授权链接
+      tags:
+      - Spotify绑定
+  /spotify/callback:
+    get:
+      consumes:
+      - application/json
+      description: 接收Spotify回调，使用授权码换取AccessToken并绑定账号
+      parameters:
+      - description: 授权码
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: 状态参数
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: 是否直接跳转（true=302重定向，默认false=返回JSON）
+        in: query
+        name: redirect
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 绑定成功
+          schema:
+            additionalProperties: true
+            type: object
+        "302":
+          description: 绑定成功，跳转到成功页面
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Spotify授权回调
+      tags:
+      - Spotify绑定
+  /spotify/favorites:
+    get:
+      consumes:
+      - application/json
+      description: 获取用户 Spotify 账号的收藏歌曲列表，需要登录并已绑定 Spotify
+      parameters:
+      - default: 20
+        description: 每页数量
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: 偏移量
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 未绑定 Spotify
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取 Spotify 收藏歌曲列表
+      tags:
+      - Spotify
+  /spotify/playlist/tracks:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定Spotify歌单中的歌曲列表
+      parameters:
+      - description: 歌单ID
+        in: query
+        name: playlist_id
+        required: true
+        type: string
+      - description: 每页数量（默认20，最大100）
+        in: query
+        name: limit
+        type: integer
+      - description: 偏移量（默认0）
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/types.SpotifyPlaylistTrackResp'
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 未绑定Spotify
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取Spotify歌单歌曲
+      tags:
+      - Spotify绑定
+  /spotify/playlists:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前用户的Spotify歌单列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/types.SpotifyPlaylistListResp'
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 未绑定Spotify
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取Spotify歌单列表
+      tags:
+      - Spotify绑定
+  /spotify/status:
+    get:
+      consumes:
+      - application/json
+      description: 查询当前用户的Spotify绑定状态和信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/types.SpotifyBindingStatusResp'
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 查询Spotify绑定状态
+      tags:
+      - Spotify绑定
+  /spotify/unbind:
+    post:
+      consumes:
+      - application/json
+      description: 解除当前用户的Spotify绑定关系
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未登录
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 未绑定
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 解绑Spotify账号
+      tags:
+      - Spotify绑定
   /subscriptions:
     get:
       consumes:

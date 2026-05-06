@@ -187,3 +187,20 @@ func parseReportedAt(s string) (time.Time, error) {
 	}
 	return time.Time{}, errors.New("parse")
 }
+
+// StatusReportHandler 设备状态上报
+// @Summary      设备状态上报
+// @Description  设备定时上报状态数据
+// @Tags         设备状态
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/status/report [post]
+// @Security     BearerAuth
+func StatusReportHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return statusReportHandler(svcCtx)
+}
+

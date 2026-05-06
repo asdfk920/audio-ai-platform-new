@@ -10,6 +10,19 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @QuitDeviceShare 退出设备共享
+// @Summary      退出设备共享
+// @Description  退出已接受共享的设备
+// @Tags         设备分享
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "请求参数"
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/device/share/quit [post]
+// @Security     BearerAuth
 // QuitDeviceShareHandler 退出设备共享处理器
 // POST /api/v1/user/device/share/quit
 // 用途：共享用户主动退出设备共享

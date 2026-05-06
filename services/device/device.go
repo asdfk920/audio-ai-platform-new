@@ -1,3 +1,11 @@
+// @title           Device Service API
+// @version         1.0
+// @description     设备微服务 API 文档，包含设备管理、设备控制、设备状态查询等接口
+// @host            localhost:8002
+// @BasePath        /api/v1
+// @securityDefinitions.apikey  BearerAuth
+// @in              header
+// @name            Authorization
 package main
 
 import (
@@ -31,6 +39,8 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/rest/httpx"
+
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 var configFile = flag.String("f", "etc/device.yaml", "the config file")
@@ -208,7 +218,44 @@ func main() {
 		redisexpire.StartOnlineKeyExpiryListener(bgCtx, subRdb, db, rdb, persist, c)
 	}
 
+	// 添加 Swagger UI 路由
+	swaggerHandler := httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8002/swagger/doc.json"),
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("list"),
+		httpSwagger.DomID("swagger-ui"),
+	)
+	server.AddRoute(rest.Route{
+		Method: http.MethodGet,
+		Path:   "/swagger/",
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			swaggerHandler.ServeHTTP(w, r)
+		},
+	})
+	server.AddRoute(rest.Route{
+		Method: http.MethodGet,
+		Path:   "/swagger/index.html",
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			swaggerHandler.ServeHTTP(w, r)
+		},
+	})
+	server.AddRoute(rest.Route{
+		Method: http.MethodGet,
+		Path:   "/swagger/doc.json",
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, "./docs/swagger.json")
+		},
+	})
+	server.AddRoute(rest.Route{
+		Method: http.MethodGet,
+		Path:   "/swagger/:path",
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			swaggerHandler.ServeHTTP(w, r)
+		},
+	})
+
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
+	fmt.Printf("Swagger UI: http://%s:%d/swagger/\n", c.Host, c.Port)
 	server.Start()
 }
 

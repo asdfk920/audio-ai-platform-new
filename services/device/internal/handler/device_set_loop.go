@@ -65,3 +65,21 @@ func deviceSetLoopHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		})
 	})
 }
+
+// DeviceSetLoopHandler 设备设置循环播放
+// @Summary      设备设置循环播放
+// @Description  用户通过 App 向设备下发设置循环播放指令
+// @Tags         设备控制
+// @Accept       json
+// @Produce      json
+// @Param        body  body      types.DeviceSetLoopReq  true  "设备设置循环播放请求"
+// @Success      200  {object}  types.DeviceSetLoopResp  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /api/v1/device/cmd/set_loop [post]
+// @Security     BearerAuth
+func DeviceSetLoopHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return deviceSetLoopHandler(svcCtx)
+}
+

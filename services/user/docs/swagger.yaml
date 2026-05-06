@@ -1,0 +1,1453 @@
+basePath: /api/v1/user
+definitions:
+  errorx.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      msg:
+        type: string
+    type: object
+host: localhost:8001
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: 音频 AI 平台用户服务接口文档，包含用户登录、注册、个人信息、家庭管理、设备分享、下载管理、实名认证等功能
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: 用户服务 API 文档
+  version: "1.0"
+paths:
+  /user/bind:
+    put:
+      consumes:
+      - application/json
+      description: 为当前登录用户绑定邮箱或手机号
+      parameters:
+      - description: 绑定联系方式请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 绑定成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 绑定联系方式
+      tags:
+      - 账户绑定
+  /user/cancellation/withdraw:
+    post:
+      consumes:
+      - application/json
+      description: 在冷静期内撤销注销申请，恢复账号
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 撤销注销
+      tags:
+      - 账号注销
+  /user/content/download-url:
+    post:
+      consumes:
+      - application/json
+      description: 获取私有格式内容的下载地址
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取下载地址
+      tags:
+      - 下载服务
+  /user/content/download/stream:
+    get:
+      consumes:
+      - application/json
+      description: 流式传输私有格式内容，同时保存到本地
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 流式下载
+      tags:
+      - 下载服务
+  /user/device/share/accept:
+    post:
+      consumes:
+      - application/json
+      description: 接受其他用户共享的设备
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 接受成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 接受设备共享
+      tags:
+      - 设备分享
+  /user/device/share/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建设备共享，将设备权限分享给其他用户
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建设备共享
+      tags:
+      - 设备分享
+  /user/device/share/detail:
+    get:
+      consumes:
+      - application/json
+      description: 查询指定设备共享的详细信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 共享详情
+      tags:
+      - 设备分享
+  /user/device/share/quit:
+    post:
+      consumes:
+      - application/json
+      description: 退出已接受共享的设备
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 退出设备共享
+      tags:
+      - 设备分享
+  /user/device/share/received:
+    get:
+      consumes:
+      - application/json
+      description: 查询当前用户收到的所有设备共享记录
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 收到的共享列表
+      tags:
+      - 设备分享
+  /user/device/share/revoke:
+    post:
+      consumes:
+      - application/json
+      description: 撤销已共享的设备权限
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 撤销设备共享
+      tags:
+      - 设备分享
+  /user/device/share/sent:
+    get:
+      consumes:
+      - application/json
+      description: 查询当前用户发出的所有设备共享记录
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 发出的共享列表
+      tags:
+      - 设备分享
+  /user/download/complete:
+    post:
+      consumes:
+      - application/json
+      description: 前端通知后端下载完成
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 完成下载
+      tags:
+      - 下载服务
+  /user/download/create:
+    post:
+      consumes:
+      - application/json
+      description: 用户点击下载时创建下载记录
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建下载记录
+      tags:
+      - 下载服务
+  /user/download/delete:
+    delete:
+      consumes:
+      - application/json
+      description: 用户主动删除单条下载记录
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除下载记录
+      tags:
+      - 下载服务
+  /user/download/progress:
+    post:
+      consumes:
+      - application/json
+      description: 前端定时上报下载进度到云端
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新下载进度
+      tags:
+      - 下载服务
+  /user/download/records:
+    get:
+      consumes:
+      - application/json
+      description: 查询当前用户的下载记录列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 下载记录列表
+      tags:
+      - 下载服务
+  /user/download/resume:
+    post:
+      consumes:
+      - application/json
+      description: 中断后继续下载，返回断点位置
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 继续下载
+      tags:
+      - 下载服务
+  /user/download/sync-delete:
+    post:
+      consumes:
+      - application/json
+      description: App 清理本地缓存后，同步删除云端记录
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 批量同步删除
+      tags:
+      - 下载服务
+  /user/family/create:
+    post:
+      consumes:
+      - application/json
+      description: 创建新的家庭组，创建者自动成为管理员
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建家庭组
+      tags:
+      - 家庭管理
+  /user/family/current:
+    get:
+      consumes:
+      - application/json
+      description: 查询当前用户所属的家庭组详情
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 查询家庭组
+      tags:
+      - 家庭管理
+  /user/family/member/accept:
+    post:
+      consumes:
+      - application/json
+      description: 接受加入家庭组的邀请
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 接受邀请
+      tags:
+      - 家庭管理
+  /user/family/member/invite:
+    post:
+      consumes:
+      - application/json
+      description: 邀请其他用户加入家庭组
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 邀请家庭成员
+      tags:
+      - 家庭管理
+  /user/family/member/list:
+    get:
+      consumes:
+      - application/json
+      description: 查询当前家庭组的所有成员信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 成员列表
+      tags:
+      - 家庭管理
+  /user/family/member/remove:
+    post:
+      consumes:
+      - application/json
+      description: 从家庭组中移除成员
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 移除成员
+      tags:
+      - 家庭管理
+  /user/family/member/role/update:
+    post:
+      consumes:
+      - application/json
+      description: 修改家庭成员的角色
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新成员角色
+      tags:
+      - 家庭管理
+  /user/info:
+    put:
+      consumes:
+      - application/json
+      description: 已登录用户更新个人资料，如昵称、头像等
+      parameters:
+      - description: 用户信息更新请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新用户资料
+      tags:
+      - 用户信息
+  /user/login:
+    post:
+      consumes:
+      - application/json
+      description: 用户通过账号密码或验证码登录系统，返回 JWT token
+      parameters:
+      - description: 登录请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功，返回 token 信息
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 账号或密码错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      summary: 用户登录
+      tags:
+      - 用户认证
+  /user/login/sessions:
+    get:
+      consumes:
+      - application/json
+      description: 查询当前用户的所有登录会话信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      summary: 会话列表
+      tags:
+      - 登录会话
+  /user/login/sessions/kick:
+    post:
+      consumes:
+      - application/json
+      description: 强制吊销指定登录会话，使该会话立即失效
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      summary: 吊销会话
+      tags:
+      - 登录会话
+  /user/logout:
+    post:
+      consumes:
+      - application/json
+      description: 用户登出，将 token 加入黑名单
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登出成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 用户登出
+      tags:
+      - 用户认证
+  /user/oauth/google:
+    get:
+      consumes:
+      - application/json
+      description: 跳转到 Google OAuth 授权页面
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: 跳转到 Google 授权页面
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      summary: Google OAuth
+      tags:
+      - OAuth
+  /user/oauth/google/callback:
+    get:
+      consumes:
+      - application/json
+      description: Google OAuth 授权回调，自动创建或绑定用户
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      summary: Google OAuth 回调
+      tags:
+      - OAuth
+  /user/oauth/wechat:
+    get:
+      consumes:
+      - application/json
+      description: 跳转到微信 OAuth 授权页面
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: 跳转到微信授权页面
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      summary: 微信 OAuth
+      tags:
+      - OAuth
+  /user/oauth/wechat/callback:
+    get:
+      consumes:
+      - application/json
+      description: 微信 OAuth 授权回调，自动创建或绑定用户
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      summary: 微信 OAuth 回调
+      tags:
+      - OAuth
+  /user/password/change:
+    put:
+      consumes:
+      - application/json
+      description: 修改当前用户的登录密码，需验证旧密码
+      parameters:
+      - description: 修改密码请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 修改成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 修改密码
+      tags:
+      - 密码管理
+  /user/password/reset:
+    post:
+      consumes:
+      - application/json
+      description: 忘记密码时，通过邮箱/手机验证码重置密码
+      parameters:
+      - description: 重置密码请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 重置成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      summary: 重置密码
+      tags:
+      - 密码管理
+  /user/realname/audit:
+    get:
+      consumes:
+      - application/json
+      description: 查询实名认证的审核详情，包括拒绝原因等
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 查询审核详情
+      tags:
+      - 实名认证
+  /user/realname/status:
+    get:
+      consumes:
+      - application/json
+      description: 查询当前用户的实名认证状态
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 查询实名状态
+      tags:
+      - 实名认证
+  /user/realname/submit:
+    post:
+      consumes:
+      - application/json
+      description: 提交实名认证申请，等待后台审核
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 提交实名信息
+      tags:
+      - 实名认证
+  /user/rebind:
+    put:
+      consumes:
+      - application/json
+      description: 更换已绑定的邮箱或手机号
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 换绑联系方式
+      tags:
+      - 账户绑定
+  /user/rebind/realname:
+    put:
+      consumes:
+      - application/json
+      description: 实名认证用户更换绑定的邮箱或手机号
+      parameters:
+      - description: 请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      security:
+      - BearerAuth: []
+      summary: 实名换绑
+      tags:
+      - 账户绑定
+  /user/register:
+    post:
+      consumes:
+      - application/json
+      description: 新用户注册，支持邮箱或手机号注册，需先发验证码
+      parameters:
+      - description: 注册请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 注册成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "409":
+          description: 账号已存在
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      summary: 用户注册
+      tags:
+      - 用户认证
+  /user/token/refresh:
+    post:
+      consumes:
+      - application/json
+      description: 使用刷新令牌获取新的访问令牌，延长登录有效期
+      parameters:
+      - description: 刷新 Token 请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 刷新成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "401":
+          description: Token 无效
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      summary: 刷新 Token
+      tags:
+      - 用户认证
+  /user/verify/send:
+    post:
+      consumes:
+      - application/json
+      description: 发送验证码到邮箱或手机，用于注册、登录、找回密码等场景
+      parameters:
+      - description: 发送验证码请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/errorx.Response'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 发送成功
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "429":
+          description: 发送过于频繁
+          schema:
+            $ref: '#/definitions/errorx.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/errorx.Response'
+      summary: 发送验证码
+      tags:
+      - 验证码
+securityDefinitions:
+  BearerAuth:
+    description: 请输入 Bearer Token
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

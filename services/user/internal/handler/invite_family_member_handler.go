@@ -10,6 +10,19 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @InviteFamilyMember 邀请家庭成员
+// @Summary      邀请家庭成员
+// @Description  邀请其他用户加入家庭组
+// @Tags         家庭管理
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "请求参数"
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/family/member/invite [post]
+// @Security     BearerAuth
 // InviteFamilyMemberHandler 邀请家庭成员处理器
 // POST /api/v1/user/family/member/invite
 // 用途：家庭管理员邀请新用户加入家庭

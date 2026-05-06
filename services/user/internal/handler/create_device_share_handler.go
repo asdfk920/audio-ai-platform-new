@@ -10,6 +10,19 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @CreateDeviceShare 创建设备共享
+// @Summary      创建设备共享
+// @Description  创建设备共享，将设备权限分享给其他用户
+// @Tags         设备分享
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "请求参数"
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/device/share/create [post]
+// @Security     BearerAuth
 // CreateDeviceShareHandler 创建设备共享处理器
 // POST /api/v1/user/device/share/create
 // 用途：用户创建设备共享邀请，将设备共享给其他用户

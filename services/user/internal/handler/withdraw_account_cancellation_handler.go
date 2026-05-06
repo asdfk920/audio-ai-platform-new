@@ -10,6 +10,19 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @WithdrawAccountCancellation 撤销注销
+// @Summary      撤销注销
+// @Description  在冷静期内撤销注销申请，恢复账号
+// @Tags         账号注销
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "请求参数"
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/cancellation/withdraw [post]
+// @Security     BearerAuth
 // WithdrawAccountCancellationHandler 撤销注销申请处理器
 // POST /api/v1/user/account/cancellation/withdraw
 // 用途：用户在注销冷静期内撤销注销申请，恢复账号正常使用

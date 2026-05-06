@@ -51,36 +51,47 @@ func main() {
 	defer server.Stop()
 
 	ctx := svc.NewServiceContext(c)
+
+	swaggerHandler := httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8003/swagger/doc.json"),
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("list"),
+		httpSwagger.DomID("swagger-ui"),
+	)
+
+	server.AddRoutes([]rest.Route{
+		{
+			Method: http.MethodGet,
+			Path:   "/swagger/",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				swaggerHandler.ServeHTTP(w, r)
+			},
+		},
+		{
+			Method: http.MethodGet,
+			Path:   "/swagger/index.html",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				swaggerHandler.ServeHTTP(w, r)
+			},
+		},
+		{
+			Method: http.MethodGet,
+			Path:   "/swagger/doc.json",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				http.ServeFile(w, r, "./docs/swagger.json")
+			},
+		},
+		{
+			Method: http.MethodGet,
+			Path:   "/swagger/:path",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				swaggerHandler.ServeHTTP(w, r)
+			},
+		},
+	})
+
 	handler.RegisterHandlers(server, ctx)
-
-	server.AddRoute(rest.Route{
-		Method: http.MethodGet,
-		Path:   "/swagger/",
-		Handler: func(w http.ResponseWriter, r *http.Request) {
-			httpSwagger.Handler(
-				httpSwagger.URL("http://localhost:8003/swagger/doc.json"),
-			).ServeHTTP(w, r)
-		},
-	})
-
-	server.AddRoute(rest.Route{
-		Method: http.MethodGet,
-		Path:   "/swagger/index.html",
-		Handler: func(w http.ResponseWriter, r *http.Request) {
-			httpSwagger.Handler(
-				httpSwagger.URL("http://localhost:8003/swagger/doc.json"),
-			).ServeHTTP(w, r)
-		},
-	})
-
-	server.AddRoute(rest.Route{
-		Method: http.MethodGet,
-		Path:   "/swagger/doc.json",
-		Handler: func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			http.ServeFile(w, r, "./docs/swagger.json")
-		},
-	})
 
 	root := strings.TrimSpace(c.Local.Root)
 	if root == "" {
@@ -99,6 +110,6 @@ func main() {
 	}
 
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
-	fmt.Printf("Swagger UI: http://%s:%d/swagger/index.html\n", c.Host, c.Port)
+	fmt.Printf("Swagger UI: http://%s:%d/swagger/\n", c.Host, c.Port)
 	server.Start()
 }

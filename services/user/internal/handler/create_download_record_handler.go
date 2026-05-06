@@ -10,6 +10,19 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// @createDownloadRecord 创建下载记录
+// @Summary      创建下载记录
+// @Description  用户点击下载时创建下载记录
+// @Tags         下载服务
+// @Accept       json
+// @Produce      json
+// @Param        body  body      errorx.Response  true  "请求参数"
+// @Success      200  {object}  errorx.Response  "成功"
+// @Failure      400  {object}  errorx.Response  "参数错误"
+// @Failure      401  {object}  errorx.Response  "未登录"
+// @Failure      500  {object}  errorx.Response  "服务器错误"
+// @Router       /user/download/create [post]
+// @Security     BearerAuth
 // createDownloadRecordHandler 创建下载记录处理器
 // POST /api/v1/user/download/create
 // 用途：用户点击下载时创建下载记录，返回下载地址和断点位置

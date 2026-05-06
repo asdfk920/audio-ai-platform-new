@@ -61,4 +61,18 @@ type Config struct {
 		// ListCacheBumpSecret 非空时允许通过 Header X-Internal-Secret 调用列表缓存失效
 		ListCacheBumpSecret string `json:",optional"`
 	}
+	// Spotify OAuth 配置
+	Spotify struct {
+		ClientID        string `json:",optional"`
+		ClientSecret    string `json:",optional"`
+		CallbackBaseURL string `json:",optional"`
+		MockMode        bool   `json:",default=false"` // 开发测试模式，使用模拟数据
+	}
+	// QQ音乐 OAuth 配置
+	QQMusic struct {
+		AppID           string `json:",optional"`
+		AppSecret       string `json:",optional"`
+		CallbackBaseURL string `json:",optional"`
+		MockMode        bool   `json:",default=false"` // 开发测试模式，使用模拟数据
+	}
 }
