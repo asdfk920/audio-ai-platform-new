@@ -1,0 +1,14 @@
+Name: ota
+Host: 0.0.0.0
+Port: 8005
+
+Auth:
+  AccessSecret: audio-ai-platform-user-secret
+
+Postgres:
+  DataSource: postgres://admin:admin123@localhost:5432/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai
+
+Redis:
+  Addr: localhost:6379
+  Password: ""
+  DB: 0

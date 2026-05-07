@@ -67,35 +67,35 @@ const (
 	CodeDeviceExists   = 2002
 	CodeDeviceOffline  = 2003
 	// 设备首次注册 / Provisioning
-	CodeDeviceSnInvalid            = 2004 // SN 格式或规则不通过
-	CodeDeviceProductInvalid       = 2005 // ProductKey 未在平台登记
-	CodeDeviceSnBlacklisted        = 2006 // SN 命中黑名单
-	CodeDeviceAlreadyRegistered    = 2007 // SN 已注册（重复注册）
-	CodeDeviceBoundByOther         = 2008 // 设备已被其他用户绑定
-	CodeDeviceUnbindForbidden      = 2009 // 无权限解绑或设备未绑定（兼容）
-	CodeDeviceNotBound             = 2012 // 无活跃绑定，无法解绑
-	CodeDeviceUnbindNotOwner       = 2013 // 非绑定者解绑
-	CodeDeviceRegisterRateLimit    = 2014 // 设备注册过于频繁（IP 限流）
-	CodeDeviceDisabled             = 2015 // 设备已禁用，无法查询状态
-	CodeDeviceInactive             = 2016 // 设备未激活，无法查询状态
-	CodeDeviceScrapped             = 2017 // 设备已报废，无法查询状态
-	CodeDeviceStatusQueryRateLimit = 2018 // 设备状态查询过于频繁
-	CodeMemberPackageNotFound      = 2020 // 套餐不存在
-	CodeMemberPackageDisabled      = 2021 // 套餐已下架
-	CodeMemberOrderNotFound        = 2022 // 订单不存在
-	CodeMemberOrderNotPending      = 2023 // 订单非待支付
-	CodeMemberInsufficientBalance  = 2024 // 余额不足
-	CodeMemberPayCallbackInvalid   = 2025 // 支付回调验签失败或参数非法
-	CodeDeviceCommandNotFound      = 2026 // 指令不存在
-	CodeDeviceNoPermission         = 2027 // 无权限操作设备
-	CodeDeviceSecretInvalid        = 2028 // 设备密钥不正确
-	CodeDeviceAuthLocked           = 2029 // 设备认证失败次数过多，已锁定
-	CodeDeviceSignatureInvalid     = 2030 // 设备签名校验失败
-	CodeDeviceTimestampInvalid     = 2031 // 设备时间戳不合法或超出允许窗口
-	CodeMemberNoSubscription       = 2032 // 无会员档案或不可退订
+	CodeDeviceSnInvalid              = 2004 // SN 格式或规则不通过
+	CodeDeviceProductInvalid         = 2005 // ProductKey 未在平台登记
+	CodeDeviceSnBlacklisted          = 2006 // SN 命中黑名单
+	CodeDeviceAlreadyRegistered      = 2007 // SN 已注册（重复注册）
+	CodeDeviceBoundByOther           = 2008 // 设备已被其他用户绑定
+	CodeDeviceUnbindForbidden        = 2009 // 无权限解绑或设备未绑定（兼容）
+	CodeDeviceNotBound               = 2012 // 无活跃绑定，无法解绑
+	CodeDeviceUnbindNotOwner         = 2013 // 非绑定者解绑
+	CodeDeviceRegisterRateLimit      = 2014 // 设备注册过于频繁（IP 限流）
+	CodeDeviceDisabled               = 2015 // 设备已禁用，无法查询状态
+	CodeDeviceInactive               = 2016 // 设备未激活，无法查询状态
+	CodeDeviceScrapped               = 2017 // 设备已报废，无法查询状态
+	CodeDeviceStatusQueryRateLimit   = 2018 // 设备状态查询过于频繁
+	CodeMemberPackageNotFound        = 2020 // 套餐不存在
+	CodeMemberPackageDisabled        = 2021 // 套餐已下架
+	CodeMemberOrderNotFound          = 2022 // 订单不存在
+	CodeMemberOrderNotPending        = 2023 // 订单非待支付
+	CodeMemberInsufficientBalance    = 2024 // 余额不足
+	CodeMemberPayCallbackInvalid     = 2025 // 支付回调验签失败或参数非法
+	CodeDeviceCommandNotFound        = 2026 // 指令不存在
+	CodeDeviceNoPermission           = 2027 // 无权限操作设备
+	CodeDeviceSecretInvalid          = 2028 // 设备密钥不正确
+	CodeDeviceAuthLocked             = 2029 // 设备认证失败次数过多，已锁定
+	CodeDeviceSignatureInvalid       = 2030 // 设备签名校验失败
+	CodeDeviceTimestampInvalid       = 2031 // 设备时间戳不合法或超出允许窗口
+	CodeMemberNoSubscription         = 2032 // 无会员档案或不可退订
 	CodeMemberPermanentNoUnsubscribe = 2033 // 永久会员请通过客服处理退订
-	CodeMemberUnsubscribeNotPending = 2034 // 当前未处于待到期退订状态
-	CodeMemberExpiredNoUnsubscribe  = 2035 // 会员已过期，无需退订
+	CodeMemberUnsubscribeNotPending  = 2034 // 当前未处于待到期退订状态
+	CodeMemberExpiredNoUnsubscribe   = 2035 // 会员已过期，无需退订
 
 	// 内容相关错误 3xxx
 	CodeContentNotFound = 3001
@@ -118,6 +118,8 @@ const (
 	CodeDBError       = 9005
 	CodeNotFound      = 404
 	CodeNoPermission  = 403
+	CodeUnauthorized  = 401
+	CodeInternalError = 500
 )
 
 // 错误消息映射
@@ -205,9 +207,9 @@ var codeMsg = map[int]string{
 	CodeDeviceSignatureInvalid:        "设备签名校验失败",
 	CodeDeviceTimestampInvalid:        "设备时间戳不合法或已过期",
 	CodeMemberNoSubscription:          "暂无有效会员订阅",
-	CodeMemberPermanentNoUnsubscribe:    "永久会员暂不支持自助退订，请联系客服",
-	CodeMemberUnsubscribeNotPending:     "当前无需撤销或状态已变更",
-	CodeMemberExpiredNoUnsubscribe:      "会员已过期",
+	CodeMemberPermanentNoUnsubscribe:  "永久会员暂不支持自助退订，请联系客服",
+	CodeMemberUnsubscribeNotPending:   "当前无需撤销或状态已变更",
+	CodeMemberExpiredNoUnsubscribe:    "会员已过期",
 	CodeContentNotFound:               "内容不存在",
 	CodeUploadFailed:                  "上传失败",
 	CodeProcessFailed:                 "处理失败",
@@ -224,6 +226,8 @@ var codeMsg = map[int]string{
 	CodeDBError:                       "数据库操作失败",
 	CodeNotFound:                      "资源不存在",
 	CodeNoPermission:                  "无权限访问",
+	CodeUnauthorized:                  "未授权访问",
+	CodeInternalError:                 "内部服务器错误",
 }
 
 type CodeError struct {

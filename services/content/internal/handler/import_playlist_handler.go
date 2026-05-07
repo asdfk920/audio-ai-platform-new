@@ -11,7 +11,6 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/content/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/types"
 	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 

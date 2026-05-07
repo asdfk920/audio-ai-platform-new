@@ -153,14 +153,15 @@ func (l *DeviceBindLogic) isDeviceOnline(sn string) bool {
 
 // validateDeviceBindReq 校验设备绑定请求数据格式
 // 校验规则：
-//   - SN: 16 位字母数字，正则 ^[A-Z0-9]{16}$，不区分大小写
+//   - SN: 支持短格式，正则 ^[A-Z0-9]{2,3}-[A-Z0-9]{2}-\d{3,5}$
+//     示例：SN-X1-001, AUD-SP-00001
 //
 // 参数 req *types.DeviceBindReq: 设备绑定请求
 // 返回 error: 校验失败时的错误信息
 func validateDeviceBindReq(req *types.DeviceBindReq) error {
-	snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
-	if !snRegex.MatchString(req.Sn) {
-		return fmt.Errorf("SN 格式错误，必须为 16 位字母数字组合")
+	snPatternShort := regexp.MustCompile(`^[A-Z0-9]{2,3}-[A-Z0-9]{2}-\d{3,5}$`)
+	if !snPatternShort.MatchString(strings.ToUpper(req.Sn)) {
+		return fmt.Errorf("SN 格式错误，应为短格式（如：SN-X1-001）")
 	}
 
 	return nil

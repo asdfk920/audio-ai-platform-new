@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 构建产物
+*.exe
+*.dll
+*.so
+*.dylib
+ai-worker
+
+# 测试
+*.test
+*.out
+coverage/
+
+# 依赖
+vendor/
+
+# 日志和输出
+logs/
+output/
+cache/
+static-media/
+
+# 模型文件 (太大)
+models/*.pt
+models/*.pth
+models/*.onnx
+models/*/
+!models/.gitkeep
+
+# 文档
+README.md
+docs/
+deploy.sh
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+.env
+.env.*
+
+# K8s
+deploy/

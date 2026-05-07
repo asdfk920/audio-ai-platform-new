@@ -2,18 +2,185 @@ package devicebind
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/big"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/jacklau/audio-ai-platform/common/errorx"
 )
+
+var snPattern = regexp.MustCompile(`^[A-Z0-9]{3}-[A-Z0-9]{2}-\d{4}-\d{5}-[A-Z0-9]$`)
+
+// generateSN 生成符合规范的设备序列号
+func generateSN(vendorCode, productLine string) (string, error) {
+	// 验证厂商码
+	if len(vendorCode) != 3 {
+		return "", fmt.Errorf("厂商码必须为 3 位，当前：%s", vendorCode)
+	}
+
+	// 验证产品线
+	if len(productLine) != 2 {
+		return "", fmt.Errorf("产品线必须为 2 位，当前：%s", productLine)
+	}
+
+	// 生成年月（YYMM 格式）
+	now := time.Now()
+	year := now.Year() % 100
+	month := int(now.Month())
+	yearMonth := fmt.Sprintf("%02d%02d", year, month)
+
+	// 生成流水号（00001-99999）
+	serialNum, err := rand.Int(rand.Reader, big.NewInt(99999))
+	if err != nil {
+		return "", fmt.Errorf("生成流水号失败：%w", err)
+	}
+	serialNum = serialNum.Add(serialNum, big.NewInt(1))
+	serialStr := fmt.Sprintf("%05d", serialNum.Int64())
+
+	// 拼接前缀（不含校验位）
+	prefix := fmt.Sprintf("%s-%s-%s-%s",
+		strings.ToUpper(vendorCode),
+		strings.ToUpper(productLine),
+		yearMonth,
+		serialStr,
+	)
+
+	// 生成校验位
+	checkDigit := generateCheckDigit(prefix)
+
+	sn := prefix + "-" + string(checkDigit)
+	return sn, nil
+}
+
+// validateSN 验证序列号格式是否合法
+func validateSN(sn string) (bool, string, string, string, string, string, error) {
+	sn = strings.TrimSpace(sn)
+
+	// 基本长度检查（17 位）
+	if len(sn) != 17 {
+		return false, "", "", "", "", "", fmt.Errorf("序列号长度应为 17 位（含横杠），当前：%d", len(sn))
+	}
+
+	// 格式检查
+	if !snPattern.MatchString(sn) {
+		return false, "", "", "", "", "", fmt.Errorf("序列号格式不正确，应为 XXX-XX-YYYY-NNNNN-X 格式")
+	}
+
+	// 分解各部分
+	parts := strings.Split(sn, "-")
+	if len(parts) != 5 {
+		return false, "", "", "", "", "", fmt.Errorf("序列号分段错误")
+	}
+
+	vendorCode := parts[0]  // 厂商码 (3 位)
+	productLine := parts[1] // 产品线 (2 位)
+	yearMonth := parts[2]   // 年月 (4 位)
+	serialNum := parts[3]   // 流水号 (5 位)
+	checkDigit := parts[4]  // 校验位 (1 位)
+
+	// 验证校验位
+	prefix := fmt.Sprintf("%s-%s-%s-%s", vendorCode, productLine, yearMonth, serialNum)
+	expectedCheckDigit := generateCheckDigit(prefix)
+	if expectedCheckDigit != checkDigit[0] {
+		return false, "", "", "", "", "", fmt.Errorf("校验位错误，应为：%c", expectedCheckDigit)
+	}
+
+	// 验证年月是否合理
+	month, err := strconv.Atoi(yearMonth[2:])
+	if err != nil || month < 1 || month > 12 {
+		return false, "", "", "", "", "", fmt.Errorf("月份无效：%d", month)
+	}
+
+	// 验证流水号
+	serialInt, err := strconv.Atoi(serialNum)
+	if err != nil || serialInt < 1 || serialInt > 99999 {
+		return false, "", "", "", "", "", fmt.Errorf("流水号无效：%s", serialNum)
+	}
+
+	return true, vendorCode, productLine, yearMonth, serialNum, checkDigit, nil
+}
+
+// parseSN 解析序列号，返回详细信息
+func parseSN(sn string) (map[string]interface{}, error) {
+	valid, vendorCode, productLine, yearMonth, serialNum, checkDigit, err := validateSN(sn)
+	if err != nil {
+		return nil, err
+	}
+
+	if !valid {
+		return nil, fmt.Errorf("序列号无效")
+	}
+
+	result := map[string]interface{}{
+		"sn":                sn,
+		"vendor_code":       vendorCode,
+		"vendor_name":       getVendorName(vendorCode),
+		"product_line":      productLine,
+		"product_line_name": getProductLineName(productLine),
+		"year_month":        yearMonth,
+		"year":              "20" + yearMonth[:2],
+		"month":             yearMonth[2:],
+		"serial_number":     serialNum,
+		"check_digit":       checkDigit,
+		"valid":             true,
+	}
+
+	return result, nil
+}
+
+// getVendorName 根据厂商码获取厂商名称
+func getVendorName(vendorCode string) string {
+	vendorCodes := map[string]string{
+		"AUD": "Audio Tech",
+		"SND": "Sound Pro",
+		"SPK": "Speaker Co",
+		"HPH": "Headphone Inc",
+		"MIC": "Mic Master",
+	}
+	if name, ok := vendorCodes[strings.ToUpper(vendorCode)]; ok {
+		return name
+	}
+	return "未知厂商"
+}
+
+// getProductLineName 根据产品线代码获取产品线名称
+func getProductLineName(productLine string) string {
+	productLines := map[string]string{
+		"SP": "Speaker",
+		"HP": "Headphone",
+		"SB": "SoundBar",
+		"MI": "Mini",
+		"PR": "Pro",
+		"X1": "X1 Series",
+		"X2": "X2 Series",
+	}
+	if name, ok := productLines[strings.ToUpper(productLine)]; ok {
+		return name
+	}
+	return "未知产品线"
+}
 
 type Options struct {
 	MaxDeviceBinds int
+}
+
+// BindError 绑定错误类型
+type BindError struct {
+	Code int
+	Msg  string
+}
+
+func (e *BindError) Error() string {
+	return e.Msg
+}
+
+func newError(code int, msg string) error {
+	return &BindError{Code: code, Msg: msg}
 }
 
 type Result struct {
@@ -69,60 +236,65 @@ var (
 
 func BindUserDevice(ctx context.Context, db *sql.DB, userID int64, deviceSN string, opts Options) (*Result, error) {
 	if userID <= 0 {
-		return nil, errorx.NewCodeError(errorx.CodeTokenInvalid, "登录已过期或无效，请重新登录")
+		return nil, newError(401, "登录已过期或无效，请重新登录")
 	}
 
 	snNorm := normalizeSN(deviceSN)
 	if snNorm == "" {
-		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "设备序列号不能为空")
+		return nil, newError(400, "设备序列号不能为空")
+	}
+
+	// 验证 SN 格式：厂商码 (3 位) + 产品线 (2 位) + 年月 (4 位) + 流水号 (5 位) + 校验位 (1 位)
+	if err := validateSNFormat(snNorm); err != nil {
+		return nil, newError(400, err.Error())
 	}
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "系统繁忙，请稍后重试")
+		return nil, newError(500, "系统繁忙，请稍后重试")
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	user, err := findUserByID(ctx, tx, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errorx.NewCodeError(errorx.CodeUserNotFound, "用户不存在")
+			return nil, newError(404, "用户不存在")
 		}
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "查询用户失败")
+		return nil, newError(500, "查询用户失败")
 	}
 	if user.Status != 1 {
 		if user.Status == 2 {
-			return nil, errorx.NewCodeError(errorx.CodeUserAccountDisabled, "用户账号已被禁用")
+			return nil, newError(403, "用户账号已被禁用")
 		}
 		if user.Status == 3 {
-			return nil, errorx.NewCodeError(errorx.CodeUserAccountDisabled, "用户账号已被封禁")
+			return nil, newError(403, "用户账号已被封禁")
 		}
-		return nil, errorx.NewCodeError(errorx.CodeUserAccountDisabled, "用户账号状态异常")
+		return nil, newError(403, "用户账号状态异常")
 	}
 
 	device, err := findDeviceBySN(ctx, tx, snNorm)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errorx.NewCodeError(errorx.CodeDeviceNotFound, "设备不存在")
+			return nil, newError(404, "设备不存在")
 		}
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "查询设备失败")
+		return nil, newError(500, "查询设备失败")
 	}
 	if device.Status != 1 {
 		if device.Status == 2 {
-			return nil, errorx.NewCodeError(errorx.CodeDeviceDisabled, "设备已被禁用")
+			return nil, newError(403, "设备已被禁用")
 		}
 		if device.Status == 3 {
-			return nil, errorx.NewCodeError(errorx.CodeDeviceInactive, "设备未激活，请先激活设备")
+			return nil, newError(403, "设备未激活，请先激活设备")
 		}
-		return nil, errorx.NewCodeError(errorx.CodeDeviceDisabled, "设备状态异常")
+		return nil, newError(403, "设备状态异常")
 	}
 
 	activeBind, err := findActiveBindByDeviceID(ctx, tx, device.ID)
 	if err != nil {
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "查询绑定状态失败")
+		return nil, newError(500, "查询绑定状态失败")
 	}
 	if activeBind != nil && activeBind.UserID != userID {
-		return nil, errorx.NewCodeError(errorx.CodeDeviceBoundByOther, "该设备已被其他用户绑定")
+		return nil, newError(403, "该设备已被其他用户绑定")
 	}
 	if activeBind != nil && activeBind.UserID == userID {
 		deviceName := strings.TrimSpace(activeBind.DeviceName)
@@ -144,37 +316,37 @@ func BindUserDevice(ctx context.Context, db *sql.DB, userID int64, deviceSN stri
 	}
 	bindCount, err := countUserBinds(ctx, tx, userID)
 	if err != nil {
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "查询绑定数失败")
+		return nil, newError(500, "查询绑定数失败")
 	}
 	if bindCount >= int64(maxBinds) {
-		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, fmt.Sprintf("已达到最大绑定设备数限制（%d 台）", maxBinds))
+		return nil, newError(400, fmt.Sprintf("已达到最大绑定设备数限制（%d 台）", maxBinds))
 	}
 
 	bindTime := time.Now()
 	historyBind, err := findBindByUserAndDevice(ctx, tx, userID, device.ID)
 	if err != nil {
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "查询绑定状态失败")
+		return nil, newError(500, "查询绑定状态失败")
 	}
 	if historyBind != nil {
 		if err := reactivateBind(ctx, tx, userID, device.ID, snNorm, snNorm, bindTime); err != nil {
-			return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "创建绑定关系失败")
+			return nil, newError(500, "创建绑定关系失败")
 		}
 	} else {
 		if err := insertBind(ctx, tx, userID, device.ID, snNorm, snNorm); err != nil {
-			return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "创建绑定关系失败")
+			return nil, newError(500, "创建绑定关系失败")
 		}
 	}
 
 	if err := updateDeviceBindStatus(ctx, tx, device.ID, userID, bindTime); err != nil {
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "更新设备状态失败")
+		return nil, newError(500, "更新设备状态失败")
 	}
 	if err := incrementUserDeviceCount(ctx, tx, userID, bindTime); err != nil {
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "更新用户信息失败")
+		return nil, newError(500, "更新用户信息失败")
 	}
 	_ = insertBindLog(ctx, tx, userID, device.ID, snNorm, "", "bind", bindTime)
 
 	if err := tx.Commit(); err != nil {
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "绑定失败，请稍后重试")
+		return nil, newError(500, "绑定失败，请稍后重试")
 	}
 
 	return &Result{
@@ -188,6 +360,63 @@ func BindUserDevice(ctx context.Context, db *sql.DB, userID int64, deviceSN stri
 
 func normalizeSN(sn string) string {
 	return strings.ToUpper(strings.TrimSpace(sn))
+}
+
+// validateSNFormat 验证序列号格式
+// 格式：厂商码 (3 位) + 产品线 (2 位) + 年月 (4 位) + 流水号 (5 位) + 校验位 (1 位)
+// 示例：AUD-SP-2605-00001-X
+func validateSNFormat(sn string) error {
+	sn = strings.TrimSpace(sn)
+
+	// 支持短格式：厂商码 (2-3 位) + 产品线 (2 位) + 流水号 (3-5 位)
+	// 示例：SN-X1-001 或 AUD-SP-00001
+	snPatternShort := regexp.MustCompile(`^[A-Z0-9]{2,3}-[A-Z0-9]{2}-\d{3,5}$`)
+
+	if !snPatternShort.MatchString(strings.ToUpper(sn)) {
+		return fmt.Errorf("序列号格式不正确，应为短格式（如：SN-X1-001）或 16 位旧格式")
+	}
+
+	// 分解各部分
+	parts := strings.Split(sn, "-")
+	if len(parts) != 3 {
+		return fmt.Errorf("序列号分段错误")
+	}
+
+	// vendorCode := parts[0]  // 厂商码 (2-3 位)
+	// productLine := parts[1] // 产品线 (2 位)
+	serialNum := parts[2] // 流水号 (3-5 位)
+
+	// 验证流水号
+	serialInt, err := strconv.Atoi(serialNum)
+	if err != nil || serialInt < 1 || serialInt > 99999 {
+		return fmt.Errorf("流水号无效：%s", serialNum)
+	}
+
+	return nil
+}
+
+// generateCheckDigit 根据前缀生成校验位（第 15 位）
+// 算法：Luhn 算法变体，将字母转换为数字后计算
+func generateCheckDigit(prefix string) byte {
+	sum := 0
+	for i, ch := range prefix {
+		var val int
+		if ch >= '0' && ch <= '9' {
+			val = int(ch - '0')
+		} else if ch >= 'A' && ch <= 'Z' {
+			val = int(ch - 'A' + 10)
+		} else {
+			val = i // 其他字符（如横杠）使用位置索引
+		}
+		sum += val
+	}
+
+	// 校验位范围：0-9, A-Z（36 进制）
+	checkVal := (36 - (sum % 36)) % 36
+	if checkVal < 10 {
+		return byte('0' + checkVal)
+	}
+	return byte('A' + checkVal - 10)
 }
 
 func findUserByID(ctx context.Context, tx *sql.Tx, userID int64) (*userRow, error) {
@@ -478,4 +707,21 @@ func truncateAlias(alias string) string {
 		return string(runes[:32])
 	}
 	return alias
+}
+
+// GenerateSN 导出 SN 生成函数（供设备微服务使用）
+// 格式：厂商码 (3 位) + 产品线 (2 位) + 年月 (4 位) + 流水号 (5 位) + 校验位 (1 位)
+// 示例：AUD-SP-2605-00001-X
+func GenerateSN(vendorCode, productLine string) (string, error) {
+	return generateSN(vendorCode, productLine)
+}
+
+// ValidateSN 导出 SN 验证函数（供设备微服务使用）
+func ValidateSN(sn string) (bool, string, string, string, string, string, error) {
+	return validateSN(sn)
+}
+
+// ParseSN 导出 SN 解析函数（供设备微服务使用）
+func ParseSN(sn string) (map[string]interface{}, error) {
+	return parseSN(sn)
 }

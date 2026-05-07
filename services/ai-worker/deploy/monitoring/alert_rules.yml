@@ -1,0 +1,82 @@
+groups:
+- name: ai-worker-alerts
+  rules:
+  # 服务不可用
+  - alert: AIDown
+    expr: up{job="ai-worker"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "AI Worker 服务不可用"
+      description: "AI Worker 服务已宕机超过 1 分钟，请立即检查！"
+
+  # GPU 利用率过高
+  - alert: HighGPUUtilization
+    expr: DCGM_FI_DEV_GPU_UTILIZATION > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "GPU 利用率过高"
+      description: "GPU 利用率已超过 90% 持续 5 分钟 (当前值: {{ $value }}%)"
+
+  # GPU 显存不足
+  - alert: GPUMemoryHigh
+    expr: DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL * 100 > 85
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "GPU 显存使用率过高"
+      description: "GPU 显存使用率已超过 85% (当前值: {{ $value }}%)"
+
+  # 推理延迟过高
+  - alert: InferenceLatencyHigh
+    expr: histogram_quantile(0.95, rate(inference_duration_seconds_bucket[5m])) > 30
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "推理延迟过高"
+      description: "P95 推理延迟已超过 30 秒 (当前值: {{ $value }}s)"
+
+  # 任务队列积压
+  - alert: TaskQueueBacklog
+    expr: task_queue_size > 10
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "任务队列积压"
+      description: "任务队列中待处理任务数: {{ $value }}"
+
+  # 错误率上升
+  - alert: HighErrorRate
+    expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "错误率过高"
+      description: "HTTP 5xx 错误率已超过 5% (当前值: {{ $value | humanizePercentage }})"
+
+  # 批量任务失败率高
+  - alert: BatchTaskFailureRateHigh
+    expr: batch_tasks_failed_total / (batch_tasks_completed_total + batch_tasks_failed_total) > 0.3
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "批量任务失败率过高"
+      description: "批量任务失败率已超过 30%，请检查模型状态"
+
+  # 模型未就绪
+  - alert: ModelNotReady
+    expr: model_ready_status == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "AI 模型未就绪"
+      description: "AI 分离模型未加载完成，无法处理请求"

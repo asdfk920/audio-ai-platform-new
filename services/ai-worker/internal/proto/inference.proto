@@ -1,0 +1,313 @@
+syntax = "proto3";
+
+package inference;
+
+option go_package = "github.com/jacklau/audio-ai-platform/services/ai-worker/internal/proto;inference";
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+
+// 音轨分离推理服务
+service InferenceService {
+  // 双向流式推理 - 实时音轨分离
+  // 客户端发送音频帧流，服务器实时返回分离后的各音轨
+  rpc StreamSeparate(stream AudioFrame) returns (stream SeparatedTrack);
+  
+  // 单次推理任务
+  rpc Separate(SeparateRequest) returns (SeparateResponse);
+  
+  // 提交批量任务
+  rpc SubmitBatch(BatchRequest) returns (BatchResponse);
+  
+  // 查询任务状态（支持轮询）
+  rpc GetTaskStatus(TaskStatusRequest) returns (TaskStatusResponse);
+  
+  // 获取任务结果
+  rpc GetTaskResult(TaskResultRequest) returns (TaskResultResponse);
+  
+  // 取消任务
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+  
+  // 获取模型信息
+  rpc GetModelInfo(ModelInfoRequest) returns (ModelInfoResponse);
+  
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// ==================== 消息定义 ====================
+
+// 音频帧消息 (PCM 数据)
+message AudioFrame {
+  string task_id = 1;                    // 任务 ID
+  int32 frame_index = 2;                 // 帧序号
+  bytes audio_data = 3;                  // PCM 音频数据 (16-bit, 44100Hz)
+  int32 sample_rate = 4;                 // 采样率 (默认 44100)
+  int32 channels = 5;                    // 声道数 (1=mono, 2=stereo)
+  AudioFormat format = 6;                // 音频格式
+  google.protobuf.Timestamp timestamp = 7; // 时间戳
+}
+
+// 分离后的音轨结果
+message SeparatedTrack {
+  string task_id = 1;                    // 任务 ID
+  TrackType track_type = 2;             // 音轨类型
+  bytes track_data = 3;                 // 分离后的 PCM 数据
+  int32 frame_index = 4;                // 帧序号
+  float progress = 5;                   // 整体进度 (0-100)
+  InferenceStatus status = 6;           // 状态
+  string error_message = 7;             // 错误信息
+}
+
+// 单次推理请求
+message SeparateRequest {
+  string task_id = 1;                    // 任务 ID (可选，自动生成)
+  string audio_url = 2;                 // 音频文件 URL 或路径
+  ModelType model_type = 3;             // 模型类型
+  OutputFormat output_format = 4;       // 输出格式
+  map<string, string> metadata = 5;     // 元数据
+}
+
+// 单次推理响应
+message SeparateResponse {
+  string task_id = 1;                    // 任务 ID
+  InferenceStatus status = 2;           // 最终状态
+  map<string, TrackResult> tracks = 3;  // 各音轨结果
+  float duration = 4;                   // 音频时长(秒)
+  float process_time = 5;               // 处理耗时(秒)
+  ModelInfo model_info = 6;             // 使用的模型信息
+  string error_message = 7;             // 错误信息
+}
+
+// 批量任务请求
+message BatchRequest {
+  string batch_id = 1;                  // 批次 ID (可选)
+  repeated SongItem songs = 2;          // 歌曲列表
+  ModelType model_type = 3;            // 模型类型
+  int32 max_concurrency = 4;            // 最大并发数
+  CallbackConfig callback = 5;          // 回调配置
+}
+
+// 批量任务响应
+message BatchResponse {
+  string batch_id = 1;                  // 批次 ID
+  BatchStatus status = 2;              // 批量状态
+  int32 total_count = 3;               // 总任务数
+  google.protobuf.Timestamp created_at = 4; // 创建时间
+  string message = 5;                  // 返回消息
+}
+
+// 任务状态查询请求
+message TaskStatusRequest {
+  oneof identifier {
+    string task_id = 1;                // 单个任务 ID
+    string batch_id = 2;              // 批次 ID (查询批次下所有任务)
+  }
+}
+
+// 任务状态响应
+message TaskStatusResponse {
+  string task_id = 1;
+  InferenceStatus status = 2;
+  float progress = 3;
+  google.protobuf.Timestamp started_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  string error_message = 6;
+  
+  // 批量任务额外字段
+  BatchProgress batch_progress = 7;
+}
+
+// 任务结果请求
+message TaskResultRequest {
+  string task_id = 1;                  // 单个任务 ID
+}
+
+// 任务结果响应
+message TaskResultResponse {
+  string task_id = 1;
+  InferenceStatus status = 2;
+  map<string, TrackResult> tracks = 3;
+  float duration = 4;
+  float process_time = 5;
+  string error_message = 6;
+}
+
+// 取消任务请求
+message CancelTaskRequest {
+  string task_id = 1;
+  string reason = 2;                   // 取消原因
+}
+
+// 取消任务响应
+message CancelTaskResponse {
+  string task_id = 1;
+  bool success = 2;
+  InferenceStatus previous_status = 3;
+  InferenceStatus current_status = 4;
+  google.protobuf.Timestamp cancelled_at = 5;
+  string message = 6;
+}
+
+// 模型信息请求
+message ModelInfoRequest {
+  ModelType model_type = 1;            // 可选，不传则返回所有
+}
+
+// 模型信息响应
+message ModelInfoResponse {
+  repeated ModelInfo models = 1;
+  bool is_ready = 2;
+  int32 active_jobs = 3;
+  int32 queue_size = 4;
+  int32 max_concurrent = 5;
+}
+
+// 健康检查请求
+message HealthCheckRequest {}
+
+// 健康检查响应
+message HealthCheckResponse {
+  ServiceStatus status = 1;
+  string version = 2;
+  google.protobuf.Timestamp uptime = 3;
+  SystemResources resources = 4;
+  repeated ComponentHealth components = 5;
+}
+
+// ==================== 枚举定义 ====================
+
+// 模型类型
+enum ModelType {
+  MODEL_TYPE_UNSPECIFIED = 0;
+  MODEL_TYPE_DEMUCS = 1;              // Demucs (高质量)
+  MODEL_TYPE_HT_DEMUCS = 2;           // HTDemucs (Hybrid Transformer Demucs)
+  MODEL_TYPE_HT_DEMUCS_FT = 3;        // HTDemucs Fine-Tuned
+  MODEL_TYPE_HT_DEMUCS_LARGE = 4;     // HTDemucs Large
+  MODEL_TYPE_BSR_FORMER = 5;          // BSRFormer (Band-Split RFormer)
+  MODEL_TYPE_SPLEETER = 6;            // Spleeter (轻量级)
+}
+
+// 音轨类型
+enum TrackType {
+  TRACK_TYPE_UNSPECIFIED = 0;
+  TRACK_TYPE_VOCALS = 1;              // 人声
+  TRACK_TYPE_DRUMS = 2;              // 鼓
+  TRACK_TYPE_BASS = 3;               // 贝斯
+  TRACK_TYPE_OTHER = 4;              // 其他乐器
+  TRACK_TYPE_PIANO = 5;              // 钢琴 (可选)
+  TRACK_TYPE_GUITAR = 6;             // 吉他 (可选)
+}
+
+// 推理状态
+enum InferenceStatus {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_PENDING = 1;                 // 待处理
+  STATUS_PROCESSING = 2;              // 处理中
+  STATUS_COMPLETED = 3;              // 已完成
+  STATUS_FAILED = 4;                 // 失败
+  STATUS_CANCELLED = 5;              // 已取消
+  STATUS_TIMEOUT = 6;                // 超时
+}
+
+// 批量状态
+enum BatchStatus {
+  BATCH_STATUS_UNSPECIFIED = 0;
+  BATCH_STATUS_PROCESSING = 1;         // 进行中
+  BATCH_STATUS_COMPLETED = 2;          // 全部完成
+  BATCH_STATUS_PARTIALLY_COMPLETED = 3; // 部分完成
+  BATCH_STATUS_FAILED = 4;            // 全部失败
+  BATCH_STATUS_CANCELLED = 5;          // 已取消
+}
+
+// 音频格式
+enum AudioFormat {
+  AUDIO_FORMAT_UNSPECIFIED = 0;
+  AUDIO_FORMAT_PCM_16BIT = 1;          // PCM 16-bit
+  AUDIO_FORMAT_PCM_24BIT = 2;          // PCM 24-bit
+  AUDIO_FORMAT_PCM_FLOAT = 3;          // PCM Float
+  AUDIO_FORMAT_OPUS = 4;              // Opus 编码
+}
+
+// 输出格式
+enum OutputFormat {
+  OUTPUT_FORMAT_UNSPECIFIED = 0;
+  OUTPUT_FORMAT_WAV = 1;              // WAV 文件
+  OUTPUT_FORMAT_MP3 = 2;              // MP3 文件
+  OUTPUT_FORMAT_FLAC = 3;             // FLAC 文件
+  OUTPUT_FORMAT_OGG = 4;              // OGG 文件
+}
+
+// 服务状态
+enum ServiceStatus {
+  SERVICE_STATUS_HEALTHY = 0;
+  SERVICE_STATUS_DEGRADED = 1;         // 降级运行
+  SERVICE_STATUS_UNHEALTHY = 2;        // 不健康
+}
+
+// ==================== 复合类型 ====================
+
+// 歌曲项
+message SongItem {
+  string song_id = 1;
+  string song_name = 2;
+  string audio_url = 3;
+  map<string, string> metadata = 4;
+}
+
+// 音轨结果
+message TrackResult {
+  TrackType track_type = 1;
+  string file_path = 2;               // 本地路径
+  string download_url = 3;            // 下载 URL
+  int64 file_size = 4;                // 文件大小(bytes)
+  float duration = 5;                 // 时长(秒)
+  map<string, string> metadata = 6;
+}
+
+// 模型信息
+message ModelInfo {
+  ModelType type = 1;
+  string name = 2;
+  string version = 3;
+  string description = 4;
+  bool is_loaded = 5;
+  int64 memory_usage_mb = 6;
+  map<string, string> capabilities = 7;
+}
+
+// 回调配置
+message CallbackConfig {
+  string url = 1;                      // 回调 URL
+  string method = 2;                   // HTTP 方法
+  map<string, string> headers = 3;    // 自定义头
+  int32 retry_count = 4;              // 重试次数
+  int32 timeout_seconds = 5;          // 超时时间
+}
+
+// 批量进度
+message BatchProgress {
+  int32 total_count = 1;
+  int32 completed_count = 2;
+  int32 failed_count = 3;
+  int32 processing_count = 4;
+  int32 pending_count = 5;
+  float progress_percentage = 6;
+}
+
+// 系统资源
+message SystemResources {
+  double cpu_usage_percent = 1;
+  double memory_usage_mb = 2;
+  double gpu_usage_percent = 3;
+  double gpu_memory_mb = 4;
+  double disk_usage_gb = 5;
+}
+
+// 组件健康状态
+message ComponentHealth {
+  string name = 1;
+  ServiceStatus status = 2;
+  string message = 3;
+  double latency_ms = 4;
+}

@@ -1,0 +1,39 @@
+# BSRoformer SCNet 音轨分离模型依赖
+# 核心深度学习框架
+torch==2.9.0
+torchaudio==2.9.0
+
+# 音频处理
+librosa==0.10.1
+soundfile==0.12.1
+numpy>=1.26.0
+scipy>=1.12.0
+
+# BSRoformer SCNet 模型依赖
+einops==0.7.0
+einops-exts==0.0.4
+torchlibrosa==0.1.0
+
+# Web 框架
+fastapi==0.104.0
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# 数据验证
+pydantic==2.4.0
+pydantic-settings==2.0.3
+
+# 异步支持
+websockets==12.0
+aiofiles==23.2.1
+
+# 工具库
+tqdm==4.66.1
+loguru==0.7.2
+
+# 模型加载
+huggingface_hub==0.19.0
+safetensors==0.4.0
+
+# 音频增强
+pedalboard==0.7.7

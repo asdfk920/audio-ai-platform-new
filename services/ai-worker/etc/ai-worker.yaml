@@ -1,0 +1,48 @@
+Name: ai-worker
+Host: 0.0.0.0
+Port: 8004
+
+# 认证配置（必须与 User 服务一致）
+Auth:
+  AccessSecret: audio-ai-platform-user-secret
+
+# 数据库配置
+Database:
+  DataSource: root:password@tcp(localhost:3306)/audio_ai_platform?charset=utf8mb4&parseTime=true&loc=Local
+
+# Redis 配置
+CacheRedis:
+  - Host: localhost:6379
+    Pass: ""
+    Type: node
+
+# 对象存储配置
+Storage:
+  Driver: local  # 或 s3
+  Bucket: audio-ai-platform
+  Region: us-east-1
+  AccessKey: ""
+  SecretKey: ""
+  Endpoint: ""
+  Local:
+    Root: ./data/ai-worker-objects
+
+# SQS 队列配置
+SQS:
+  Endpoint: http://localhost:4566
+  Region: us-east-1
+  QueueURL: http://localhost:4566/000000000000/ai-inference-queue
+  AccessKey: ""
+  SecretKey: ""
+
+# AI 模型配置
+AI:
+  ModelType: bsroformer  # 默认模型
+  ModelPath: ./models
+  GPUID: 0
+  BatchSize: 1
+
+# 回调配置
+Callback:
+  TimeoutSec: 30
+  RetryCount: 3

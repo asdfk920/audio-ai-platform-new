@@ -1,0 +1,40 @@
+{
+  "default": "demucs",
+  "models": {
+    "demucs": {
+      "type": "htdemucs",
+      "name": "htdemucs",
+      "model_path": "/app/models/demucs",
+      "gpu_device": 0,
+      "segment_size": 10,
+      "overlap": 0.25,
+      "use_fp16": true,
+      "batch_size": 1,
+      "output_dir": "/app/output",
+      "cache_dir": "/app/cache",
+      "max_concurrent_jobs": 3
+    },
+    "bsroformer": {
+      "type": "bsroformer",
+      "name": "bs_roformer",
+      "model_path": "/app/models/bsroformer",
+      "gpu_device": 0,
+      "segment_size": 10,
+      "overlap": 0.25,
+      "use_fp16": true,
+      "batch_size": 1,
+      "output_dir": "/app/output",
+      "cache_dir": "/app/cache",
+      "max_concurrent_jobs": 2
+    },
+    "spleeter": {
+      "type": "spleeter",
+      "name": "spleeter_4stems",
+      "model_path": "/app/models/spleeter",
+      "gpu_device": 0,
+      "output_dir": "/app/output",
+      "cache_dir": "/app/cache",
+      "max_concurrent_jobs": 4
+    }
+  }
+}

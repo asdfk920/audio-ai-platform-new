@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
 	"github.com/zeromicro/go-zero/core/logx"
 )
+
+var snPatternNew = regexp.MustCompile(`^[A-Z0-9]{3}-[A-Z0-9]{2}-\d{4}-\d{5}-[A-Z0-9]$`)
 
 // DeviceRegisterLogic 设备注册逻辑
 // 处理设备首次注册的业务逻辑
@@ -80,17 +83,27 @@ func (l *DeviceRegisterLogic) DeviceRegister(req *types.DeviceRegisterReq) (*typ
 
 // validateDeviceRegisterReq 校验设备注册请求数据格式
 // 校验规则：
-//   - SN: 16 位字母数字，正则 ^[A-Z0-9]{16}$，不区分大小写
+//   - SN: 支持两种格式
+//   - 旧格式：16 位字母数字，正则 ^[A-Z0-9]{16}$，不区分大小写
+//   - 新格式：厂商码 (2-3 位) + 产品线 (2 位) + 流水号 (3-5 位)，示例：SN-X1-001 或 AUD-SP-00001
 //   - Model: 非空字符串
 //   - FirmwareVersion: 非空字符串
 //
 // 参数 req *types.DeviceRegisterReq: 设备注册请求
 // 返回 error: 校验失败时的错误信息
 func validateDeviceRegisterReq(req *types.DeviceRegisterReq) error {
-	// SN 校验：16 位字母数字
-	snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
-	if !snRegex.MatchString(req.Sn) {
-		return fmt.Errorf("SN 格式错误，必须为 16 位字母数字组合")
+	sn := strings.TrimSpace(req.Sn)
+
+	// 优先校验新格式（短格式：XXX-XX-NNN 或 XX-XX-NNN）
+	snPatternShort := regexp.MustCompile(`^[A-Z0-9]{2,3}-[A-Z0-9]{2}-\d{3,5}$`)
+	if snPatternShort.MatchString(strings.ToUpper(sn)) {
+		// 短格式 SN 有效
+	} else {
+		// 回退到旧格式校验（16 位字母数字）
+		snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
+		if !snRegex.MatchString(sn) {
+			return fmt.Errorf("SN 格式错误，应为短格式（如：SN-X1-001）或 16 位旧格式（字母数字组合）")
+		}
 	}
 
 	// Model 校验：非空字符串

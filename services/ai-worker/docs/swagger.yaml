@@ -1,0 +1,144 @@
+basePath: /api/v1
+definitions:
+  types.InferenceStartReq:
+    properties:
+      audio_url:
+        description: 音频文件地址
+        type: string
+      callback_url:
+        description: 完成后回调地址
+        type: string
+      model_type:
+        description: 模型类型，默认 bsroformer
+        type: string
+      output_tracks:
+        description: 输出音轨，默认全部
+        items:
+          type: string
+        type: array
+    type: object
+  types.InferenceStartResp:
+    properties:
+      created_at:
+        description: 创建时间
+        type: string
+      message:
+        description: 返回消息
+        type: string
+      status:
+        description: 任务状态
+        type: string
+      task_id:
+        description: 任务 ID
+        type: string
+    type: object
+  types.InferenceTaskQueryResp:
+    properties:
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      message:
+        type: string
+      progress:
+        type: integer
+      result_urls:
+        additionalProperties:
+          type: string
+        type: object
+      status:
+        type: string
+      task_id:
+        type: string
+    type: object
+host: localhost:8004
+info:
+  contact:
+    email: support@swagger.io
+    name: AI Worker Support
+    url: http://www.swagger.io/support
+  description: AI 音轨分离推理服务，支持多种 AI 模型，异步处理音频分离任务
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: AI Worker 微服务 API 文档
+  version: "1.0"
+paths:
+  /api/v1/inference/query:
+    get:
+      consumes:
+      - application/json
+      description: 根据任务 ID 查询 AI 推理任务的当前状态和进度
+      parameters:
+      - description: 任务 ID
+        in: query
+        name: task_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/types.InferenceTaskQueryResp'
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: 任务不存在
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 查询推理任务状态
+      tags:
+      - AI 推理
+  /api/v1/inference/start:
+    post:
+      consumes:
+      - application/json
+      description: 创建 AI 音轨分离推理任务，支持多种模型选择，异步处理
+      parameters:
+      - description: 音轨分离推理任务创建请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.InferenceStartReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/types.InferenceStartResp'
+        "400":
+          description: 参数错误
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建音轨分离推理任务
+      tags:
+      - AI 推理
+securityDefinitions:
+  BearerAuth:
+    description: 请输入 Bearer Token
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

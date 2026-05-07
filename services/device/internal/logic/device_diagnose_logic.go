@@ -200,10 +200,22 @@ func (l *DeviceDiagnoseLogic) insertDiagnosisRecord(sn string, deviceID int64, d
 //
 // 参数 req *types.DeviceDiagnoseReq: 设备远程诊断请求
 // 返回 error: 校验失败时的错误信息
+// validateDeviceDiagnoseReq 校验设备远程诊断请求数据格式
+// 校验规则：
+//   - SN: 支持两种格式
+//     - 旧格式：16 位字母数字，正则 ^[A-Z0-9]{16}$
+//     - 新格式：厂商码 (3 位) + 产品线 (2 位) + 年月 (4 位) + 流水号 (5 位) + 校验位 (1 位)，示例：AUD-SP-2605-00001-X
+//   - DiagType: 仅支持 full、quick、network、audio
+//   - TimeoutSec: 不能为负数
+//
+// 参数 req *types.DeviceDiagnoseReq: 设备远程诊断请求
+// 返回 error: 校验失败时的错误信息
 func validateDeviceDiagnoseReq(req *types.DeviceDiagnoseReq) error {
-	snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
-	if !snRegex.MatchString(req.Sn) {
-		return fmt.Errorf("SN 格式错误，必须为 16 位字母数字组合")
+	sn := strings.TrimSpace(req.Sn)
+	
+	// 校验 SN 格式（新/旧格式）
+	if !validateSN(sn) {
+		return fmt.Errorf("SN 格式错误，应为 17 位新格式（XXX-XX-YYYY-NNNNN-X）或 16 位旧格式（字母数字组合）")
 	}
 
 	// 校验 diag_type
@@ -224,6 +236,21 @@ func validateDeviceDiagnoseReq(req *types.DeviceDiagnoseReq) error {
 	}
 
 	return nil
+}
+
+// validateSN 校验 SN 格式（支持新旧两种格式）
+func validateSN(sn string) bool {
+	sn = strings.TrimSpace(sn)
+	
+	// 新格式：17 位，带横杠
+	snPatternNew := regexp.MustCompile(`^[A-Z0-9]{3}-[A-Z0-9]{2}-\d{4}-\d{5}-[A-Z0-9]$`)
+	if snPatternNew.MatchString(sn) {
+		return true
+	}
+	
+	// 旧格式：16 位字母数字
+	snPatternOld := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
+	return snPatternOld.MatchString(sn)
 }
 
 // generateDiagRandomString 生成指定长度的随机字符串

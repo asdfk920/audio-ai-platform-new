@@ -1,0 +1,154 @@
+{
+  "dashboard": {
+    "title": "AI Worker - 音轨分离服务监控",
+    "uid": "ai-worker-dashboard",
+    "tags": ["audio-ai", "inference", "gpu"],
+    "timezone": "Asia/Shanghai",
+    "panels": [
+      {
+        "title": "服务概览",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [{
+          "expr": "up{job=\"ai-worker\"}",
+          "legendFormat": "{{instance}}"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "options": {"0": {"text": "❌ 离线"}, "1": {"text": "✅ 在线"}}}
+            ],
+            "thresholds": {
+              "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]
+            }
+          }
+        }
+      },
+      {
+        "title": "GPU 利用率",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+        "targets": [{
+          "expr": "DCGM_FI_DEV_GPU_UTILIZATION",
+          "legendFormat": "GPU"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "max": 100,
+            "min": 0,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "GPU 显存使用",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [{
+          "expr": "DCGM_FI_DEV_FB_USED / DCGM_FI_DEV_FB_TOTAL * 100",
+          "legendFormat": "显存"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "max": 100,
+            "min": 0,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 85}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "活跃任务数",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [{
+          "expr": "task_queue_active",
+          "legendFormat": "活跃任务"
+        }]
+      },
+      {
+        "title": "请求 QPS",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [{
+          "expr": "sum(rate(http_requests_total[5m])) by (method)",
+          "legendFormat": "{{method}}"
+        }]
+      },
+      {
+        "title": "推理延迟分布 (P50/P95/P99)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(inference_duration_seconds_bucket[5m]))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(inference_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(inference_duration_seconds_bucket[5m]))",
+            "legendFormat": "P99"
+          }
+        ]
+      },
+      {
+        "title": "任务队列状态",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {"expr": "task_queue_pending", "legendFormat": "待处理"},
+          {"expr": "task_queue_processing", "legendFormat": "处理中"},
+          {"expr": "task_queue_completed", "legendFormat": "已完成"},
+          {"expr": "task_queue_failed", "legendFormat": "失败"}
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "displayMode": "gradient",
+              "orientation": "horizontal"
+            }
+          }
+        }
+      },
+      {
+        "title": "批量任务统计",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {"expr": "batch_tasks_completed_total", "legendFormat": "成功"},
+          {"expr": "batch_tasks_failed_total", "legendFormat": "失败"}
+        ]
+      },
+      {
+        "title": "模型推理时间趋势",
+        "type": "heatmap",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+        "targets": [{
+          "expr": "rate(inference_duration_seconds_sum[5m]) / rate(inference_duration_seconds_count[5m])",
+          "legendFormat": "{{model_type}}"
+        }]
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "10s"
+  }
+}

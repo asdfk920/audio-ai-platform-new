@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 
 	"github.com/jacklau/audio-ai-platform/services/content/internal/logic"
