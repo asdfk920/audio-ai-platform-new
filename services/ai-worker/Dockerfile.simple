@@ -1,0 +1,77 @@
+# BSRoformer AI Worker - 简化版 Dockerfile
+# 使用官方镜像源
+
+# ============================================
+# 阶段 1: 构建 Go 服务
+# ============================================
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /build
+
+# 安装 Git
+RUN apk add --no-cache git
+
+# 复制依赖文件
+COPY go.mod go.sum ./
+
+# 下载依赖
+RUN go mod download
+
+# 复制源代码
+COPY . .
+
+# 编译服务
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ai-worker .
+
+# ============================================
+# 阶段 2: 运行时环境
+# ============================================
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+
+# 避免交互式提示
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.10 \
+    python3-pip \
+    python3-dev \
+    curl \
+    ca-certificates \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置工作目录
+WORKDIR /app
+
+# 安装 PyTorch 和 BSRoFormer
+RUN pip3 install --no-cache-dir \
+    torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cu121 \
+    && pip3 install --no-cache-dir BS-RoFormer
+
+# 验证安装
+RUN python3 -c "from bs_roformer import BSRoFormer; print('BSRoFormer installed')"
+
+# 从构建阶段复制编译好的服务
+COPY --from=builder /build/ai-worker /app/ai-worker
+
+# 复制配置文件
+COPY etc /app/etc
+
+# 创建目录
+RUN mkdir -p /app/data/output /app/data/cache /app/data/ai-worker-objects /app/models
+
+# 设置权限
+RUN chmod +x /app/ai-worker
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8004/api/v1/health || exit 1
+
+# 暴露端口
+EXPOSE 8004
+
+# 启动命令
+WORKDIR /app
+CMD ["./ai-worker", "-f", "etc/ai-worker.yaml"]

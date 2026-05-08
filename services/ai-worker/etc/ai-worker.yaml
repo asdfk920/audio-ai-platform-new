@@ -8,7 +8,11 @@ Auth:
 
 # 数据库配置
 Database:
-  DataSource: root:password@tcp(localhost:3306)/audio_ai_platform?charset=utf8mb4&parseTime=true&loc=Local
+  Host: localhost
+  Port: 5432
+  User: admin
+  Password: admin123
+  DBName: audio_platform
 
 # Redis 配置
 CacheRedis:
@@ -41,6 +45,8 @@ AI:
   ModelPath: ./models
   GPUID: 0
   BatchSize: 1
+  OutputDir: ./output    # 输出目录（Docker 挂载或本地路径）
+  CacheDir: ./cache      # 缓存目录
 
 # 回调配置
 Callback:

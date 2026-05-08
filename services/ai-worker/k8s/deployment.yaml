@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-worker
+  namespace: audio-ai-platform
+  labels:
+    app: ai-worker
+    version: v1
+spec:
+  # 副本数量（HPA 会自动调整）
+  replicas: 1
+  
+  # 更新策略
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  
+  # Pod 选择器
+  selector:
+    matchLabels:
+      app: ai-worker
+  
+  # Pod 模板
+  template:
+    metadata:
+      labels:
+        app: ai-worker
+        version: v1
+      annotations:
+        # 重启策略
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    
+    spec:
+      # 服务账号（如果需要访问 K8s API）
+      serviceAccountName: default
+      
+      # 节点选择器（可选：调度到 GPU 节点）
+      nodeSelector:
+        nvidia.com/gpu: "true"
+      
+      # 容器定义
+      containers:
+      - name: ai-worker
+        image: ai-worker:v1
+        imagePullPolicy: IfNotPresent
+        
+        # 端口
+        ports:
+        - name: http
+          containerPort: 8004
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        
+        # 环境变量
+        env:
+        - name: GIN_MODE
+          value: "release"
+        - name: TZ
+          value: "Asia/Shanghai"
+        
+        # 资源请求和限制
+        resources:
+          requests:
+            # CPU 请求
+            cpu: "1000m"
+            # 内存请求
+            memory: "2Gi"
+            # GPU 请求（关键！）
+            nvidia.com/gpu: "1"
+          limits:
+            # CPU 限制
+            cpu: "2000m"
+            # 内存限制
+            memory: "4Gi"
+            # GPU 限制
+            nvidia.com/gpu: "1"
+        
+        # 健康检查
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8004
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8004
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        # 挂载卷
+        volumeMounts:
+        - name: models
+          mountPath: /app/models
+        - name: data
+          mountPath: /app/data
+        - name: config
+          mountPath: /app/etc/ai-worker.yaml
+          subPath: ai-worker.yaml
+          readOnly: true
+        
+        # 日志
+        lifecycle:
+          preStop:
+            exec:
+              command: ["sleep", "10"]
+      
+      # 卷定义
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: ai-models-pvc
+      - name: data
+        persistentVolumeClaim:
+          claimName: ai-data-pvc
+      - name: config
+        configMap:
+          name: ai-worker-config
+      
+      # 镜像拉取密钥（如果使用私有仓库）
+      # imagePullSecrets:
+      # - name: registry-secret
+      
+      # 重启策略
+      restartPolicy: Always
+      
+      # 终止宽限期
+      terminationGracePeriodSeconds: 30

@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-worker-config
+  namespace: audio-ai-platform
+data:
+  ai-worker.yaml: |
+    name: ai-worker-api
+    host: 0.0.0.0
+    port: 8004
+    
+    # JWT 认证配置
+    Auth:
+      AccessSecret: audio-ai-platform-user-secret
+    
+    # AI 模型配置
+    AI:
+      ModelType: bsroformer
+      ModelPath: /app/models/bsroformer
+      GPUDevice: 0
+      SegmentSize: 10
+      Overlap: 0.25
+      UseFP16: true
+      UseINT8: false
+      BatchSize: 1
+      MaxConcurrentJobs: 3
+      UseCUDA: true
+      CUDABenchmark: true
+      NumThreads: 4
+      InterThreads: 2
+      OutputDir: /app/data/output
+      CacheDir: /app/data/cache
+      DefaultStems:
+        - vocals
+        - drums
+        - bass
+        - other
+    
+    # 对象存储配置
+    Storage:
+      Driver: local
+      Local:
+        Root: /app/data/ai-worker-objects
+    
+    # 日志配置
+    Log:
+      Mode: console
+      Level: info
+      Encoding: json

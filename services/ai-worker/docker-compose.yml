@@ -1,19 +1,15 @@
 version: '3.8'
 
 services:
+  # AI Worker 服务（GPU 版本）
   ai-worker:
     build:
       context: .
       dockerfile: Dockerfile
-      target: runtime
-      args:
-        - CUDA_VERSION=11.8
-        - CUDNN_VERSION=8.6
-    image: audio-ai-platform/ai-worker:latest
-    container_name: ai-worker-service
-    restart: unless-stopped
+    image: ai-worker:v1
+    container_name: ai-worker
     
-    # GPU 配置
+    # GPU 支持
     deploy:
       resources:
         reservations:
@@ -22,80 +18,86 @@ services:
               count: 1
               capabilities: [gpu]
     
+    # 端口映射
     ports:
       - "8004:8004"
+      - "9090:9090"
     
-    volumes:
-      # 模型目录 (持久化，避免重复下载)
-      - model-data:/app/models
-      # 输出目录 (分离结果)
-      - output-data:/app/output
-      # 缓存目录
-      - cache-data:/app/cache
-      # 静态媒体文件
-      - static-media:/app/static-media
-      # 日志
-      - ./logs:/app/logs
-      # 配置文件
-      - ./etc:/app/etc
-    
+    # 环境变量
     environment:
+      - GIN_MODE=release
       - TZ=Asia/Shanghai
-      # 模型配置
-      - MODEL_BASE_DIR=/app/models
-      - OUTPUT_DIR=/app/output
-      - CACHE_DIR=/app/cache
-      - GPU_DEVICE=0
-      - MAX_CONCURRENT_JOBS=3
-      - DEFAULT_MODEL=htdemucs
-      # 推理参数
-      - SEGMENT_SIZE=10
-      - OVERLAP=0.25
-      - USE_FP16=true
-      # 服务配置
-      - LOG_LEVEL=info
-      # 监控配置
-      - PROMETHEUS_PORT=9090
-      - SERVICE_NAME=ai-worker
     
-    networks:
-      - audio-ai-network
+    # 卷挂载
+    volumes:
+      - ./models:/app/models
+      - ./data/output:/app/data/output
+      - ./data/cache:/app/data/cache
+      - ./data/objects:/app/data/ai-worker-objects
+      - ./etc/ai-worker.yaml:/app/etc/ai-worker.yaml:ro
     
+    # 健康检查
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8004/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 40s
     
+    # 重启策略
+    restart: unless-stopped
+    
+    # 日志
     logging:
-      driver: json-file
+      driver: "json-file"
       options:
-        max-size: "100m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
     
-    # 资源限制
-    mem_limit: 8g
-    cpus: '4.0'
+    # 网络
+    networks:
+      - ai-network
 
+  # Prometheus 监控（可选）
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ai-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+    networks:
+      - ai-network
+    depends_on:
+      - ai-worker
+
+  # Grafana 可视化（可选）
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ai-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+    networks:
+      - ai-network
+    depends_on:
+      - prometheus
+
+# 卷定义
 volumes:
-  model-data:
-    driver: local
-    name: ai-worker-models
-  
-  output-data:
-    driver: local
-    name: ai-worker-output
-  
-  cache-data:
-    driver: local
-    name: ai-worker-cache
-  
-  static-media:
-    driver: local
-    name: ai-worker-static
+  prometheus_data:
+  grafana_data:
 
+# 网络定义
 networks:
-  audio-ai-network:
+  ai-network:
     driver: bridge
-    name: audio-ai-platform

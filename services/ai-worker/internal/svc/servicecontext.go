@@ -31,10 +31,10 @@ func NewServiceContext(c config.Config) (*ServiceContext, error) {
 
 func initializeAIService(c config.Config) (*model.AIService, error) {
 	modelConfig := &model.ModelConfig{
-		Type:              model.ModelTypeHTDemucs,
+		Type:              model.ModelHTDemucs,
 		ModelPath:         c.AI.ModelPath,
 		GPUDevice:         c.AI.GPUDevice,
-		SegmentSize:       c.AI.SegmentSize,
+		SegmentSize:       int(c.AI.SegmentSize), // 转换为 int
 		Overlap:           c.AI.Overlap,
 		UseFP16:           c.AI.UseFP16,
 		BatchSize:         1,

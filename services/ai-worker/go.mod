@@ -3,7 +3,7 @@ module github.com/jacklau/audio-ai-platform/services/ai-worker
 go 1.25.0
 
 require (
-	github.com/gorilla/websocket v1.5.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/jacklau/audio-ai-platform v0.0.0
 	github.com/jacklau/audio-ai-platform/common v0.0.0
 	github.com/swaggo/http-swagger/v2 v2.0.2
@@ -37,6 +37,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/lib/pq v1.12.3 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

@@ -1,0 +1,89 @@
+# Docker Build and Deploy - Command List
+# Copy and paste these commands one by one
+
+# ===================================================================
+# Step 1: Configure Docker Registry Mirrors
+# ===================================================================
+
+# Open Docker Desktop settings file in Notepad
+notepad "$env:USERPROFILE\.docker\desktop\settings.json"
+
+# After editing, restart Docker Desktop (right-click Docker icon -> Restart)
+
+# ===================================================================
+# Step 2: Verify Configuration
+# ===================================================================
+
+# Check if registry mirrors are configured
+docker info | Select-String "Registry Mirrors"
+
+# ===================================================================
+# Step 3: Build Docker Image
+# ===================================================================
+
+# Navigate to ai-worker directory
+cd C:\Users\Lenovo\Desktop\audio-ai-platform\services\ai-worker
+
+# Build the image (first time: 10-20 minutes)
+docker build -t ai-worker:v1 .
+
+# ===================================================================
+# Step 4: Start Container
+# ===================================================================
+
+# Run the container
+docker run -d --name ai-worker --gpus all -p 8004:8004 -p 9090:9099 -v ${PWD}\models:/app/models -v ${PWD}\data\output:/app/data/output -v ${PWD}\data\cache:/app/data/cache -v ${PWD}\etc\ai-worker.yaml:/app/etc/ai-worker.yaml:ro --restart unless-stopped ai-worker:v1
+
+# ===================================================================
+# Step 5: Verify Deployment
+# ===================================================================
+
+# Wait 30 seconds
+Start-Sleep -Seconds 30
+
+# Check container status
+docker ps | Select-String ai-worker
+
+# Test health check
+Invoke-RestMethod http://localhost:8004/api/v1/health
+
+# Check GPU
+docker exec ai-worker nvidia-smi
+
+# ===================================================================
+# Useful Commands
+# ===================================================================
+
+# View logs
+docker logs -f ai-worker
+
+# View logs (last 100 lines)
+docker logs --tail 100 ai-worker
+
+# Stop container
+docker stop ai-worker
+
+# Start container
+docker start ai-worker
+
+# Restart container
+docker restart ai-worker
+
+# Enter container
+docker exec -it ai-worker bash
+
+# Delete container
+docker rm -f ai-worker
+
+# View images
+docker images ai-worker
+
+# Clean up system
+docker system prune -a
+
+# ===================================================================
+# Quick Deploy (if mirrors are already configured)
+# ===================================================================
+
+# One-line build and run:
+cd C:\Users\Lenovo\Desktop\audio-ai-platform\services\ai-worker; docker build -t ai-worker:v1 .; docker run -d --name ai-worker --gpus all -p 8004:8004 ai-worker:v1

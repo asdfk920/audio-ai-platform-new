@@ -27,7 +27,7 @@ import (
 
 	"github.com/jacklau/audio-ai-platform/common/validate"
 	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/config"
-	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/grpcserver"
+	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/handler"
 	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/svc"
 
 	httpSwagger "github.com/swaggo/http-swagger/v2"
@@ -51,7 +51,7 @@ func main() {
 
 	svcCtx, err := svc.NewServiceContext(c)
 	if err != nil {
-		fmt.Printf("❌ 初始化服务上下文失败: %v\n", err)
+		fmt.Printf("❌ 初始化服务上下文失败：%v\n", err)
 		os.Exit(1)
 	}
 
@@ -94,13 +94,8 @@ func main() {
 		},
 	})
 
-	server.AddRoutes([]rest.Route{
-		{
-			Method:  http.MethodGet,
-			Path:    "/api/v1/health",
-			Handler: healthCheckHandler(svcCtx),
-		},
-	})
+	// 注册路由（使用 routes.go）
+	handler.RegisterHandlers(server, svcCtx)
 
 	root := strings.TrimSpace(c.Storage.Local.Root)
 	if root == "" {
@@ -128,33 +123,16 @@ func main() {
 		fmt.Println("⚠️  AI 模型未就绪，部分功能可能受限")
 	}
 
-	grpcServer, err := startGRPCServer(svcCtx, c.GRPC)
-	if err != nil {
-		fmt.Printf("⚠️  gRPC 服务启动失败: %v (仅使用 HTTP 模式)\n", err)
-	} else {
-		fmt.Printf("✅ gRPC 服务已启动: :%d\n", c.GRPC.Port)
-	}
-
-	defer func() {
-		if grpcServer != nil {
-			grpcServer.Stop()
-		}
-	}()
-
 	fmt.Printf("\n📡 HTTP 服务信息:\n")
-	fmt.Printf("   地址: http://%s:%d\n", c.Host, c.Port)
-	fmt.Printf("   API文档: http://%s:%d/swagger/\n", c.Host, c.Port)
-	fmt.Printf("   健康检查: http://%s:%d/api/v1/health\n", c.Host, c.Port)
+	fmt.Printf("   地址：http://%s:%d\n", c.Host, c.Port)
+	fmt.Printf("   API 文档：http://%s:%d/swagger/\n", c.Host, c.Port)
+	fmt.Printf("   健康检查：http://%s:%d/api/v1/health\n", c.Host, c.Port)
 
-	if grpcServer != nil {
-		fmt.Printf("\n🔌 gRPC 服务信息:\n")
-		fmt.Printf("   地址: %s:%d\n", c.Host, c.GRPC.Port)
-		fmt.Printf("   接口: InferenceService (流式推理)\n")
-	}
-
-	fmt.Println("\n=========================================")
+	fmt.Println()
+	fmt.Println("=========================================")
 	fmt.Println("🎉 服务启动完成，等待请求...")
-	fmt.Println("=========================================\n")
+	fmt.Println("=========================================")
+	fmt.Println()
 
 	server.Start()
 }
@@ -173,34 +151,7 @@ func healthCheckHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			"status": "%s",
 			"service": "ai-worker",
 			"version": "1.0.0",
-			"grpc_enabled": true,
 			"timestamp": "%s"
 		}`, status, fmt.Sprintf("%d", 0))))
 	}
-}
-
-func startGRPCServer(svcCtx *svc.ServiceContext, config config.GRPCConfig) (*grpcserver.Server, error) {
-	if svcCtx.AIService == nil {
-		return nil, fmt.Errorf("AI service not initialized")
-	}
-
-	grpcCfg := &grpcserver.Config{
-		Port:           config.Port,
-		TLSCertFile:    config.TLSCertFile,
-		TLSKeyFile:     config.TLSKeyFile,
-		MaxRecvMsgSize: config.MaxRecvMsgSize,
-		MaxSendMsgSize: config.MaxSendMsgSize,
-	}
-
-	srv, err := grpcserver.NewServer(grpcCfg, svcCtx.AIService)
-	if err != nil {
-		return nil, fmt.Errorf("create gRPC server failed: %w", err)
-	}
-
-	err = srv.Start()
-	if err != nil {
-		return nil, fmt.Errorf("start gRPC server failed: %w", err)
-	}
-
-	return srv, nil
 }

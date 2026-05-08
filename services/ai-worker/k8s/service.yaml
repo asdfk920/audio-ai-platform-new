@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-worker
+  namespace: audio-ai-platform
+  labels:
+    app: ai-worker
+spec:
+  # 服务类型
+  type: ClusterIP
+  
+  # 端口映射
+  ports:
+  - name: http
+    port: 8004
+    targetPort: 8004
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  
+  # 选择器
+  selector:
+    app: ai-worker
+  
+  # 会话保持（可选）
+  # sessionAffinity: ClientIP
+
+---
+# NodePort 版本（用于外部访问）
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-worker-nodeport
+  namespace: audio-ai-platform
+  labels:
+    app: ai-worker
+spec:
+  # 服务类型：NodePort
+  type: NodePort
+  
+  # 端口映射
+  ports:
+  - name: http
+    port: 8004
+    targetPort: 8004
+    nodePort: 30004
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    nodePort: 30090
+    protocol: TCP
+  
+  # 选择器
+  selector:
+    app: ai-worker
+
+---
+# LoadBalancer 版本（用于云环境）
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-worker-lb
+  namespace: audio-ai-platform
+  labels:
+    app: ai-worker
+  annotations:
+    # 云服务商特定注解
+    # AWS: service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # 阿里云：service.beta.kubernetes.io/alicloud-loadbalancer-spec: "slb.s1.small"
+spec:
+  # 服务类型：LoadBalancer
+  type: LoadBalancer
+  
+  # 端口映射
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8004
+    protocol: TCP
+  
+  # 选择器
+  selector:
+    app: ai-worker
+  
+  # 外部 IP（可选）
+  # loadBalancerIP: 192.168.1.100

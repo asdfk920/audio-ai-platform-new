@@ -1,0 +1,66 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ai-worker-hpa
+  namespace: audio-ai-platform
+spec:
+  # 扩缩容目标
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ai-worker
+  
+  # 副本数范围
+  minReplicas: 1
+  maxReplicas: 10
+  
+  # 扩缩容策略
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5 分钟稳定窗口
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Min
+    
+    scaleUp:
+      stabilizationWindowSeconds: 60   # 1 分钟稳定窗口
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+      - type: Pods
+        value: 4
+        periodSeconds: 60
+      selectPolicy: Max
+  
+  # 监控指标
+  metrics:
+  # CPU 使用率
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  
+  # 内存使用率
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  
+  # 自定义指标（GPU 使用率）
+  - type: Pods
+    pods:
+      metric:
+        name: nvidia_gpu_utilization
+      target:
+        type: AverageValue
+        averageValue: "70"

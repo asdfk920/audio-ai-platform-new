@@ -13,7 +13,7 @@
 *.dll
 *.so
 *.dylib
-ai-worker
+# ai-worker - 注释掉，因为我们需要复制这个文件
 
 # 测试
 *.test

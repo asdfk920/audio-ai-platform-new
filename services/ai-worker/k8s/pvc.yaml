@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ai-models-pvc
+  namespace: audio-ai-platform
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-client  # 根据实际存储类型调整
+  resources:
+    requests:
+      storage: 50Gi  # 模型存储需求
+  selector:
+    matchLabels:
+      app: ai-models
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ai-data-pvc
+  namespace: audio-ai-platform
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-client
+  resources:
+    requests:
+      storage: 100Gi  # 数据输出存储需求
