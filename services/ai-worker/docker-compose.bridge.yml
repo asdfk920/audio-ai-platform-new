@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # AI Worker 服务（GPU 版本 - Bridge 网络优化版）
+  ai-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-worker:v1
+    container_name: ai-worker
+
+    # GPU 支持
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    # 端口映射
+    ports:
+      - "8004:8004"
+      - "9090:9090"
+
+    # ✅ 使用 Bridge 网络 + DNS 配置确保外网访问
+    networks:
+      ai-network:
+        ipv4_address: 172.28.0.10
+
+    # DNS 配置（确保可以解析外部域名）
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 114.114.114.114
+
+    # 额外 hosts 映射
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # 环境变量
+    environment:
+      - GIN_MODE=release
+      - TZ=Asia/Shanghai
+      - KMP_DUPLICATE_LIB_OK=TRUE
+      # 代理设置（如需要）
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=localhost,127.0.0.1,host.docker.internal
+
+    # 卷挂载
+    volumes:
+      - ./models:/app/models
+      - ./data/output:/app/data/output
+      - ./data/cache:/app/data/cache
+      - ./data/objects:/app/data/ai-worker-objects
+      - ./etc/ai-worker.yaml:/app/etc/ai-worker.yaml:ro
+
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # 重启策略
+    restart: unless-stopped
+
+    # 日志
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# 卷定义
+volumes:
+
+# ✅ 自定义 Bridge 网络配置（支持外网访问）
+networks:
+  ai-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1

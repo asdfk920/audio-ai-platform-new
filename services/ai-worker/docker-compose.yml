@@ -8,7 +8,10 @@ services:
       dockerfile: Dockerfile
     image: ai-worker:v1
     container_name: ai-worker
-    
+
+    # ✅ 使用宿主机网络模式（可访问外网 + GPU）
+    network_mode: host
+
     # GPU 支持
     deploy:
       resources:
@@ -17,17 +20,16 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    
-    # 端口映射
-    ports:
-      - "8004:8004"
-      - "9090:9090"
-    
+
     # 环境变量
     environment:
       - GIN_MODE=release
       - TZ=Asia/Shanghai
-    
+      - KMP_DUPLICATE_LIB_OK=TRUE
+      # OSS 访问相关
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+
     # 卷挂载
     volumes:
       - ./models:/app/models
@@ -35,7 +37,7 @@ services:
       - ./data/cache:/app/data/cache
       - ./data/objects:/app/data/ai-worker-objects
       - ./etc/ai-worker.yaml:/app/etc/ai-worker.yaml:ro
-    
+
     # 健康检查
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8004/api/v1/health"]
@@ -43,20 +45,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    
+
     # 重启策略
     restart: unless-stopped
-    
+
     # 日志
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-    
-    # 网络
-    networks:
-      - ai-network
+
+    # ⚠️ 使用 host 模式时不需要端口映射和网络配置
+    # 端口直接使用宿主机端口：8004, 9090
 
   # Prometheus 监控（可选）
   prometheus:

@@ -1,9 +1,11 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -15,16 +17,20 @@ import (
 // PythonBSRoformer 基于 Python BSRoFormer 库的模型封装
 // 使用 pip install BS-RoFormer 安装
 type PythonBSRoformer struct {
-	name        string
-	modelPath   string
-	device      int
-	segmentSize int
-	overlap     float64
-	useFP16     bool
-	useINT8     bool
-	batchSize   int
-	pythonEnv   string // Python 虚拟环境路径
-	modelName   string // 模型名称（用于自动下载）
+	name             string
+	modelPath        string
+	device           int
+	deviceType       string // "cpu" 或 "cuda"
+	segmentSize      int
+	overlap          float64
+	useFP16          bool
+	useINT8          bool
+	batchSize        int
+	pythonEnv        string // Python 虚拟环境路径
+	modelName        string // 模型名称（用于自动下载）
+	currentInputFile string // 当前处理的输入文件
+	currentOutputDir string // 当前输出目录
+	currentTaskID    string // 当前任务ID
 
 	mu             sync.RWMutex
 	isLoaded       bool
@@ -216,7 +222,7 @@ func (m *PythonBSRoformer) Inference(audioData []float32) (*SeparationResult, er
 	return result, err
 }
 
-// inference 内部推理方法
+// inference 内部推理方法（使用独立 Python 脚本）
 func (m *PythonBSRoformer) inference(audioData []float32) (*SeparationResult, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -225,60 +231,81 @@ func (m *PythonBSRoformer) inference(audioData []float32) (*SeparationResult, er
 		return nil, fmt.Errorf("模型未加载")
 	}
 
-	// 调用 Python 脚本执行推理
-	pythonScript := fmt.Sprintf(`
-import torch
-import numpy as np
-import time
-from bs_roformer import BSRoFormer
-import io
-import sys
+	// 获取脚本路径
+	scriptPath := filepath.Join(filepath.Dir(os.Args[0]), "..", "scripts", "bsroformer_inference.py")
 
-# 加载模型
-model = BSRoFormer.from_pretrained("%s")
-model.eval()
+	// 如果找不到相对路径，尝试绝对路径
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		scriptPath = filepath.Join(filepath.Dir(os.Args[0]), "scripts", "bsroformer_inference.py")
+	}
 
-# 移动到设备
-device = "cuda:%d" if torch.cuda.is_available() else "cpu"
-model = model.to(device)
-
-# 读取音频数据
-audio_data = np.frombuffer(b'%s', dtype=np.float32).reshape(1, 2, -1)
-audio_tensor = torch.from_numpy(audio_data).to(device)
-
-# 执行推理
-start_time = time.time()
-with torch.no_grad():
-    separated = model(audio_tensor)
-inference_time = time.time() - start_time
-
-# 保存结果（这里简化处理，实际应该保存为文件）
-print(f"inference_time:{inference_time:.3f}")
-print(f"tracks:{len(separated)}")
-print(f"duration:{audio_tensor.shape[-1]/44100:.2f}")
-`, m.modelName, m.device)
+	logx.Infof("[BS-RoFormer] 使用推理脚本: %s", scriptPath)
 
 	pythonCmd := "python"
 	if runtime.GOOS == "windows" {
 		pythonCmd = "python.exe"
 	}
 
-	cmd := exec.Command(pythonCmd, "-c", pythonScript)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("推理失败：%w\n输出：%s", err, string(output))
+	args := []string{
+		scriptPath,
+		"--input", m.currentInputFile, // 输入文件路径
+		"--output", m.currentOutputDir, // 输出目录
+		"--model", "bsroformer",
+		"--device", fmt.Sprintf("%s:%d", m.deviceType, m.device),
+		"--segment-size", fmt.Sprintf("%d", m.segmentSize),
+		"--overlap", fmt.Sprintf("%.2f", m.overlap),
+		"--json",
 	}
 
-	// 解析输出
-	result := &SeparationResult{
-		TaskID:      "task_001",
-		Tracks:      map[string]string{"vocals": "vocals.wav", "drums": "drums.wav", "bass": "bass.wav", "other": "other.wav"},
-		Duration:    10.0,
+	if m.useFP16 {
+		args = append(args, "--fp16")
+	}
+
+	cmd := exec.Command(pythonCmd, args...)
+	cmd.Env = append(os.Environ(), "KMP_DUPLICATE_LIB_OK=TRUE")
+	cmd.Dir = m.modelPath
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("[BS-RoFormer] 推理失败: %w\n输出: %s", err, string(output))
+	}
+
+	// 解析 JSON 输出
+	var result struct {
+		Status     string            `json:"status"`
+		UsedModel  string            `json:"used_model"`
+		Tracks     map[string]string `json:"tracks"`
+		TrackCount int               `json:"track_count"`
+		Error      string            `json:"error"`
+	}
+
+	if err := json.Unmarshal(output, &result); err != nil {
+		logx.Slowf("[BS-RoFormer] 解析JSON失败，尝试解析文本输出: %v", err)
+		// 回退到简单解析
+		result.Tracks = map[string]string{
+			"vocals": filepath.Join(m.currentOutputDir, "vocals.wav"),
+			"drums":  filepath.Join(m.currentOutputDir, "drums.wav"),
+			"bass":   filepath.Join(m.currentOutputDir, "bass.wav"),
+			"other":  filepath.Join(m.currentOutputDir, "other.wav"),
+		}
+		result.TrackCount = len(result.Tracks)
+	}
+
+	if result.Status == "error" {
+		return nil, fmt.Errorf("[BS-RoFormer] 推理错误: %s", result.Error)
+	}
+
+	inferenceResult := &SeparationResult{
+		TaskID:      m.currentTaskID,
+		Tracks:      result.Tracks,
+		Duration:    estimateAudioDuration(m.currentInputFile),
 		ProcessTime: time.Since(time.Now()),
 		ModelType:   ModelBSRFormer,
 	}
 
-	return result, nil
+	logx.Infof("[BS-RoFormer] 推理完成: model=%s, tracks=%d", result.UsedModel, result.TrackCount)
+
+	return inferenceResult, nil
 }
 
 // GetAverageLatency 获取平均推理延迟

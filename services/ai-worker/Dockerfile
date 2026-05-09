@@ -1,15 +1,38 @@
-# BSRoformer AI Worker - 简化版 Docker 镜像
-# 支持 CUDA、FP16/INT8 推理，延迟<100ms
+# AI Worker Multi-stage Build
+# Build from PROJECT ROOT directory!
+# Usage: docker build -f services/ai-worker/Dockerfile -t ai-worker:v1 .
 
 # ============================================
-# 运行时环境（CUDA + Python）
+# Stage 1: Build Go binary (Linux AMD64)
+# ============================================
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /build
+
+# Configure Go China proxy
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GO111MODULE=on
+
+# Copy ENTIRE project root (for local replace paths in go.mod)
+COPY . .
+
+# Change to ai-worker directory
+WORKDIR /build/services/ai-worker
+
+# Download dependencies
+RUN go mod download
+
+# Build for Linux AMD64
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o ai-worker .
+
+# ============================================
+# Stage 2: Runtime environment (CUDA + Python)
 # ============================================
 FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
 
-# 避免交互式提示
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 安装系统依赖
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.10 \
     python3-pip \
@@ -19,53 +42,46 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# 设置工作目录
 WORKDIR /app
 
-# 安装基础依赖
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip python3-dev build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 升级 pip
+# Upgrade pip
 RUN pip3 install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 安装 PyTorch（使用清华镜像）
+# Install PyTorch
 RUN pip3 install torch torchvision torchaudio \
     --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 安装 BSRoFormer
+# Install BSRoFormer
 RUN pip3 install BS-RoFormer -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN python3 -c "import bs_roformer; print('BS-RoFormer OK')"
 
-# 验证安装（检查 bs_roformer 包是否存在）
-RUN python3 -c "import bs_roformer; print('BS-RoFormer installed successfully')"
-
-# 安装 Demucs 音频分离模型 ⭐
+# Install Demucs
 RUN pip3 install demucs -i https://pypi.tuna.tsinghua.edu.cn/simple
-
-# 验证 Demucs 安装
-RUN python3 -c "import demucs; print(f'Demucs installed successfully: {demucs.__version__}')"
+RUN python3 -c "import demucs; print(f'Demucs OK: {demucs.__version__}')"
 RUN demucs --version || echo "Demucs CLI ready"
 
-# 复制编译好的服务（需要在本地先编译好）
-COPY ai-worker /app/ai-worker
+# Copy compiled binary from builder stage
+COPY --from=builder /build/services/ai-worker/ai-worker /app/ai-worker
 
-# 复制配置文件
-COPY etc /app/etc
+# Copy config files
+COPY services/ai-worker/etc /app/etc
 
-# 创建目录
+# Create directories
 RUN mkdir -p /app/data/output /app/data/cache /app/data/ai-worker-objects /app/models
 
-# 设置权限
+# Set permissions
 RUN chmod +x /app/ai-worker
 
-# 健康检查
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8004/api/v1/health || exit 1
 
-# 暴露端口
 EXPOSE 8004
 
-# 启动命令
 WORKDIR /app
 CMD ["./ai-worker", "-f", "etc/ai-worker.yaml"]

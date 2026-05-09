@@ -249,6 +249,7 @@ func (s *AIService) processJob(job *SeparationJob) (*SeparationResult, error) {
 	var result *SeparationResult
 	var err error
 
+	// 尝试使用主模型
 	switch job.Config.Type {
 	case ModelBSRFormer:
 		result, err = s.runBSRoformerInference(job, progressCallback)
@@ -258,6 +259,28 @@ func (s *AIService) processJob(job *SeparationJob) (*SeparationResult, error) {
 		result, err = s.runSpleeterInference(job, progressCallback)
 	default:
 		err = fmt.Errorf("不支持的模型类型：%s", job.Config.Type)
+	}
+
+	// 如果主模型失败，尝试自动降级到 Demucs（备用模型）
+	if err != nil {
+		s.logger.Errorf("❌ 主模型推理失败: %v", err)
+		s.logger.Infof("🔄 自动降级到备用模型（Demucs）...")
+
+		// 检查是否有可用的 Demucs 模型
+		if _, ok := s.models[ModelHTDemucs]; ok {
+			job.Config.Type = ModelHTDemucs // 临时切换到 Demucs
+			result, err = s.runDemucsInference(job, progressCallback)
+
+			if err == nil {
+				s.logger.Infof("✅ 备用模型（Demucs）推理成功")
+				result.ModelType = ModelHTDemucs
+				result.ProcessTime = time.Since(startTime)
+				return result, nil
+			}
+			s.logger.Errorf("❌ 备用模型也失败: %v", err)
+		}
+
+		return nil, fmt.Errorf("所有模型都失败（主模型+备用）: %w", err)
 	}
 
 	if err != nil {

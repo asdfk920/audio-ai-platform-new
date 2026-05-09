@@ -20,14 +20,14 @@ CacheRedis:
     Pass: ""
     Type: node
 
-# 对象存储配置
+# 对象存储配置 (阿里云 OSS)
 Storage:
-  Driver: local  # 或 s3
-  Bucket: audio-ai-platform
-  Region: us-east-1
-  AccessKey: ""
-  SecretKey: ""
-  Endpoint: ""
+  Driver: oss  # oss | s3 | local
+  Bucket: 220aaa
+  Region: oss-cn-beijing
+  Endpoint: oss-cn-beijing.aliyuncs.com
+  AccessKey: LTAI5t8vrb1GWkvu1Bw5T4k4
+  SecretKey: 7GMwzmyWLbMgW7HpPnjkMZTEYEfNLs
   Local:
     Root: ./data/ai-worker-objects
 
@@ -41,12 +41,35 @@ SQS:
 
 # AI 模型配置
 AI:
-  ModelType: bsroformer  # 默认模型
-  ModelPath: ./models
-  GPUID: 0
-  BatchSize: 1
-  OutputDir: ./output    # 输出目录（Docker 挂载或本地路径）
-  CacheDir: ./cache      # 缓存目录
+  # ====== 主模型配置（BS-RoFormer）======
+  ModelType: bsroformer          # 主模型类型: bsroformer | demucs | spleeter
+  ModelName: bsroformer-mel      # 模型名称（BS-RoFormer 使用）
+  ModelPath: ./models            # 模型存储路径
+
+  # 设备配置
+  GPUID: -1                      # GPU ID (-1 表示使用 CPU)
+  Device: cpu                    # 计算设备: cpu | cuda:0 | cuda:1
+  BatchSize: 1                   # 批量大小
+
+  # 性能优化
+  SegmentSize: 10                # 分段大小（秒）
+  Overlap: 0.25                  # 重叠比例 (0.25 = 25%)
+  UseFP16: false                 # 是否使用 FP16 半精度（GPU 推荐）
+  UseINT8: false                 # 是否使用 INT8 量化
+
+  # 输出配置
+  OutputDir: ./output            # 输出目录（Docker 挂载或本地路径）
+  CacheDir: ./cache              # 缓存目录
+  MaxConcurrentJobs: 2           # 最大并发任务数
+
+  # ====== 备用模型配置（Demucs）======
+  Fallback:
+    Enabled: true                # 启用备用模型自动降级
+    ModelType: htdemucs          # 备用模型类型
+    ModelName: htdemucs          # Demucs 模型名称
+    TwoStems: vocals             # 双音轨模式: vocals | drums | bass
+    SegmentSize: 10              # 分段大小
+    Overlap: 0.25                # 重叠比例
 
 # 回调配置
 Callback:

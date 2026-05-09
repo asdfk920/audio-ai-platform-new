@@ -32,6 +32,14 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			Path:    "/api/v1/health",
 			Handler: healthCheckHandler(serverCtx),
 		},
+		{
+			// ⭐ WebSocket 音轨分离（公开接口，自行处理认证）
+			// GET /api/v1/audio/separate/ws
+			// 重要：必须在这里注册，否则 go-zero 会返回 404！
+			Method:  http.MethodGet,
+			Path:    "/api/v1/audio/separate/ws",
+			Handler: AudioSeparateWSHandler(serverCtx),
+		},
 	}
 
 	server.AddRoutes(publicRoutes)
@@ -52,6 +60,48 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			Path:    "/inference/tasks",
 			Handler: TaskListHandler(serverCtx),
 		},
+		{
+			// 查询单个分离任务详情（带权限验证）
+			// GET /api/v1/inference/tasks/{task_id}
+			// 必须登录，且只能查询自己的任务
+			Method:  http.MethodGet,
+			Path:    "/inference/tasks/:task_id",
+			Handler: TaskDetailHandler(serverCtx),
+		},
+		{
+			// 删除历史分离任务（带权限验证和级联清理）
+			// DELETE /api/v1/inference/tasks/{task_id}
+			// 必须登录，且只能删除自己的任务
+			// 会同时删除关联的音轨记录
+			Method:  http.MethodDelete,
+			Path:    "/inference/tasks/:task_id",
+			Handler: TaskDeleteHandler(serverCtx),
+		},
+		{
+			// 删除历史分离任务（兼容查询参数格式）
+			// DELETE /api/v1/inference/tasks?task_id={id}
+			// 支持旧版客户端或特殊场景
+			Method:  http.MethodDelete,
+			Path:    "/inference/tasks",
+			Handler: TaskDeleteHandler(serverCtx),
+		},
+		{
+			// 取消分离任务（带权限验证和状态检查）
+			// POST /api/v1/inference/tasks/{task_id}/cancel
+			// 只能取消 pending 或 processing 状态的任务
+			// 通过 WebSocket 实时通知用户取消结果
+			Method:  http.MethodPost,
+			Path:    "/inference/tasks/:task_id/cancel",
+			Handler: TaskCancelHandler(serverCtx),
+		},
+		{
+			// 取消分离任务（兼容查询参数格式）
+			// POST /api/v1/inference/tasks/cancel?id=2
+			// 支持通过主键 ID 或 task_id 取消
+			Method:  http.MethodPost,
+			Path:    "/inference/tasks/cancel",
+			Handler: TaskCancelHandler(serverCtx),
+		},
 	}
 
 	server.AddRoutes(
@@ -63,17 +113,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		rest.WithPrefix("/api/v1"),
 	)
 
-	// WebSocket 接口（自行处理 Token 认证，独立注册）
-	wsRoutes := []rest.Route{
-		{
-			// WebSocket 音轨分离
-			// GET /api/v1/audio/separate/ws
-			// 用途：通过 WebSocket 长连接实现音轨分离
-			Method:  http.MethodGet,
-			Path:    "/api/v1/audio/separate/ws",
-			Handler: AudioSeparateWSHandler(serverCtx),
-		},
-	}
-
-	server.AddRoutes(wsRoutes)
+	// ⚠️ 注意：WebSocket 路由已在 ai-worker.go 中单独注册
+	// go-zero 的 REST 路由引擎无法正确处理 WebSocket 升级协议
+	// 因此 WebSocket 路由使用自定义 Handler 包装器注册（见 ai-worker.go）
 }

@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -95,7 +96,13 @@ func main() {
 	})
 
 	// 注册路由（使用 routes.go）
+	// ⭐ WebSocket 路由已在 routes.go 的 publicRoutes 中注册
 	handler.RegisterHandlers(server, svcCtx)
+
+	log.Println("=========================================")
+	log.Println("✅ [FIXED] WebSocket route registered in routes.go!")
+	log.Println("✅ [FIXED] Path: /api/v1/audio/separate/ws")
+	log.Println("=========================================")
 
 	root := strings.TrimSpace(c.Storage.Local.Root)
 	if root == "" {
