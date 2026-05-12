@@ -51,7 +51,7 @@ func AudioSeparateWSHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 				userID = claims.UserID
 				log.Printf("[WebSocket] 认证成功：user_id=%d", userID)
 			} else {
-				log.Printf("[WebSocket] 认证失败：token无效或过期")
+				log.Printf("[WebSocket] 认证失败：token无效或过期, error=%v", err)
 			}
 		}
 
@@ -75,6 +75,19 @@ func AudioSeparateWSHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			taskID: taskID,
 			userID: userID,
 			svcCtx: svcCtx,
+		}
+
+		if tokenString == "" || userID == 0 {
+			log.Printf("[WebSocket] ⚠️ 未提供有效token，发送登录提示")
+			session.sendMessage(WSMessage{
+				Type:    "auth_required",
+				Message: "用户未登录或者是登录过期，请重新登录后再试",
+				Data: map[string]interface{}{
+					"task_id":    taskID,
+					"reason":     "token_missing_or_invalid",
+					"suggestion": "请重新获取token后连接WebSocket",
+				},
+			})
 		}
 
 		session.handleConnection()
@@ -264,6 +277,21 @@ func (s *Session) sendAudioList(list []AudioContentInfo) {
 }
 
 func (s *Session) handleSeparate(data interface{}, db *sql.DB) {
+	if s.userID == 0 {
+		log.Printf("[WebSocket] ⚠️ 用户未登录，拒绝分离请求：task_id=%s", s.taskID)
+		s.sendMessage(WSMessage{
+			Type:    "auth_error",
+			Message: "用户未登录或者是登录过期，请重新登录后再试",
+			Data: map[string]interface{}{
+				"task_id":    s.taskID,
+				"action":     "separate",
+				"reason":     "authentication_required",
+				"suggestion": "请先登录获取有效token，然后重新连接WebSocket",
+			},
+		})
+		return
+	}
+
 	var req struct {
 		ContentID int64 `json:"content_id"`
 	}
@@ -764,7 +792,17 @@ func (s *Session) handleCancel(db *sql.DB) {
 	log.Printf("[WebSocket] 🛑 收到取消请求：task_id=%s, user_id=%d", s.taskID, s.userID)
 
 	if s.taskID == "" || s.userID == 0 {
-		s.sendError("无法取消：任务信息不完整")
+		log.Printf("[WebSocket] ⚠️ 用户未登录或任务信息不完整，拒绝取消请求")
+		s.sendMessage(WSMessage{
+			Type:    "auth_error",
+			Message: "用户未登录或者是登录过期，无法执行此操作",
+			Data: map[string]interface{}{
+				"task_id":    s.taskID,
+				"action":     "cancel",
+				"reason":     "authentication_required",
+				"suggestion": "请重新登录后再试",
+			},
+		})
 		return
 	}
 

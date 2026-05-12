@@ -2358,8 +2358,6 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "设备微服务 API 文档，包含设备管理、设备控制、设备状态查询等接口",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
-	LeftDelim:        "{{",
-	RightDelim:       "}}",
 }
 
 func init() {

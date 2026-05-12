@@ -13,14 +13,15 @@ type Device struct {
 	Sn              string     `db:"sn"`
 	Model           string     `db:"model"`
 	ProductKey      string     `db:"product_key"`
+	DeviceSecret    string     `db:"device_secret"`
 	FirmwareVersion string     `db:"firmware_version"`
 	HardwareVersion string     `db:"hardware_version"`
 	Mac             string     `db:"mac"`
 	Ip              string     `db:"ip"`
 	OnlineStatus    int16      `db:"online_status"`
 	Status          int16      `db:"status"`
-	UserID          int64      `db:"user_id"`
-	LastHeartbeat   time.Time  `db:"last_heartbeat"`
+	CreateBy        int64      `db:"create_by"`
+	LastActiveAt    time.Time  `db:"last_active_at"`
 	CreatedAt       time.Time  `db:"created_at"`
 	UpdatedAt       time.Time  `db:"updated_at"`
 	DeletedAt       *time.Time `db:"deleted_at"`

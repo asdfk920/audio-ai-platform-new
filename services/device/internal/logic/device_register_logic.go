@@ -3,27 +3,22 @@ package logic
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/util"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-var snPatternNew = regexp.MustCompile(`^[A-Z0-9]{3}-[A-Z0-9]{2}-\d{4}-\d{5}-[A-Z0-9]$`)
-
 // DeviceRegisterLogic 设备注册逻辑
-// 处理设备首次注册的业务逻辑
+// 处理设备首次注册的业务逻辑（设备端携带预烧录SN，后端分配密钥）
 type DeviceRegisterLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
 // NewDeviceRegisterLogic 创建设备注册逻辑实例
-// 参数 ctx context.Context: 请求上下文
-// 参数 svcCtx *svc.ServiceContext: 服务上下文
-// 返回 *DeviceRegisterLogic: 设备注册逻辑实例
 func NewDeviceRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *DeviceRegisterLogic {
 	return &DeviceRegisterLogic{
 		ctx:    ctx,
@@ -31,89 +26,87 @@ func NewDeviceRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *De
 	}
 }
 
-// DeviceRegister 设备注册
-// 流程：
-//  1. 校验请求数据格式（SN、Model、Version）
-//  2. 查询数据库验证 SN 是否已存在
-//  3. SN 已存在：返回已有 token
-//  4. SN 不存在：生成新 token，插入数据库，返回新 token
+// DeviceRegister 设备注册（接收预烧录SN，返回设备密钥）
 //
-// 参数 req *types.DeviceRegisterReq: 设备注册请求
-// 返回 *types.DeviceRegisterResp: 设备注册响应（包含 token）
+// 完整流程：
+//  1. 接收设备SN参数
+//  2. 校验SN格式（16位长度 + 校验码验证）
+//  3. 查询数据库判断设备是否已存在
+//     - 已存在：直接返回已有密钥
+//     - 不存在：生成32位随机密钥，插入数据库
+//  4. 返回 SN + device_secret 给设备端保存到Flash
+//
+// 参数 req *types.DeviceRegisterReq: 设备注册请求（包含sn）
+// 返回 *types.DeviceRegisterResp: 设备注册响应（包含device_secret）
 // 返回 error: 注册失败时的错误信息
 func (l *DeviceRegisterLogic) DeviceRegister(req *types.DeviceRegisterReq) (*types.DeviceRegisterResp, error) {
-	// 1. 校验请求数据格式
-	if err := validateDeviceRegisterReq(req); err != nil {
-		return nil, fmt.Errorf("数据格式校验失败: %v", err)
+	sn := strings.TrimSpace(strings.ToUpper(req.Sn))
+
+	if err := validateSnFormat(sn); err != nil {
+		return nil, fmt.Errorf("SN格式校验失败: %v", err)
 	}
 
-	// 2. 查询数据库验证 SN 是否已存在
-	existingDevice, err := l.svcCtx.DeviceRegister.FindBySn(l.ctx, req.Sn)
+	logx.Infof("收到设备注册请求: sn=%s (显示格式:%s)", sn, util.FormatSNDisplay(sn))
+
+	existingDevice, err := l.svcCtx.DeviceRegister.FindBySn(l.ctx, sn)
 	if err != nil {
 		return nil, fmt.Errorf("查询设备失败: %v", err)
 	}
 
-	// 3. SN 已存在分支：返回已有 token
-	if existingDevice != nil {
-		logx.Infof("设备已注册，返回已有 token: %s", req.Sn)
+	if existingDevice != nil && existingDevice.Secret != "" {
+		logx.Infof("设备已注册，返回已有密钥: sn=%s", sn)
 		return &types.DeviceRegisterResp{
-			Token: existingDevice.AuthToken,
+			Sn:           sn,
+			DeviceSecret: existingDevice.Secret,
 		}, nil
 	}
 
-	// 4. SN 不存在分支（新设备注册）
-	logx.Infof("新设备注册: %s", req.Sn)
+	deviceSecret := l.svcCtx.DeviceRegister.GenerateDeviceSecret()
 
-	// 4.1 生成认证 token
-	authToken := l.svcCtx.DeviceRegister.GenerateAuthToken(req.Sn)
+	logx.Infof("新设备注册，生成密钥: sn=%s", sn)
 
-	// 4.2 插入数据库
-	deviceID, err := l.svcCtx.DeviceRegister.CreateDevice(l.ctx, req.Sn, req.Model, req.FirmwareVersion, authToken)
+	deviceID, err := l.svcCtx.DeviceRegister.CreateDeviceWithSecret(l.ctx, sn, deviceSecret)
 	if err != nil {
 		return nil, fmt.Errorf("创建设备记录失败: %v", err)
 	}
 
-	logx.Infof("新设备注册成功: sn=%s, device_id=%d", req.Sn, deviceID)
+	if err := l.svcCtx.DeviceTopicACLRepo.CreateDefaultRulesForDevice(l.ctx, sn); err != nil {
+		logx.Errorf("创建设备默认 Topic 权限规则失败: sn=%s, err=%v (不影响注册结果)", sn, err)
+	} else {
+		logx.Infof("已为设备创建默认 Topic 白名单规则: sn=%s", sn)
+	}
 
-	// 4.3 返回 token
+	snDisplay := util.FormatSNDisplay(sn)
+	logx.Infof("设备注册成功: sn=%s (显示格式:%s), device_id=%d", sn, snDisplay, deviceID)
+
 	return &types.DeviceRegisterResp{
-		Token: authToken,
+		Sn:           sn,
+		DeviceSecret: deviceSecret,
 	}, nil
 }
 
-// validateDeviceRegisterReq 校验设备注册请求数据格式
-// 校验规则：
-//   - SN: 支持两种格式
-//   - 旧格式：16 位字母数字，正则 ^[A-Z0-9]{16}$，不区分大小写
-//   - 新格式：厂商码 (2-3 位) + 产品线 (2 位) + 流水号 (3-5 位)，示例：SN-X1-001 或 AUD-SP-00001
-//   - Model: 非空字符串
-//   - FirmwareVersion: 非空字符串
+// validateSnFormat 校验设备序列号格式
 //
-// 参数 req *types.DeviceRegisterReq: 设备注册请求
-// 返回 error: 校验失败时的错误信息
-func validateDeviceRegisterReq(req *types.DeviceRegisterReq) error {
-	sn := strings.TrimSpace(req.Sn)
+// 校验规则：
+//   - 长度必须为16位
+//   - 只能包含大写字母和数字
+//   - 厂商码必须是已知的（AU/HX等）
+//   - 设备类型必须是已知的（SP/HP/SB等）
+//   - 校验码必须正确（SHA256哈希校验）
+//
+// 参数 sn string: 待校验的设备序列号
+// 返回 error: 校验失败时的错误信息，nil表示校验通过
+func validateSnFormat(sn string) error {
+	if sn == "" {
+		return fmt.Errorf("设备序列号不能为空")
+	}
 
-	// 优先校验新格式（短格式：XXX-XX-NNN 或 XX-XX-NNN）
-	snPatternShort := regexp.MustCompile(`^[A-Z0-9]{2,3}-[A-Z0-9]{2}-\d{3,5}$`)
-	if snPatternShort.MatchString(strings.ToUpper(sn)) {
-		// 短格式 SN 有效
-	} else {
-		// 回退到旧格式校验（16 位字母数字）
-		snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
-		if !snRegex.MatchString(sn) {
-			return fmt.Errorf("SN 格式错误，应为短格式（如：SN-X1-001）或 16 位旧格式（字母数字组合）")
+	if !util.ValidateSNFormat(sn) {
+		parsed := util.ParseSN(sn)
+		if errMsg, ok := parsed["error"].(string); ok {
+			return fmt.Errorf("%s", errMsg)
 		}
-	}
-
-	// Model 校验：非空字符串
-	if req.Model == "" {
-		return fmt.Errorf("设备型号不能为空")
-	}
-
-	// FirmwareVersion 校验：非空字符串
-	if req.FirmwareVersion == "" {
-		return fmt.Errorf("固件版本号不能为空")
+		return fmt.Errorf("SN格式错误或校验码无效")
 	}
 
 	return nil

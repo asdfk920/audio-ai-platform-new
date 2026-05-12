@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
 type ModelManager struct {
@@ -91,61 +90,39 @@ func LoadModelConfig(path string) (map[string]*ModelConfig, error) {
 func DefaultModelConfigs() map[string]*ModelConfig {
 	baseDir := os.Getenv("MODEL_BASE_DIR")
 	if baseDir == "" {
-		baseDir = "/app/models"
+		baseDir = "./models"
 	}
 
 	outputDir := os.Getenv("OUTPUT_DIR")
 	if outputDir == "" {
-		outputDir = "/app/output"
+		outputDir = "./output"
 	}
 
 	cacheDir := os.Getenv("CACHE_DIR")
 	if cacheDir == "" {
-		cacheDir = "/app/cache"
+		cacheDir = "./cache"
 	}
 
-	gpuDevice := 0
+	gpuDevice := -1
 	if env := os.Getenv("GPU_DEVICE"); env != "" {
 		fmt.Sscanf(env, "%d", &gpuDevice)
 	}
 
-	maxConcurrency := 3
+	maxConcurrency := 2
 	if env := os.Getenv("MAX_CONCURRENT_JOBS"); env != "" {
 		fmt.Sscanf(env, "%d", &maxConcurrency)
 	}
 
 	return map[string]*ModelConfig{
-		"demucs": {
-			Type:              ModelHTDemucs,
-			Name:              "htdemucs",
-			ModelPath:         filepath.Join(baseDir, "demucs"),
-			GPUDevice:         gpuDevice,
-			SegmentSize:       10,
-			Overlap:           0.25,
-			UseFP16:           true,
-			BatchSize:         1,
-			OutputDir:         outputDir,
-			CacheDir:          cacheDir,
-			MaxConcurrentJobs: maxConcurrency,
-		},
 		"bsroformer": {
 			Type:              ModelBSRFormer,
-			Name:              "bs_roformer",
-			ModelPath:         filepath.Join(baseDir, "bsroformer"),
+			Name:              "bss_roformer",
+			ModelPath:         baseDir,
 			GPUDevice:         gpuDevice,
 			SegmentSize:       10,
 			Overlap:           0.25,
-			UseFP16:           true,
+			UseFP16:           false,
 			BatchSize:         1,
-			OutputDir:         outputDir,
-			CacheDir:          cacheDir,
-			MaxConcurrentJobs: maxConcurrency,
-		},
-		"spleeter": {
-			Type:              ModelSpleeter,
-			Name:              "spleeter_4stems",
-			ModelPath:         filepath.Join(baseDir, "spleeter"),
-			GPUDevice:         gpuDevice,
 			OutputDir:         outputDir,
 			CacheDir:          cacheDir,
 			MaxConcurrentJobs: maxConcurrency,

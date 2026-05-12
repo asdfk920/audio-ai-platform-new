@@ -34,19 +34,21 @@ func NewDeviceRepo(db *sql.DB) *DeviceRepo {
 func (r *DeviceRepo) FindBySn(ctx context.Context, sn string) (*model.Device, error) {
 	query := `
 		SELECT 
-			id, sn, model, product_key, firmware_version, hardware_version,
-			mac, ip, online_status, status, user_id, last_heartbeat,
+			id, sn, model, product_key, device_secret,
+			firmware_version, hardware_version, mac, ip,
+			online_status, status, create_by, last_active_at,
 			created_at, updated_at, deleted_at
-		FROM devices 
+		FROM device 
 		WHERE sn = $1 AND deleted_at IS NULL
 	`
 
 	var device model.Device
 	err := r.db.QueryRowContext(ctx, query, sn).Scan(
 		&device.ID, &device.Sn, &device.Model, &device.ProductKey,
-		&device.FirmwareVersion, &device.HardwareVersion, &device.Mac,
-		&device.Ip, &device.OnlineStatus, &device.Status, &device.UserID,
-		&device.LastHeartbeat, &device.CreatedAt, &device.UpdatedAt, &device.DeletedAt,
+		&device.DeviceSecret, &device.FirmwareVersion, &device.HardwareVersion,
+		&device.Mac, &device.Ip, &device.OnlineStatus, &device.Status,
+		&device.CreateBy, &device.LastActiveAt,
+		&device.CreatedAt, &device.UpdatedAt, &device.DeletedAt,
 	)
 
 	if err != nil {
@@ -63,19 +65,21 @@ func (r *DeviceRepo) FindBySn(ctx context.Context, sn string) (*model.Device, er
 func (r *DeviceRepo) FindById(ctx context.Context, id int64) (*model.Device, error) {
 	query := `
 		SELECT 
-			id, sn, model, product_key, firmware_version, hardware_version,
-			mac, ip, online_status, status, user_id, last_heartbeat,
+			id, sn, model, product_key, device_secret,
+			firmware_version, hardware_version, mac, ip,
+			online_status, status, create_by, last_active_at,
 			created_at, updated_at, deleted_at
-		FROM devices 
+		FROM device 
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
 	var device model.Device
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&device.ID, &device.Sn, &device.Model, &device.ProductKey,
-		&device.FirmwareVersion, &device.HardwareVersion, &device.Mac,
-		&device.Ip, &device.OnlineStatus, &device.Status, &device.UserID,
-		&device.LastHeartbeat, &device.CreatedAt, &device.UpdatedAt, &device.DeletedAt,
+		&device.DeviceSecret, &device.FirmwareVersion, &device.HardwareVersion,
+		&device.Mac, &device.Ip, &device.OnlineStatus, &device.Status,
+		&device.CreateBy, &device.LastActiveAt,
+		&device.CreatedAt, &device.UpdatedAt, &device.DeletedAt,
 	)
 
 	if err != nil {
@@ -88,17 +92,17 @@ func (r *DeviceRepo) FindById(ctx context.Context, id int64) (*model.Device, err
 	return &device, nil
 }
 
-// UpdateHeartbeat 更新设备心跳信息
-func (r *DeviceRepo) UpdateHeartbeat(ctx context.Context, deviceId int64, onlineStatus int16, lastHeartbeat time.Time) error {
+// UpdateLastActive 更新设备最后活跃时间
+func (r *DeviceRepo) UpdateLastActive(ctx context.Context, deviceId int64, onlineStatus int16, lastActive time.Time) error {
 	query := `
-		UPDATE devices 
-		SET online_status = $1, last_heartbeat = $2, updated_at = NOW()
+		UPDATE device 
+		SET online_status = $1, last_active_at = $2, updated_at = NOW()
 		WHERE id = $3 AND deleted_at IS NULL
 	`
 
-	result, err := r.db.ExecContext(ctx, query, onlineStatus, lastHeartbeat, deviceId)
+	result, err := r.db.ExecContext(ctx, query, onlineStatus, lastActive, deviceId)
 	if err != nil {
-		return fmt.Errorf("更新设备心跳失败: %v", err)
+		return fmt.Errorf("更新设备活跃时间失败: %v", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -116,10 +120,10 @@ func (r *DeviceRepo) UpdateHeartbeat(ctx context.Context, deviceId int64, online
 // UpdateOfflineDevices 批量更新离线设备
 func (r *DeviceRepo) UpdateOfflineDevices(ctx context.Context, timeoutMinutes int) (int64, error) {
 	query := `
-		UPDATE devices 
+		UPDATE device 
 		SET online_status = $1, updated_at = NOW()
 		WHERE online_status = $2 
-		AND last_heartbeat < NOW() - INTERVAL '1 minute' * $3
+		AND last_active_at < NOW() - INTERVAL '1 minute' * $3
 		AND deleted_at IS NULL
 	`
 
@@ -142,7 +146,6 @@ func (r *DeviceRepo) FindByIds(ctx context.Context, ids []int64) (map[int64]*mod
 		return make(map[int64]*model.Device), nil
 	}
 
-	// 构建IN查询参数
 	placeholders := make([]string, len(ids))
 	args := make([]interface{}, len(ids))
 	for i, id := range ids {
@@ -152,10 +155,11 @@ func (r *DeviceRepo) FindByIds(ctx context.Context, ids []int64) (map[int64]*mod
 
 	query := fmt.Sprintf(`
 		SELECT 
-			id, sn, model, product_key, firmware_version, hardware_version,
-			mac, ip, online_status, status, user_id, last_heartbeat,
+			id, sn, model, product_key, device_secret,
+			firmware_version, hardware_version, mac, ip,
+			online_status, status, create_by, last_active_at,
 			created_at, updated_at, deleted_at
-		FROM devices 
+		FROM device 
 		WHERE id IN (%s) AND deleted_at IS NULL
 	`, strings.Join(placeholders, ", "))
 
@@ -170,9 +174,10 @@ func (r *DeviceRepo) FindByIds(ctx context.Context, ids []int64) (map[int64]*mod
 		var device model.Device
 		err := rows.Scan(
 			&device.ID, &device.Sn, &device.Model, &device.ProductKey,
-			&device.FirmwareVersion, &device.HardwareVersion, &device.Mac,
-			&device.Ip, &device.OnlineStatus, &device.Status, &device.UserID,
-			&device.LastHeartbeat, &device.CreatedAt, &device.UpdatedAt, &device.DeletedAt,
+			&device.DeviceSecret, &device.FirmwareVersion, &device.HardwareVersion,
+			&device.Mac, &device.Ip, &device.OnlineStatus, &device.Status,
+			&device.CreateBy, &device.LastActiveAt,
+			&device.CreatedAt, &device.UpdatedAt, &device.DeletedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("扫描设备数据失败: %v", err)
@@ -186,7 +191,7 @@ func (r *DeviceRepo) FindByIds(ctx context.Context, ids []int64) (map[int64]*mod
 
 // CountTotal 统计总设备数
 func (r *DeviceRepo) CountTotal(ctx context.Context) (int64, error) {
-	query := `SELECT COUNT(*) FROM devices WHERE deleted_at IS NULL`
+	query := `SELECT COUNT(*) FROM device WHERE deleted_at IS NULL`
 
 	var count int64
 	err := r.db.QueryRowContext(ctx, query).Scan(&count)
@@ -201,7 +206,7 @@ func (r *DeviceRepo) CountTotal(ctx context.Context) (int64, error) {
 func (r *DeviceRepo) GetDistinctProductKey(ctx context.Context) ([]types.EnumItem, error) {
 	query := `
 		SELECT DISTINCT product_key as value, product_key as label 
-		FROM devices 
+		FROM device 
 		WHERE product_key != '' AND deleted_at IS NULL
 		ORDER BY product_key
 	`
@@ -231,7 +236,7 @@ func (r *DeviceRepo) GetDistinctProductKey(ctx context.Context) ([]types.EnumIte
 
 // CountOnline 统计在线设备数
 func (r *DeviceRepo) CountOnline(ctx context.Context) (int64, error) {
-	query := `SELECT COUNT(*) FROM devices WHERE online_status = $1 AND deleted_at IS NULL`
+	query := `SELECT COUNT(*) FROM device WHERE online_status = $1 AND deleted_at IS NULL`
 
 	var count int64
 	err := r.db.QueryRowContext(ctx, query, model.DeviceOnlineStatusOnline).Scan(&count)
@@ -244,7 +249,7 @@ func (r *DeviceRepo) CountOnline(ctx context.Context) (int64, error) {
 
 // CountOffline 统计离线设备数
 func (r *DeviceRepo) CountOffline(ctx context.Context) (int64, error) {
-	query := `SELECT COUNT(*) FROM devices WHERE online_status = $1 AND deleted_at IS NULL`
+	query := `SELECT COUNT(*) FROM device WHERE online_status = $1 AND deleted_at IS NULL`
 
 	var count int64
 	err := r.db.QueryRowContext(ctx, query, model.DeviceOnlineStatusOffline).Scan(&count)
@@ -258,7 +263,7 @@ func (r *DeviceRepo) CountOffline(ctx context.Context) (int64, error) {
 // CountUnbound 统计未绑定设备数
 func (r *DeviceRepo) CountUnbound(ctx context.Context) (int64, error) {
 	query := `
-		SELECT COUNT(*) FROM devices d 
+		SELECT COUNT(*) FROM device d 
 		WHERE d.deleted_at IS NULL 
 		AND d.id NOT IN (
 			SELECT device_id FROM user_device_bind 
@@ -277,7 +282,7 @@ func (r *DeviceRepo) CountUnbound(ctx context.Context) (int64, error) {
 
 // CountTodayAdd 统计今日新增设备数
 func (r *DeviceRepo) CountTodayAdd(ctx context.Context, start time.Time) (int64, error) {
-	query := `SELECT COUNT(*) FROM devices WHERE created_at >= $1 AND deleted_at IS NULL`
+	query := `SELECT COUNT(*) FROM device WHERE created_at >= $1 AND deleted_at IS NULL`
 
 	var count int64
 	err := r.db.QueryRowContext(ctx, query, start).Scan(&count)
@@ -290,7 +295,7 @@ func (r *DeviceRepo) CountTodayAdd(ctx context.Context, start time.Time) (int64,
 
 // CountTodayActive 统计今日活跃设备数
 func (r *DeviceRepo) CountTodayActive(ctx context.Context, start time.Time) (int64, error) {
-	query := `SELECT COUNT(*) FROM devices WHERE last_heartbeat >= $1 AND deleted_at IS NULL`
+	query := `SELECT COUNT(*) FROM device WHERE last_active_at >= $1 AND deleted_at IS NULL`
 
 	var count int64
 	err := r.db.QueryRowContext(ctx, query, start).Scan(&count)

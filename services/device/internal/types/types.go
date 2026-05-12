@@ -8,17 +8,16 @@ type EnumItem struct {
 }
 
 // DeviceRegisterReq 设备注册请求
-// 设备首次上线时向云端注册身份
+// 设备首次上线时向云端注册身份（设备端携带预烧录的SN）
 type DeviceRegisterReq struct {
-	Sn              string `json:"sn" validate:"required"`               // 设备序列号，16位字母数字组合
-	Model           string `json:"model" validate:"required"`            // 设备型号
-	FirmwareVersion string `json:"firmware_version" validate:"required"` // 固件版本号
+	Sn string `json:"sn" validate:"required"` // 设备序列号（16位，从Flash/OTP读取）
 }
 
 // DeviceRegisterResp 设备注册响应
-// 返回设备认证 token
+// 返回设备密钥（设备端保存到本地Flash用于后续认证）
 type DeviceRegisterResp struct {
-	Token string `json:"token"` // 认证 token，设备后续请求需携带此 token
+	Sn           string `json:"sn"`            // 设备序列号
+	DeviceSecret string `json:"device_secret"` // 设备密钥（32位随机字符串）
 }
 
 // DeviceAuthReq 设备认证请求
@@ -553,4 +552,19 @@ type DiagnosisItem struct {
 	Message  string `json:"message"`  // 诊断信息
 	Value    string `json:"value"`    // 当前值
 	Expected string `json:"expected"` // 期望值
+}
+
+// WillMessageReq WILL消息请求（设备异常断开通知）
+// EMQX自动发布WILL消息到后端，用于检测设备异常断开
+type WillMessageReq struct {
+	SN     string `json:"sn" validate:"required"`     // 设备序列号
+	Status string `json:"status" validate:"required"` // 离线状态："offline"
+	Time   string `json:"time"`                       // 离线时间（ISO8601格式）
+	Reason string `json:"reason,omitempty"`           // 可选：断开原因
+}
+
+// WillMessageResp WILL消息响应
+type WillMessageResp struct {
+	Code    int    `json:"code"`    // 状态码：200-成功
+	Message string `json:"message"` // 消息内容
 }

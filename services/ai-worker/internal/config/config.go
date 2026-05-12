@@ -45,6 +45,7 @@ type Config struct {
 	// AI 模型配置
 	AI struct {
 		ModelType         string   `json:",default=bsroformer"`                // 默认模型类型：BSRoformer
+		ModelName         string   `json:",default=bss_roformer"`              // 模型名称
 		ModelPath         string   `json:",default=/app/models/bsroformer"`    // 模型路径
 		GPUDevice         int      `json:",default=0"`                         // GPU 设备 ID
 		GPUID             int      `json:",default=0"`                         // 兼容旧字段

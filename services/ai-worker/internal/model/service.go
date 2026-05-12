@@ -14,12 +14,7 @@ import (
 type ModelType string
 
 const (
-	ModelDemucs        ModelType = "demucs"
-	ModelBSRFormer     ModelType = "bsroformer"
-	ModelSpleeter      ModelType = "spleeter"
-	ModelHTDemucs      ModelType = "htdemucs"
-	ModelHTDemucsFT    ModelType = "htdemucs_ft"
-	ModelHTDemucsLarge ModelType = "htdemucs_large"
+	ModelBSRFormer ModelType = "bsroformer"
 )
 
 type TrackType string
@@ -125,85 +120,41 @@ func (s *AIService) initializeModels() error {
 	switch s.config.Type {
 	case ModelBSRFormer:
 		return s.initBSRoformerModel()
-	case ModelDemucs, ModelHTDemucs, ModelHTDemucsFT, ModelHTDemucsLarge:
-		return s.initDemucsModel()
-	case ModelSpleeter:
-		return s.initSpleeterModel()
 	default:
 		return fmt.Errorf("不支持的模型类型：%s", s.config.Type)
 	}
 }
 
 func (s *AIService) initBSRoformerModel() error {
-	s.logger.Info("初始化 BSRoformer SCNet 模型...")
+	s.logger.Info("初始化 BS-RoFormer 模型（Python 实现）...")
 
-	modelPath := filepath.Join(s.config.ModelPath, "bsroformer_scnet")
-	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
-		return fmt.Errorf("模型文件不存在：%s", modelPath)
+	modelPath := s.config.ModelPath
+	if modelPath == "" {
+		modelPath = "./models"
 	}
 
-	// 创建 BSRoformer 模型实例（支持 FP16/INT8）
-	bsroformer := NewBSRoformerModel(&BSRoformerConfig{
-		Name:          "BSRoformer SCNet",
-		ModelPath:     modelPath,
-		GPUDevice:     s.config.GPUDevice,
-		SegmentSize:   int(s.config.SegmentSize),
-		Overlap:       s.config.Overlap,
-		UseFP16:       s.config.UseFP16,
-		UseINT8:       s.config.UseINT8,
-		BatchSize:     s.config.BatchSize,
-		UseCUDA:       true, // 默认启用 CUDA
-		CUDABenchmark: true, // 启用 CUDA benchmark 模式优化性能
-		NumThreads:    4,    // CPU 线程数
-		InterThreads:  2,    // 线程间并行数
-	})
-
-	// 加载模型到 GPU
-	if err := bsroformer.Load(); err != nil {
-		return fmt.Errorf("加载 BSRoformer 模型失败：%w", err)
-	}
-
-	s.models[s.config.Type] = bsroformer
-	s.logger.Infof("BSRoformer SCNet 模型初始化完成：%s", s.config.Name)
-	s.logger.Infof("模型配置：FP16=%v, INT8=%v, GPU=%d",
-		s.config.UseFP16, s.config.UseINT8, s.config.GPUDevice)
-
-	return nil
-}
-
-func (s *AIService) initDemucsModel() error {
-	s.logger.Info("初始化 Demucs 模型...")
-
-	modelPath := filepath.Join(s.config.ModelPath, s.config.Type.String())
-	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
-		s.logger.Infof("模型文件不存在，将在首次使用时下载: %s", modelPath)
-	}
-
-	s.models[s.config.Type] = &DemucsModel{
-		Name:        s.config.Name,
+	pythonBSR := NewPythonBSRoformer(&PythonBSRoformerConfig{
+		Name:        "BS-RoFormer",
 		ModelPath:   modelPath,
 		Device:      s.config.GPUDevice,
-		SegmentSize: s.config.SegmentSize,
+		SegmentSize: int(s.config.SegmentSize),
 		Overlap:     s.config.Overlap,
 		UseFP16:     s.config.UseFP16,
+		UseINT8:     s.config.UseINT8,
 		BatchSize:   s.config.BatchSize,
+		ModelName:   s.config.Name,
+	})
+
+	if err := pythonBSR.Load(); err != nil {
+		s.logger.Errorf("加载 BS-RoFormer 模型失败：%v", err)
+		return fmt.Errorf("加载 BS-RoFormer 模型失败：%w", err)
 	}
 
-	s.logger.Infof("Demucs 模型初始化完成: %s", s.config.Name)
-	return nil
-}
+	s.models[ModelBSRFormer] = pythonBSR
+	s.logger.Infof("✅ BS-RoFormer 模型初始化完成（Python 实现）")
+	s.logger.Infof("模型配置：Name=%s, SegmentSize=%d, FP16=%v, GPUDevice=%d",
+		s.config.Name, s.config.SegmentSize, s.config.UseFP16, s.config.GPUDevice)
 
-func (s *AIService) initSpleeterModel() error {
-	s.logger.Info("初始化 Spleeter 模型...")
-
-	modelPath := filepath.Join(s.config.ModelPath, s.config.Type.String())
-	s.models[s.config.Type] = &SpleeterModel{
-		Name:      s.config.Name,
-		ModelPath: modelPath,
-		Device:    s.config.GPUDevice,
-	}
-
-	s.logger.Infof("Spleeter 模型初始化完成: %s", s.config.Name)
 	return nil
 }
 
@@ -246,88 +197,13 @@ func (s *AIService) processJob(job *SeparationJob) (*SeparationResult, error) {
 		}
 	}
 
-	var result *SeparationResult
-	var err error
-
-	// 尝试使用主模型
-	switch job.Config.Type {
-	case ModelBSRFormer:
-		result, err = s.runBSRoformerInference(job, progressCallback)
-	case ModelDemucs, ModelHTDemucs, ModelHTDemucsFT, ModelHTDemucsLarge:
-		result, err = s.runDemucsInference(job, progressCallback)
-	case ModelSpleeter:
-		result, err = s.runSpleeterInference(job, progressCallback)
-	default:
-		err = fmt.Errorf("不支持的模型类型：%s", job.Config.Type)
-	}
-
-	// 如果主模型失败，尝试自动降级到 Demucs（备用模型）
+	result, err := s.runBSRoformerInference(job, progressCallback)
 	if err != nil {
-		s.logger.Errorf("❌ 主模型推理失败: %v", err)
-		s.logger.Infof("🔄 自动降级到备用模型（Demucs）...")
-
-		// 检查是否有可用的 Demucs 模型
-		if _, ok := s.models[ModelHTDemucs]; ok {
-			job.Config.Type = ModelHTDemucs // 临时切换到 Demucs
-			result, err = s.runDemucsInference(job, progressCallback)
-
-			if err == nil {
-				s.logger.Infof("✅ 备用模型（Demucs）推理成功")
-				result.ModelType = ModelHTDemucs
-				result.ProcessTime = time.Since(startTime)
-				return result, nil
-			}
-			s.logger.Errorf("❌ 备用模型也失败: %v", err)
-		}
-
-		return nil, fmt.Errorf("所有模型都失败（主模型+备用）: %w", err)
-	}
-
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("BS-RoFormer 推理失败: %w", err)
 	}
 
 	result.ProcessTime = time.Since(startTime)
 	return result, nil
-}
-
-// runBSRoformerInference 执行 BSRoformer 推理（支持 FP16/INT8，延迟<100ms）
-func (s *AIService) runBSRoformerInference(job *SeparationJob, progressCallback func(float64)) (*SeparationResult, error) {
-	s.logger.Infof("开始 BSRoformer 推理：task_id=%s, input=%s", job.ID, job.InputPath)
-
-	// 获取 BSRoformer 模型实例
-	model, ok := s.models[ModelBSRFormer].(*BSRoformerModel)
-	if !ok {
-		return nil, fmt.Errorf("BSRoformer 模型未初始化")
-	}
-
-	// 加载音频文件
-	audioData, err := s.loadAudioFile(job.InputPath)
-	if err != nil {
-		return nil, fmt.Errorf("加载音频文件失败：%w", err)
-	}
-
-	// 执行推理（BSRoformer 模型）
-	result, err := model.Inference(audioData)
-	if err != nil {
-		return nil, fmt.Errorf("BSRoformer 推理失败：%w", err)
-	}
-
-	// 更新进度
-	progressCallback(100.0)
-
-	s.logger.Infof("BSRoformer 推理完成：task_id=%s, 延迟=%v", job.ID, result.ProcessTime)
-	return result, nil
-}
-
-func (s *AIService) loadAudioFile(inputPath string) ([]float32, error) {
-	// TODO: 实现音频文件加载
-	// 1. 读取音频文件
-	// 2. 解码为 PCM 格式
-	// 3. 重采样到 44.1kHz
-	// 4. 归一化为 float32
-
-	return make([]float32, 44100*10), nil // 返回 10 秒的 dummy 数据
 }
 
 func (s *AIService) Separate(taskID, inputPath string) (*SeparationResult, error) {

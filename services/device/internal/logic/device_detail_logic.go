@@ -34,13 +34,13 @@ func NewDeviceDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Devi
 
 // DeviceDetail 查询设备详细信息
 // 流程：
-//   1. 从 JWT token 中获取用户 ID
-//   2. 校验请求数据格式（SN）
-//   3. 查询设备是否存在
-//   4. 检查设备是否绑定到当前用户
-//   5. 查询设备在线状态
-//   6. 查询设备影子信息（电量、存储、运行状态等）
-//   7. 组装数据并返回
+//  1. 从 JWT token 中获取用户 ID
+//  2. 校验请求数据格式（SN）
+//  3. 查询设备是否存在
+//  4. 检查设备是否绑定到当前用户
+//  5. 查询设备在线状态
+//  6. 查询设备影子信息（电量、存储、运行状态等）
+//  7. 组装数据并返回
 //
 // 参数 req *types.DeviceDetailReq: 设备详情请求
 // 返回 *types.DeviceDetailResp: 设备详情响应
@@ -69,7 +69,7 @@ func (l *DeviceDetailLogic) DeviceDetail(req *types.DeviceDetailReq) (*types.Dev
 	}
 
 	// 4. 检查设备是否绑定到当前用户
-	bindInfo, err := l.svcCtx.UserDeviceBindRepo.FindByUserIdAndDeviceId(l.ctx, userID, deviceInfo.ID)
+	bindInfo, _ := l.svcCtx.UserDeviceBindRepo.FindByUserIdAndDeviceId(l.ctx, userID, deviceInfo.ID)
 	isBound := bindInfo != nil && bindInfo.UserID == userID
 	var boundAt string
 	if isBound {
@@ -88,8 +88,8 @@ func (l *DeviceDetailLogic) DeviceDetail(req *types.DeviceDetailReq) (*types.Dev
 	return &types.DeviceDetailResp{
 		ID:              deviceInfo.ID,
 		Sn:              sn,
-		Model:           deviceInfo.Model,
-		FirmwareVersion: deviceInfo.FirmwareVersion,
+		Model:           "",
+		FirmwareVersion: "",
 		OnlineStatus:    onlineStatus,
 		BoundAt:         boundAt,
 		IsBound:         isBound,

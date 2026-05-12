@@ -232,7 +232,7 @@ RETURNING id`,
 		return nil, errorx.NewDefaultError(errorx.CodeDatabaseError)
 	}
 
-	cachedNote := "cached_pending"
+	var cachedNote string
 	if s.isDeviceOnline(ctx, in.DeviceSN) && s.svcCtx.MQTTClient() != nil {
 		cachedNote = "ready_for_dispatch"
 	} else {

@@ -48,8 +48,8 @@ func GetDeviceBySN(ctx context.Context, db *sql.DB, sn string) (*DeviceRow, erro
 	var lastActiveAt sql.NullTime
 
 	err := db.QueryRowContext(ctx, `
-		SELECT id, sn, product_key, mac, firmware_version, hardware_version, 
-		       ip, status, online_status, secret, last_active_at
+		SELECT id, sn, product_key, mac, firmware_version, hardware_version,
+		       ip, status, online_status, device_secret, last_active_at
 		FROM device
 		WHERE sn = $1
 		LIMIT 1`, sn).Scan(

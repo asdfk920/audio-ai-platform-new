@@ -47,6 +47,14 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	// JWT 保护的接口（需要登录）
 	jwtProtected := []rest.Route{
 		{
+			// ⭐ 上传音频文件到 OSS
+			// POST /api/v1/audio/upload
+			// 用户上传音频文件到对象存储，返回 URL 用于音轨分离
+			Method:  http.MethodPost,
+			Path:    "/audio/upload",
+			Handler: CORSMiddleware(AudioUploadHandler(serverCtx)),
+		},
+		{
 			// 发起音频分离任务（HTTP 版本）
 			// POST /api/v1/audio/separate
 			Method:  http.MethodPost,

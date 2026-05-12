@@ -1,7 +1,6 @@
 package model
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -205,6 +204,15 @@ print("模型加载成功！")
 	return nil
 }
 
+// SetCurrentTask 设置当前任务信息
+func (m *PythonBSRoformer) SetCurrentTask(taskID, inputPath, outputDir string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.currentTaskID = taskID
+	m.currentInputFile = inputPath
+	m.currentOutputDir = outputDir
+}
+
 // Inference 执行推理
 func (m *PythonBSRoformer) Inference(audioData []float32) (*SeparationResult, error) {
 	startTime := time.Now()
@@ -222,7 +230,7 @@ func (m *PythonBSRoformer) Inference(audioData []float32) (*SeparationResult, er
 	return result, err
 }
 
-// inference 内部推理方法（使用独立 Python 脚本）
+// inference 内部推理方法（使用 Demucs 中的独立 BS-RoFormer 模型）
 func (m *PythonBSRoformer) inference(audioData []float32) (*SeparationResult, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -231,15 +239,15 @@ func (m *PythonBSRoformer) inference(audioData []float32) (*SeparationResult, er
 		return nil, fmt.Errorf("模型未加载")
 	}
 
-	// 获取脚本路径
-	scriptPath := filepath.Join(filepath.Dir(os.Args[0]), "..", "scripts", "bsroformer_inference.py")
+	logx.Infof("[BS-RoFormer] 开始推理：task_id=%s, input=%s", m.currentTaskID, m.currentInputFile)
 
-	// 如果找不到相对路径，尝试绝对路径
-	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-		scriptPath = filepath.Join(filepath.Dir(os.Args[0]), "scripts", "bsroformer_inference.py")
+	outputDir := m.currentOutputDir
+	if outputDir == "" {
+		outputDir = filepath.Join("./output", m.currentTaskID)
 	}
-
-	logx.Infof("[BS-RoFormer] 使用推理脚本: %s", scriptPath)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建输出目录失败: %w", err)
+	}
 
 	pythonCmd := "python"
 	if runtime.GOOS == "windows" {
@@ -247,65 +255,94 @@ func (m *PythonBSRoformer) inference(audioData []float32) (*SeparationResult, er
 	}
 
 	args := []string{
-		scriptPath,
-		"--input", m.currentInputFile, // 输入文件路径
-		"--output", m.currentOutputDir, // 输出目录
-		"--model", "bsroformer",
-		"--device", fmt.Sprintf("%s:%d", m.deviceType, m.device),
-		"--segment-size", fmt.Sprintf("%d", m.segmentSize),
+		"-m", "demucs.separate",
+		"-n", "bss_roformer", // 使用 Demucs 中的独立 BS-RoFormer 模型
+		"--segment", fmt.Sprintf("%d", m.segmentSize),
 		"--overlap", fmt.Sprintf("%.2f", m.overlap),
-		"--json",
+		"--two-stems", "vocals", // 输出人声和伴奏（可改为 drums/bass/other）
+		"-o", outputDir,
 	}
 
-	if m.useFP16 {
-		args = append(args, "--fp16")
+	deviceStr := "cpu"
+	if m.device >= 0 {
+		deviceStr = fmt.Sprintf("cuda:%d", m.device)
 	}
+	args = append(args, "-d", deviceStr)
+
+	if m.useFP16 {
+		args = append(args, "--float16")
+	}
+
+	args = append(args, m.currentInputFile)
+
+	logx.Infof("[BS-RoFormer] 执行命令: %s %v", pythonCmd, args)
 
 	cmd := exec.Command(pythonCmd, args...)
 	cmd.Env = append(os.Environ(), "KMP_DUPLICATE_LIB_OK=TRUE")
-	cmd.Dir = m.modelPath
 
-	output, err := cmd.CombinedOutput()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	startTime := time.Now()
+	err := cmd.Run()
+	processTime := time.Since(startTime)
+
 	if err != nil {
-		return nil, fmt.Errorf("[BS-RoFormer] 推理失败: %w\n输出: %s", err, string(output))
+		return nil, fmt.Errorf("[BS-RoFormer] 推理失败 (耗时 %v): %w", processTime, err)
 	}
 
-	// 解析 JSON 输出
-	var result struct {
-		Status     string            `json:"status"`
-		UsedModel  string            `json:"used_model"`
-		Tracks     map[string]string `json:"tracks"`
-		TrackCount int               `json:"track_count"`
-		Error      string            `json:"error"`
+	tracks := make(map[string]string)
+
+	inputFileName := strings.TrimSuffix(filepath.Base(m.currentInputFile), filepath.Ext(m.currentInputFile))
+	separatedDirs := []string{
+		filepath.Join(outputDir, "bss_roformer", inputFileName),
+		filepath.Join(outputDir, inputFileName),
+		outputDir,
 	}
 
-	if err := json.Unmarshal(output, &result); err != nil {
-		logx.Slowf("[BS-RoFormer] 解析JSON失败，尝试解析文本输出: %v", err)
-		// 回退到简单解析
-		result.Tracks = map[string]string{
-			"vocals": filepath.Join(m.currentOutputDir, "vocals.wav"),
-			"drums":  filepath.Join(m.currentOutputDir, "drums.wav"),
-			"bass":   filepath.Join(m.currentOutputDir, "bass.wav"),
-			"other":  filepath.Join(m.currentOutputDir, "other.wav"),
+	for _, separatedDir := range separatedDirs {
+		if _, statErr := os.Stat(separatedDir); statErr != nil {
+			continue
 		}
-		result.TrackCount = len(result.Tracks)
+
+		expectedTracks := []TrackType{TrackVocals, TrackOther}
+		for _, trackType := range expectedTracks {
+			trackPath := filepath.Join(separatedDir, string(trackType)+".wav")
+			if _, err := os.Stat(trackPath); err == nil {
+				tracks[string(trackType)] = trackPath
+				logx.Infof("[BS-RoFormer] 生成音轨: %s -> %s", trackType, trackPath)
+			}
+		}
+
+		if len(tracks) > 0 {
+			break
+		}
 	}
 
-	if result.Status == "error" {
-		return nil, fmt.Errorf("[BS-RoFormer] 推理错误: %s", result.Error)
+	if len(tracks) == 0 {
+		logx.Errorf("[BS-RoFormer] 未找到输出文件，检查目录: %s", outputDir)
+		filepath.Walk(outputDir, func(path string, info os.FileInfo, err error) error {
+			if err == nil && !info.IsDir() {
+				logx.Infof("[BS-RoFormer] 发现文件: %s (%d bytes)", path, info.Size())
+			}
+			return nil
+		})
 	}
 
-	inferenceResult := &SeparationResult{
+	duration := estimateAudioDuration(m.currentInputFile)
+
+	result := &SeparationResult{
 		TaskID:      m.currentTaskID,
-		Tracks:      result.Tracks,
-		Duration:    estimateAudioDuration(m.currentInputFile),
-		ProcessTime: time.Since(time.Now()),
+		Tracks:      tracks,
+		Duration:    duration,
+		ProcessTime: processTime,
 		ModelType:   ModelBSRFormer,
 	}
 
-	logx.Infof("[BS-RoFormer] 推理完成: model=%s, tracks=%d", result.UsedModel, result.TrackCount)
+	logx.Infof("[BS-RoFormer] 推理完成：task_id=%s, tracks=%d, time=%v",
+		m.currentTaskID, len(tracks), processTime)
 
-	return inferenceResult, nil
+	return result, nil
 }
 
 // GetAverageLatency 获取平均推理延迟

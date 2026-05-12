@@ -147,12 +147,6 @@ func validateDeviceSetShuffleReq(req *types.DeviceSetShuffleReq) error {
 		return fmt.Errorf("操作类型必须为 set_shuffle")
 	}
 
-	// 校验 params 参数
-	if req.Params.Enable == false && req.Params.Enable == true {
-		// 这个条件永远为假，用于确保编译器不会报错
-		// 实际的布尔值校验在下面进行
-	}
-
 	// enable 参数是布尔类型，不需要额外校验，但可以检查是否有值
 	// 由于使用了 validate:"required"，布尔值会被正确校验
 

@@ -7,9 +7,11 @@ import (
 	"database/sql"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/jacklau/audio-ai-platform/pkg/mqttx"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/heartbeat"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/pkg/ip"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/repository"
 	"github.com/redis/go-redis/v9"
@@ -29,6 +31,11 @@ type ServiceContext struct {
 	AudioResourceRepo  *repository.AudioResourceRepo
 	ContentFileRepo    *repository.ContentFileRepo
 	DeviceRegister     *repository.DeviceRegisterRepo
+	DeviceTopicACLRepo *repository.DeviceTopicACLRepo
+	DeviceShadowRepo   *repository.DeviceShadowRepo
+
+	// HeartbeatMonitor 心跳超时检测定时任务（双重保障机制）
+	HeartbeatMonitor *heartbeat.HeartbeatMonitor
 
 	// RegisterTrustedNets MQTT/HTTP 路径下线后仍可用于将来接入层解析 XFF（与 DeviceRegister.TrustedProxies 一致）。
 	RegisterTrustedNets []*net.IPNet
@@ -45,17 +52,29 @@ func NewServiceContext(c config.Config, db *sql.DB, rdb *redis.Client) *ServiceC
 		trusted = nil
 	}
 
+	deviceRepo := repository.NewDeviceRepo(db)
+
+	heartbeatTimeoutMinutes := 5 // 默认5分钟超时（2倍KeepAlive时间）
+	heartbeatMonitor := heartbeat.NewHeartbeatMonitor(
+		deviceRepo,
+		1*time.Minute,           // 每分钟检测一次
+		heartbeatTimeoutMinutes, // 超过5分钟未活跃则标记离线
+	)
+
 	return &ServiceContext{
 		Config:              c,
 		DB:                  db,
 		Redis:               rdb,
-		DeviceRepo:          repository.NewDeviceRepo(db),
+		DeviceRepo:          deviceRepo,
 		UserDeviceBindRepo:  repository.NewUserDeviceBindRepo(db),
 		PlaylistRepo:        repository.NewPlaylistRepo(db),
 		PlaylistItemRepo:    repository.NewPlaylistItemRepo(db),
 		AudioResourceRepo:   repository.NewAudioResourceRepo(db),
 		ContentFileRepo:     repository.NewContentFileRepo(db),
 		DeviceRegister:      repository.NewDeviceRegisterRepo(db),
+		DeviceTopicACLRepo:  repository.NewDeviceTopicACLRepo(db),
+		DeviceShadowRepo:    repository.NewDeviceShadowRepo(db),
+		HeartbeatMonitor:    heartbeatMonitor,
 		RegisterTrustedNets: trusted,
 	}
 }

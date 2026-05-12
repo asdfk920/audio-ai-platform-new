@@ -256,6 +256,12 @@ func main() {
 
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
 	fmt.Printf("Swagger UI: http://%s:%d/swagger/\n", c.Host, c.Port)
+
+	if ctx.HeartbeatMonitor != nil {
+		ctx.HeartbeatMonitor.Start()
+		defer ctx.HeartbeatMonitor.Stop()
+	}
+
 	server.Start()
 }
 

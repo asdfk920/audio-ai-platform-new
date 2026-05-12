@@ -86,8 +86,8 @@ func (l *DeviceListLogic) DeviceList() (*types.DeviceListResp, error) {
 		list = append(list, types.DeviceListItem{
 			ID:              deviceInfo.ID,
 			Sn:              sn,
-			Model:           deviceInfo.Model,
-			FirmwareVersion: deviceInfo.FirmwareVersion,
+			Model:           "",
+			FirmwareVersion: "",
 			OnlineStatus:    onlineStatus,
 			BoundAt:         bind.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			Battery:         battery,

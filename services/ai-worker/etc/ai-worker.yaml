@@ -41,9 +41,9 @@ SQS:
 
 # AI 模型配置
 AI:
-  # ====== 主模型配置（BS-RoFormer）======
-  ModelType: bsroformer          # 主模型类型: bsroformer | demucs | spleeter
-  ModelName: bsroformer-mel      # 模型名称（BS-RoFormer 使用）
+  # ====== 独立 BS-RoFormer 模型配置（通过 Demucs 仓库）======
+  ModelType: bsroformer          # 模型类型
+  ModelName: bss_roformer        # Demucs 中的独立 BS-RoFormer 模型名称
   ModelPath: ./models            # 模型存储路径
 
   # 设备配置
@@ -61,15 +61,6 @@ AI:
   OutputDir: ./output            # 输出目录（Docker 挂载或本地路径）
   CacheDir: ./cache              # 缓存目录
   MaxConcurrentJobs: 2           # 最大并发任务数
-
-  # ====== 备用模型配置（Demucs）======
-  Fallback:
-    Enabled: true                # 启用备用模型自动降级
-    ModelType: htdemucs          # 备用模型类型
-    ModelName: htdemucs          # Demucs 模型名称
-    TwoStems: vocals             # 双音轨模式: vocals | drums | bass
-    SegmentSize: 10              # 分段大小
-    Overlap: 0.25                # 重叠比例
 
 # 回调配置
 Callback:

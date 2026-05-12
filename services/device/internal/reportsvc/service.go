@@ -224,7 +224,7 @@ func (s *Service) Ingest(ctx context.Context, in ReportInput) (*ReportOutput, er
 		s.shadow.PushPendingForDevice(ctx, row.SN)
 		lastReported := reports[len(reports)-1].Reported
 		go func(deviceID int64, sn string, rep map[string]interface{}) {
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			s.emitStatusAlerts(deviceID, sn, rep)
 		}(row.ID, row.SN, lastReported)
 	}

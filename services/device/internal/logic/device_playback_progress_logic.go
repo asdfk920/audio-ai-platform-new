@@ -230,10 +230,10 @@ func (l *DevicePlaybackProgressLogic) queryProgressFromRedis(sn string) (int, in
 	var timestamp string
 
 	if v, ok := result["current_time"]; ok && v != "" {
-		fmt.Sscanf(v, "%d", &currentTime)
+		_, _ = fmt.Sscanf(v, "%d", &currentTime)
 	}
 	if v, ok := result["duration"]; ok && v != "" {
-		fmt.Sscanf(v, "%d", &duration)
+		_, _ = fmt.Sscanf(v, "%d", &duration)
 	}
 	if v, ok := result["timestamp"]; ok && v != "" {
 		timestamp = v

@@ -88,7 +88,7 @@ func (l *DeviceLogReportLogic) writeDeviceLog(sn string, deviceID int64, req *ty
 
 	// 将 metadata 转换为 JSON
 	metadataJSON := ""
-	if req.Metadata != nil && len(req.Metadata) > 0 {
+	if len(req.Metadata) > 0 {
 		metadataBytes, err := json.Marshal(req.Metadata)
 		if err != nil {
 			return fmt.Errorf("metadata 序列化失败: %v", err)

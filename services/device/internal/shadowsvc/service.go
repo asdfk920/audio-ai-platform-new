@@ -93,6 +93,7 @@ type shadowRow struct {
 	LastReportTime *time.Time
 }
 
+//nolint:unused // 保留供将来指令管理功能使用
 type instructionRow struct {
 	ID        int64
 	DeviceID  int64
@@ -588,6 +589,7 @@ func (s *Service) persistSnapshot(ctx context.Context, deviceID int64, sn string
 	return nil
 }
 
+//nolint:unused // 保留供将来指令管理功能使用
 func (s *Service) insertInstruction(ctx context.Context, deviceID int64, sn string, userID int64, cmd string, params map[string]interface{}, operator, reason string) (int64, error) {
 	var id int64
 	paramsBytes, _ := json.Marshal(params)
@@ -602,6 +604,7 @@ RETURNING id`, deviceID, strings.ToUpper(strings.TrimSpace(sn)), userID, cmd, st
 	return id, nil
 }
 
+//nolint:unused // 保留供将来指令管理功能使用
 func (s *Service) getInstructionStatus(ctx context.Context, deviceID, instructionID int64) (*int16, error) {
 	var status int16
 	err := s.svcCtx.DB.QueryRowContext(ctx, `
@@ -618,6 +621,7 @@ LIMIT 1`, instructionID, deviceID).Scan(&status)
 	return &status, nil
 }
 
+//nolint:unused // 保留供将来指令管理功能使用
 func (s *Service) updateInstructionResult(ctx context.Context, deviceID int64, in CommandResultInput, previous *int16) error {
 	now := time.Now()
 	resultText := string(bytes.TrimSpace(in.Result))
@@ -641,6 +645,7 @@ WHERE id = $5 AND device_id = $6`,
 	return nil
 }
 
+//nolint:unused // 保留供将来指令管理功能使用
 func (s *Service) insertInstructionStateLog(ctx context.Context, instructionID int64, from *int16, to int16, note, operator string) error {
 	var fromVal interface{}
 	if from != nil {
@@ -652,6 +657,7 @@ VALUES ($1, $2, $3, $4, $5)`, instructionID, fromVal, to, note, operator)
 	return err
 }
 
+//nolint:unused // 保留供将来指令管理功能使用
 func (s *Service) pushPendingCommandsIfOnline(ctx context.Context, deviceID int64, sn string) (int, error) {
 	if s.svcCtx.MQTTClient() == nil {
 		return 0, nil
@@ -701,6 +707,7 @@ WHERE id = $2 AND status = 1`, now, item.ID); err == nil {
 	return pushed, rows.Err()
 }
 
+//nolint:unused // 保留供将来指令管理功能使用
 func (s *Service) isDeviceOnline(ctx context.Context, sn string) bool {
 	if s.svcCtx.Redis == nil {
 		return false

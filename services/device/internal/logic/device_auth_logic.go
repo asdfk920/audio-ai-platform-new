@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"time"
 
+	"github.com/jacklau/audio-ai-platform/services/device/internal/model"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -30,10 +32,10 @@ func NewDeviceAuthLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Device
 
 // DeviceAuth 设备认证
 // 流程：
-//   1. 校验请求数据格式（SN、Token）
-//   2. 查询数据库验证 SN 和 Token 是否匹配
-//   3. 验证通过：更新设备在线状态，返回认证成功信息
-//   4. 验证失败：返回错误信息
+//  1. 校验请求数据格式（SN、Token）
+//  2. 查询数据库验证 SN 和 Token 是否匹配
+//  3. 验证通过：更新设备在线状态，返回认证成功信息
+//  4. 验证失败：返回错误信息
 //
 // 参数 req *types.DeviceAuthReq: 设备认证请求
 // 返回 *types.DeviceAuthResp: 设备认证响应
@@ -59,7 +61,12 @@ func (l *DeviceAuthLogic) DeviceAuth(req *types.DeviceAuthReq) (*types.DeviceAut
 	// 4. 验证通过分支：更新设备在线状态
 	if err := l.svcCtx.DeviceRegister.UpdateOnlineStatus(l.ctx, req.Sn); err != nil {
 		logx.Errorf("更新设备在线状态失败: sn=%s, err=%v", req.Sn, err)
-		// 不影响认证结果，仅记录日志
+	}
+
+	if err := l.createOrUpdateDeviceShadow(req.Sn); err != nil {
+		logx.Errorf("创建/更新设备影子失败(不影响认证): sn=%s, err=%v", req.Sn, err)
+	} else {
+		logx.Infof("设备影子已初始化: sn=%s", req.Sn)
 	}
 
 	logx.Infof("设备认证成功: sn=%s, device_id=%d", req.Sn, deviceInfo.ID)
@@ -69,8 +76,8 @@ func (l *DeviceAuthLogic) DeviceAuth(req *types.DeviceAuthReq) (*types.DeviceAut
 		Success:         true,
 		DeviceID:        deviceInfo.ID,
 		Sn:              deviceInfo.Sn,
-		Model:           deviceInfo.Model,
-		FirmwareVersion: deviceInfo.FirmwareVersion,
+		Model:           "",
+		FirmwareVersion: "",
 		Message:         "连接成功",
 	}, nil
 }
@@ -83,16 +90,43 @@ func (l *DeviceAuthLogic) DeviceAuth(req *types.DeviceAuthReq) (*types.DeviceAut
 // 参数 req *types.DeviceAuthReq: 设备认证请求
 // 返回 error: 校验失败时的错误信息
 func validateDeviceAuthReq(req *types.DeviceAuthReq) error {
-	// SN 校验：16 位字母数字
 	snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
 	if !snRegex.MatchString(req.Sn) {
 		return fmt.Errorf("SN 格式错误，必须为 16 位字母数字组合")
 	}
 
-	// Token 校验：非空字符串
 	if req.Token == "" {
 		return fmt.Errorf("认证 token 不能为空")
 	}
 
+	return nil
+}
+
+func (l *DeviceAuthLogic) createOrUpdateDeviceShadow(sn string) error {
+	defer func() {
+		if r := recover(); r != nil {
+			logx.Errorf("createOrUpdateDeviceShadow 发生panic: sn=%s, recovered=%v", sn, r)
+		}
+	}()
+
+	if l.svcCtx.DeviceShadowRepo == nil {
+		logx.Slowf("DeviceShadowRepo未初始化，跳过影子创建")
+		return nil
+	}
+
+	now := time.Now()
+	shadow := &model.DeviceShadow{
+		Sn:           sn,
+		OnlineStatus: model.ShadowOnlineStatusOnline,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+
+	err := l.svcCtx.DeviceShadowRepo.CreateOrUpdate(l.ctx, shadow)
+	if err != nil {
+		return fmt.Errorf("创建设备影子记录失败: %v", err)
+	}
+
+	logx.Infof("设备影子记录创建成功: sn=%s, id=%d", sn, shadow.ID)
 	return nil
 }
