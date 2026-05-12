@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/shadowsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/statuspersist"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
+	"github.com/joho/godotenv"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -48,8 +50,14 @@ var configFile = flag.String("f", "etc/device.yaml", "the config file")
 func main() {
 	flag.Parse()
 
+	if err := godotenv.Load(); err != nil {
+		logx.Infof(".env 文件未找到或加载失败（可选）: %v", err)
+	}
+
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
+
+	loadConfigFromEnv(&c)
 
 	httpx.SetErrorHandlerCtx(func(_ context.Context, err error) (int, any) {
 		var ce *errorx.CodeError
@@ -334,4 +342,69 @@ func startCommandWorker(ctx context.Context, svcCtx *svc.ServiceContext) {
 			}
 		}
 	}()
+}
+
+func loadConfigFromEnv(c *config.Config) {
+	if v := os.Getenv("POSTGRES_HOST"); v != "" {
+		if user := os.Getenv("POSTGRES_USER"); user != "" {
+			pass := os.Getenv("POSTGRES_PASS")
+			db := os.Getenv("POSTGRES_DB")
+			port := os.Getenv("POSTGRES_PORT")
+			if port == "" {
+				port = "5432"
+			}
+			sslmode := os.Getenv("POSTGRES_SSLMODE")
+			if sslmode == "" {
+				sslmode = "disable"
+			}
+			tz := os.Getenv("POSTGRES_TIMEZONE")
+			if tz == "" {
+				tz = "Asia/Shanghai"
+			}
+			c.Postgres.DataSource = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s&TimeZone=%s",
+				user, pass, v, port, db, sslmode, tz)
+			logx.Infof("从环境变量加载 PostgreSQL 配置: host=%s", v)
+		}
+	}
+
+	if v := os.Getenv("REDIS_ADDR"); v != "" {
+		c.Redis.Addr = v
+		c.Redis.Password = os.Getenv("REDIS_PASS")
+		if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
+			_, _ = fmt.Sscanf(dbStr, "%d", &c.Redis.DB)
+		}
+		logx.Infof("从环境变量加载 Redis 配置: addr=%s", v)
+	}
+
+	if v := os.Getenv("AUTH_ACCESS_SECRET"); v != "" {
+		c.Auth.AccessSecret = v
+		logx.Infof("从环境变量加载 Auth AccessSecret（已设置）")
+	}
+
+	if v := os.Getenv("DEVICE_AUTH_TOKEN_SECRET"); v != "" {
+		c.DeviceAuth.TokenSecret = v
+		logx.Infof("从环境变量加载 DeviceAuth TokenSecret（已设置）")
+	}
+
+	if v := os.Getenv("MQTT_BROKER"); v != "" {
+		c.DeviceRegister.MqttBroker = v
+		if clientID := os.Getenv("MQTT_CLIENT_ID"); clientID != "" {
+			c.MqttIngest.ClientID = clientID
+		}
+		c.MqttIngest.Username = os.Getenv("MQTT_USERNAME")
+		c.MqttIngest.Password = os.Getenv("MQTT_PASSWORD")
+		logx.Infof("从环境变量加载 MQTT Broker 配置: %s", v)
+	}
+
+	if v := os.Getenv("HTTP_BASE_URL"); v != "" {
+		c.DeviceRegister.HttpBaseUrl = v
+		logx.Infof("从环境变量加载 HTTP BaseURL: %s", v)
+	}
+
+	if v := os.Getenv("LOG_LEVEL"); v != "" {
+		c.Log.Level = v
+	}
+	if v := os.Getenv("LOG_MODE"); v != "" {
+		c.Log.Mode = v
+	}
 }
