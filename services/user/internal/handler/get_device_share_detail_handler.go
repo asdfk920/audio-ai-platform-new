@@ -3,11 +3,12 @@ package handler
 import (
 	"net/http"
 
+	"github.com/zeromicro/go-zero/rest/httpx"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // GetDeviceShareDetailHandler 查询设备共享详情处理器

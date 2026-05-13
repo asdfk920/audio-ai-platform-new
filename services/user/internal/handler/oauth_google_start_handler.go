@@ -1,11 +1,13 @@
 package handler
 
 import (
-	"github.com/jacklau/audio-ai-platform/services/user/internal/logic"
 	"net/http"
 
-	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
+	"github.com/jacklau/audio-ai-platform/services/user/internal/logic"
+
 	"github.com/zeromicro/go-zero/rest/httpx"
+
+	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 )
 
 // OAuthGoogleStartHandler Google OAuth 授权开始处理器

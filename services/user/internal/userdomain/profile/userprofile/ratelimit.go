@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/pkg/redisx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/config"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // EnsureUpdateRateLimit 按用户 ID 滑动窗口计数，超限返回 CodeUpdateProfileRateLimit。

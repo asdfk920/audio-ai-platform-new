@@ -29,17 +29,17 @@ func (r *UserDeviceBindRepo) FindDeviceIDBySN(ctx context.Context, sn string) (d
 
 // UserDeviceBindRow 绑定行（仅活跃绑定查询用）。
 type UserDeviceBindRow struct {
-	ID             int64
-	UserID         int64
-	DeviceID       int64
-	SN             string
-	Alias          string
-	DeviceName     string
-	DeviceModel    string
-	SystemVersion  string
-	Status         int16
-	BoundAt        time.Time
-	UnboundAt      sql.NullTime
+	ID            int64
+	UserID        int64
+	DeviceID      int64
+	SN            string
+	Alias         string
+	DeviceName    string
+	DeviceModel   string
+	SystemVersion string
+	Status        int16
+	BoundAt       time.Time
+	UnboundAt     sql.NullTime
 }
 
 // FindActiveBindByDeviceID 查找当前绑定中（status=1）的记录。

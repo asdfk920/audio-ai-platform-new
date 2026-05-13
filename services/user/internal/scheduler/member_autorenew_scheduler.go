@@ -5,20 +5,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/robfig/cron/v3"
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/services/user/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
-	"github.com/robfig/cron/v3"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type MemberAutoRenewScheduler struct {
-	ctx    context.Context
-	svcCtx *svc.ServiceContext
-	config config.MemberAutoRenewWorker
-	task   *logic.MemberAutoRenewScanTask
-	cron   *cron.Cron
-	mu     sync.RWMutex
+	ctx     context.Context
+	svcCtx  *svc.ServiceContext
+	config  config.MemberAutoRenewWorker
+	task    *logic.MemberAutoRenewScanTask
+	cron    *cron.Cron
+	mu      sync.RWMutex
 	running bool
 }
 

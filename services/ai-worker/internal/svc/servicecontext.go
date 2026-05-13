@@ -6,9 +6,10 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/model"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type ServiceContext struct {

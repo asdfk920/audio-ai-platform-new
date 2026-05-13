@@ -1,0 +1,60 @@
+# ===========================================
+# Git 属性配置 - 跨平台换行符统一
+# ===========================================
+# 解决 Windows CRLF 与 Linux LF 冲突问题
+# 确保 CI/CD 在不同操作系统上行为一致
+
+# 自动检测文本文件并规范化换行符
+* text=auto
+
+# Go 源代码文件使用 Unix 换行符 (LF)
+*.go text eol=lf
+*.mod text eol=lf
+*.sum text eol=lf
+
+# Shell 脚本必须使用 Unix 换行符 (LF)
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Windows 批处理文件使用 Windows 换行符 (CRLF)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# YAML/JSON 配置文件使用 Unix 换行符
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+
+# Markdown 文档使用 Unix 换行符
+*.md text eol=lf
+
+# 环境变量模板文件（不包含敏感信息）
+*.env.example text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# 二进制文件不进行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+
+# 压缩包文件
+*.zip binary
+*.tar.gz binary
+*.rar binary
+*.7z binary
+
+# 数据库文件
+*.db binary
+*.sqlite binary
+*.sqlite3 binary

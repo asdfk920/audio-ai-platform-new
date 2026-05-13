@@ -24,6 +24,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/joho/godotenv"
+
 	_ "github.com/jacklau/audio-ai-platform/services/ai-worker/docs"
 
 	"github.com/jacklau/audio-ai-platform/common/validate"
@@ -42,8 +44,14 @@ var configFile = flag.String("f", "etc/ai-worker.yaml", "the config file")
 func main() {
 	flag.Parse()
 
+	if err := godotenv.Load(); err != nil {
+		log.Printf(".env 文件未找到或加载失败（可选）: %v", err)
+	}
+
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
+
+	loadConfigFromEnv(&c)
 
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
@@ -160,5 +168,80 @@ func healthCheckHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			"version": "1.0.0",
 			"timestamp": "%s"
 		}`, status, fmt.Sprintf("%d", 0))))
+	}
+}
+
+func loadConfigFromEnv(c *config.Config) {
+	if v := os.Getenv("DB_HOST"); v != "" {
+		c.Database.Host = v
+		if user := os.Getenv("DB_USER"); user != "" {
+			c.Database.User = user
+			c.Database.Password = os.Getenv("DB_PASS")
+			port := os.Getenv("DB_PORT")
+			if port != "" {
+				_, _ = fmt.Sscanf(port, "%d", &c.Database.Port)
+			}
+			c.Database.DBName = os.Getenv("DB_NAME")
+		}
+		log.Printf("从环境变量加载数据库配置: host=%s", v)
+	}
+
+	if v := os.Getenv("REDIS_HOST"); v != "" {
+		if len(c.CacheRedis) > 0 {
+			c.CacheRedis[0].Host = v + ":" + os.Getenv("REDIS_PORT")
+			c.CacheRedis[0].Pass = os.Getenv("REDIS_PASS")
+		}
+		log.Printf("从环境变量加载 Redis 配置: host=%s", v)
+	}
+
+	if v := os.Getenv("JWT_SECRET"); v != "" {
+		c.Auth.AccessSecret = v
+		log.Printf("从环境变量加载 JWT Secret（已设置）")
+	}
+
+	if v := os.Getenv("STORAGE_DRIVER"); v != "" {
+		c.Storage.Driver = v
+	}
+
+	if v := os.Getenv("OSS_ENDPOINT"); v != "" {
+		c.Storage.Endpoint = v
+	}
+	if v := os.Getenv("OSS_ACCESS_KEY"); v != "" && v != "your_access_key_here" {
+		c.Storage.AccessKey = v
+	}
+	if v := os.Getenv("OSS_SECRET_KEY"); v != "" && v != "your_secret_key_here" {
+		c.Storage.SecretKey = v
+	}
+	if v := os.Getenv("OSS_BUCKET"); v != "" && v != "your_bucket_name" {
+		c.Storage.Bucket = v
+	}
+	if v := os.Getenv("OSS_REGION"); v != "" {
+		c.Storage.Region = v
+	}
+
+	if c.Storage.Driver == "oss" || (c.Storage.Driver == "" && (c.Storage.AccessKey != "" || os.Getenv("OSS_ACCESS_KEY") != "")) {
+		log.Printf("从环境变量加载 OSS 配置: endpoint=%s, bucket=%s（敏感信息已隐藏）",
+			c.Storage.Endpoint, c.Storage.Bucket)
+	}
+
+	if v := os.Getenv("LOCAL_STORAGE_ROOT"); v != "" {
+		c.Storage.Local.Root = v
+	}
+
+	if v := os.Getenv("SQS_ENDPOINT"); v != "" {
+		c.SQS.Endpoint = v
+		c.SQS.Region = os.Getenv("SQS_REGION")
+		c.SQS.QueueURL = os.Getenv("SQS_QUEUE_URL")
+		if ak := os.Getenv("SQS_ACCESS_KEY"); ak != "" {
+			c.SQS.AccessKey = ak
+		}
+		if sk := os.Getenv("SQS_SECRET_KEY"); sk != "" {
+			c.SQS.SecretKey = sk
+		}
+		log.Printf("从环境变量加载 SQS 配置: endpoint=%s", v)
+	}
+
+	if v := os.Getenv("MAX_CONCURRENT_JOBS"); v != "" {
+		_, _ = fmt.Sscanf(v, "%d", &c.AI.MaxConcurrentJobs)
 	}
 }

@@ -9,9 +9,10 @@ import (
 	"path/filepath"
 	"time"
 
+	_ "github.com/lib/pq"
+
 	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/model"
 	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/svc"
-	_ "github.com/lib/pq"
 )
 
 // AudioSeparateReq 音频分离请求

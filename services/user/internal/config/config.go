@@ -37,16 +37,25 @@ type Config struct {
 			RedirectURL string `json:",optional"`
 		}
 	}
-	VerifyCode          VerifyCodeConfig
-	RealName            RealName                  `json:",optional"`
-	Cancellation        Cancellation              `json:",optional"`
-	DeviceShare         DeviceShareWorker         `json:",optional"`
-	MemberAutoRenew     MemberAutoRenewWorker     `json:",optional"`
-	DownloadRecordClean DownloadRecordCleanWorker `json:",optional"`
+	VerifyCode      VerifyCodeConfig
+	DeviceShare     DeviceShareWorker     `json:",optional"`
+	MemberAutoRenew MemberAutoRenewWorker `json:",optional"`
 	// Payment 会员订单支付：MockCallbackSecret 非空时，回调 JSON 验签 HMAC-SHA256(secret, order_no+"|"+trade_no)
 	Payment Payment `json:",optional"`
 	// 设备绑定配置
 	MaxDeviceBinds int `json:",default=10"` // 用户最大绑定设备数
+	// 文件上传配置
+	Upload UploadConfig `json:",optional"`
+}
+
+// UploadConfig 文件上传配置。
+type UploadConfig struct {
+	// MaxFileSize 上传文件大小限制（MB），默认 10MB
+	MaxFileSize int64 `json:",default=10"`
+	// SavePath 本地存储根目录，默认 ./uploads
+	SavePath string `json:",default=./uploads"`
+	// AllowedExtensions 允许的文件扩展名，默认 jpg,jpeg,png,gif,webp
+	AllowedExtensions []string `json:",optional"`
 }
 
 // Payment 配置（微信/支付宝正式对接可扩展字段）。
@@ -64,14 +73,6 @@ type MemberAutoRenewWorker struct {
 	CronExpr               string `json:",optional"` // 默认每日一次
 	WithinDaysBeforeExpire int    `json:",optional"` // 到期前窗口（天）
 	BatchSize              int    `json:",optional"`
-}
-
-// DownloadRecordCleanWorker 下载记录清理定时任务配置
-type DownloadRecordCleanWorker struct {
-	CronExpr              string `json:",optional"` // cron 表达式，默认每天凌晨 3 点
-	FreeRetentionDays     int    `json:",optional"` // 免费版保留天数，默认 7 天
-	StandardRetentionDays int    `json:",optional"` // 标准版保留天数，默认 365 天
-	BatchSize             int    `json:",optional"` // 每批次清理数量，默认 1000
 }
 
 // VerifyCodeConfig 验证码：过期、频控、黑名单等（供 util 与配置加载共用类型名）。

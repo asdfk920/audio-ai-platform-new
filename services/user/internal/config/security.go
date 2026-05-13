@@ -4,9 +4,9 @@ import "time"
 
 // Register 注册相关限流与密码策略入口（具体哈希参数见 Security）。
 type Register struct {
-	MinPasswordLen        int `json:",optional"` // 默认 6
-	RateLimitWindowMin    int `json:",optional"` // 单 IP 计数窗口（分钟），默认 60
-	RateLimitMaxPerIP     int `json:",optional"` // 窗口内单 IP 最大注册提交次数，默认 20
+	MinPasswordLen     int `json:",optional"` // 默认 6
+	RateLimitWindowMin int `json:",optional"` // 单 IP 计数窗口（分钟），默认 60
+	RateLimitMaxPerIP  int `json:",optional"` // 窗口内单 IP 最大注册提交次数，默认 20
 	// TxTimeoutSec 注册主流程（Redis/DB）额外超时（秒）；0 表示仅用请求上下文，默认 0
 	TxTimeoutSec        int `json:",optional"`
 	RegisterLockSeconds int `json:",optional"` // 同账号注册分布式锁 TTL（秒），默认 30
@@ -225,4 +225,3 @@ func (r ResetPassword) EffectiveRateLimitMaxPerIP() int {
 	}
 	return r.RateLimitMaxPerIP
 }
-

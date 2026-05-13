@@ -3,10 +3,11 @@ package refreshtoken
 import (
 	"context"
 
-	"github.com/jacklau/audio-ai-platform/common/errorx"
-	"github.com/jacklau/audio-ai-platform/pkg/redisx"
 	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx"
+
+	"github.com/jacklau/audio-ai-platform/common/errorx"
+	"github.com/jacklau/audio-ai-platform/pkg/redisx"
 )
 
 // RevokeAllForUser 删除该用户在 Redis 中的 refresh 索引及当前 refresh 键（申请注销等场景）。

@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/svc"
 	_ "github.com/lib/pq"
+
+	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/svc"
 )
 
 // TaskListReq 任务列表请求

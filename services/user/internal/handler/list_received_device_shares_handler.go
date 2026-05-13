@@ -3,10 +3,11 @@ package handler
 import (
 	"net/http"
 
+	"github.com/zeromicro/go-zero/rest/httpx"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // @ListReceivedDeviceShares 收到的共享列表

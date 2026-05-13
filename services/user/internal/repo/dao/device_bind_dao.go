@@ -8,15 +8,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/pkg/logger"
 )
 
 type deviceTableColumns struct {
-	BoundUserID bool
-	BoundAt     bool
-	BindStatus  bool
+	BoundUserID  bool
+	BoundAt      bool
+	BindStatus   bool
 	LastActiveAt bool
-	UpdatedAt   bool
+	UpdatedAt    bool
 }
 
 type userProfileTableColumns struct {
@@ -26,8 +27,8 @@ type userProfileTableColumns struct {
 }
 
 var (
-	deviceColsMu sync.RWMutex
-	deviceCols   *deviceTableColumns
+	deviceColsMu  sync.RWMutex
+	deviceCols    *deviceTableColumns
 	profileColsMu sync.RWMutex
 	profileCols   *userProfileTableColumns
 )
@@ -69,11 +70,11 @@ func getDeviceTableColumns(ctx context.Context, q interface {
 	}
 
 	col := &deviceTableColumns{
-		BoundUserID: mapHas(m, "bound_user_id"),
-		BoundAt:     mapHas(m, "bound_at"),
-		BindStatus:  mapHas(m, "bind_status"),
+		BoundUserID:  mapHas(m, "bound_user_id"),
+		BoundAt:      mapHas(m, "bound_at"),
+		BindStatus:   mapHas(m, "bind_status"),
 		LastActiveAt: mapHas(m, "last_active_at"),
-		UpdatedAt:   mapHas(m, "updated_at"),
+		UpdatedAt:    mapHas(m, "updated_at"),
 	}
 	deviceCols = col
 	return col, nil
@@ -792,4 +793,309 @@ func FindDevicesBySNs(ctx context.Context, tx *sql.Tx, sns []string) ([]*DeviceR
 
 func toLower(s string) string {
 	return strings.ToLower(s)
+}
+
+// UpdateDeviceUnbindStatus 更新设备解绑状态（将设备标记为未绑定）
+// 更新内容：
+//   - bound_user_id = NULL（清除绑定用户ID）
+//   - bound_at = NULL（清除绑定时间）
+//   - bind_status = 0（标记为未绑定）
+func UpdateDeviceUnbindStatus(ctx context.Context, tx *sql.Tx, deviceID int64, unbindTime time.Time) error {
+	cols, err := getDeviceTableColumns(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	sets := make([]string, 0, 3)
+	args := make([]interface{}, 0, 1)
+	idx := 1
+
+	if cols.BoundUserID {
+		sets = append(sets, "bound_user_id = NULL")
+	}
+	if cols.BoundAt {
+		sets = append(sets, "bound_at = NULL")
+	}
+	if cols.BindStatus {
+		sets = append(sets, "bind_status = 0")
+	}
+
+	if len(sets) == 0 {
+		return nil
+	}
+
+	query := fmt.Sprintf("UPDATE public.device SET %s WHERE id = $%d", strings.Join(sets, ", "), idx)
+	args = append(args, deviceID)
+	_, err = tx.ExecContext(ctx, query, args...)
+	return err
+}
+
+// UpdateBindStatus 更新绑定记录的状态（用于解绑操作）
+// 更新内容：
+//   - status = newStatus（新的绑定状态，如0=已解绑）
+//   - unbound_at = unbindTime（解绑时间）
+func UpdateBindStatus(ctx context.Context, tx *sql.Tx, bindID int64, newStatus int16, unbindTime time.Time) error {
+	_, err := tx.ExecContext(ctx, `
+		UPDATE public.user_device_bind
+		SET status = $1,
+		    unbound_at = $2
+		WHERE id = $3
+	`, newStatus, unbindTime, bindID)
+	return err
+}
+
+// ============================================================
+// 设备共享相关DAO方法（简化版）
+// ============================================================
+
+// UserDeviceShareRow 用户设备共享记录行（简化版）
+type UserDeviceShareRow struct {
+	ID             int64
+	SharerUserID   int64
+	ReceiverUserID int64
+	DeviceID       int64
+	SN             string
+	Status         int16 // 状态：0=待接受，1=已接受，2=已拒绝，3=已撤销
+	ShareType      int16 // 共享类型：1=只读，2=可控制
+	CreatedAt      time.Time
+	ExpireAt       *time.Time // 过期时间（NULL表示永久）
+}
+
+// FindUserIDByPhone 根据手机号查询用户ID
+func FindUserIDByPhone(ctx context.Context, tx *sql.Tx, phone string) (int64, error) {
+	var userID int64
+	err := tx.QueryRowContext(ctx, `
+		SELECT id FROM public.users 
+		WHERE phone = $1 AND deleted_at IS NULL
+		LIMIT 1
+	`, phone).Scan(&userID)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return userID, nil
+}
+
+// FindUserIDByEmail 根据邮箱查询用户ID
+func FindUserIDByEmail(ctx context.Context, tx *sql.Tx, email string) (int64, error) {
+	var userID int64
+	err := tx.QueryRowContext(ctx, `
+		SELECT id FROM public.users 
+		WHERE email = $1 AND deleted_at IS NULL
+		LIMIT 1
+	`, email).Scan(&userID)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return userID, nil
+}
+
+// CheckUserExistsByID 检查用户是否存在
+func CheckUserExistsByID(ctx context.Context, tx *sql.Tx, userID int64) (bool, error) {
+	var exists bool
+	err := tx.QueryRowContext(ctx, `
+		SELECT EXISTS(SELECT 1 FROM public.users WHERE id = $1 AND deleted_at IS NULL)
+	`, userID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+// InsertDeviceShareRecord 插入设备共享记录
+func InsertDeviceShareRecord(ctx context.Context, tx *sql.Tx, row UserDeviceShareRow) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO public.user_device_share (
+			sharer_user_id, receiver_user_id, device_id, sn,
+			status, share_type, created_at, expire_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, row.SharerUserID, row.ReceiverUserID, row.DeviceID, row.SN,
+		row.Status, row.ShareType, row.CreatedAt, row.ExpireAt)
+
+	if err != nil {
+		pgErr, ok := err.(*pgconn.PgError)
+		if ok && pgErr.Code == "23505" {
+			return fmt.Errorf("duplicate device share: %w", err)
+		}
+		return err
+	}
+	return nil
+}
+
+// FindPendingShareBySNAndSharer 根据SN和分享者用户ID查询可撤销的共享记录
+func FindPendingShareBySNAndSharer(ctx context.Context, tx *sql.Tx, sn string, sharerUserID int64) (*UserDeviceShareRow, error) {
+	var row UserDeviceShareRow
+	var expireAt sql.NullTime
+
+	err := tx.QueryRowContext(ctx, `
+		SELECT id, sharer_user_id, receiver_user_id, device_id, sn,
+		       status, share_type, created_at, expire_at
+		FROM public.user_device_share
+		WHERE sn = $1
+		  AND sharer_user_id = $2
+		  AND status IN (0, 1)
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, sn, sharerUserID).Scan(
+		&row.ID, &row.SharerUserID, &row.ReceiverUserID, &row.DeviceID,
+		&row.SN, &row.Status, &row.ShareType, &row.CreatedAt, &expireAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if expireAt.Valid {
+		t := expireAt.Time
+		row.ExpireAt = &t
+	}
+
+	return &row, nil
+}
+
+// UpdateDeviceShareStatusRevoked 更新共享状态为已撤销
+func UpdateDeviceShareStatusRevoked(ctx context.Context, tx *sql.Tx, id int64) error {
+	now := time.Now()
+	result, err := tx.ExecContext(ctx, `
+		UPDATE public.user_device_share
+		SET status = 3,
+		    updated_at = $1
+		WHERE id = $2
+		  AND status IN (0, 1)
+	`, now, id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("share record not found or cannot be revoked")
+	}
+
+	return nil
+}
+
+// FindActiveDeviceShareByUsers 查询两个用户之间对某设备的有效共享记录
+func FindActiveDeviceShareByUsers(ctx context.Context, tx *sql.Tx, deviceID, sharerUserID, receiverUserID int64) (*UserDeviceShareRow, error) {
+	var row UserDeviceShareRow
+	var expireAt sql.NullTime
+
+	err := tx.QueryRowContext(ctx, `
+		SELECT id, sharer_user_id, receiver_user_id, device_id, sn,
+		       status, share_type, created_at, expire_at
+		FROM public.user_device_share
+		WHERE device_id = $1 
+		  AND sharer_user_id = $2 
+		  AND receiver_user_id = $3
+		  AND status IN (0, 1)
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, deviceID, sharerUserID, receiverUserID).Scan(
+		&row.ID, &row.SharerUserID, &row.ReceiverUserID, &row.DeviceID,
+		&row.SN, &row.Status, &row.ShareType, &row.CreatedAt, &expireAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if expireAt.Valid {
+		t := expireAt.Time
+		row.ExpireAt = &t
+	}
+
+	return &row, nil
+}
+
+// FindPendingShareBySNAndReceiver 根据SN和被分享用户ID查询待接受的共享记录
+func FindPendingShareBySNAndReceiver(ctx context.Context, tx *sql.Tx, sn string, receiverUserID int64) (*UserDeviceShareRow, error) {
+	var row UserDeviceShareRow
+	var expireAt sql.NullTime
+
+	err := tx.QueryRowContext(ctx, `
+		SELECT id, sharer_user_id, receiver_user_id, device_id, sn,
+		       status, share_type, created_at, expire_at
+		FROM public.user_device_share
+		WHERE sn = $1
+		  AND receiver_user_id = $2
+		  AND status = 0
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, sn, receiverUserID).Scan(
+		&row.ID, &row.SharerUserID, &row.ReceiverUserID, &row.DeviceID,
+		&row.SN, &row.Status, &row.ShareType, &row.CreatedAt, &expireAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if expireAt.Valid {
+		t := expireAt.Time
+		row.ExpireAt = &t
+	}
+
+	return &row, nil
+}
+
+// UpdateDeviceShareStatusAccepted 更新共享状态为已接受
+func UpdateDeviceShareStatusAccepted(ctx context.Context, tx *sql.Tx, id int64) error {
+	now := time.Now()
+	result, err := tx.ExecContext(ctx, `
+		UPDATE public.user_device_share
+		SET status = 1,
+		    accepted_at = $1,
+		    updated_at = $2
+		WHERE id = $3
+		  AND status = 0
+	`, now, now, id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("share record not found or already accepted")
+	}
+
+	return nil
+}
+
+// UpdateDeviceShareStatusRejected 更新共享状态为已拒绝
+func UpdateDeviceShareStatusRejected(ctx context.Context, tx *sql.Tx, id int64) error {
+	now := time.Now()
+	result, err := tx.ExecContext(ctx, `
+		UPDATE public.user_device_share
+		SET status = 2,
+		    updated_at = $1
+		WHERE id = $2
+		  AND status = 0
+	`, now, id)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("share record not found or cannot be rejected")
+	}
+
+	return nil
 }

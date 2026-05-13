@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/svc"
 	"github.com/zeromicro/go-zero/core/logx"
+
+	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/svc"
 )
 
 // TaskDetailReq 任务详情请求

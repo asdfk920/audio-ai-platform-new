@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/zeromicro/go-zero/rest"
+
 	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/middleware/auth"
 	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/svc"
-	"github.com/zeromicro/go-zero/rest"
 )
 
 // healthCheckHandler 健康检查处理

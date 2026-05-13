@@ -19,7 +19,7 @@ type User struct {
 	RealNameCertType sql.NullInt16
 	// 注销：冷静期未结束前禁止登录；执行后 account_cancelled_at 表示逻辑销户完成
 	CancellationCoolingUntil sql.NullTime
-	AccountCancelledAt     sql.NullTime
+	AccountCancelledAt       sql.NullTime
 
 	// 基础画像（来自 migrations/001_init.sql 中的 birthday/gender）
 	Birthday sql.NullTime
@@ -40,16 +40,16 @@ type User struct {
 
 // UserWithPassword 登录校验用。
 type UserWithPassword struct {
-	Id                 int64
-	Email              *string
-	Mobile             *string
-	Nickname           *string
-	Avatar             *string
-	Status             int16
-	Password           *string
-	Salt               *string
-	AccountLockedUntil sql.NullTime
-	LoginFailCount     int32
+	Id                       int64
+	Email                    *string
+	Mobile                   *string
+	Nickname                 *string
+	Avatar                   *string
+	Status                   int16
+	Password                 *string
+	Salt                     *string
+	AccountLockedUntil       sql.NullTime
+	LoginFailCount           int32
 	CancellationCoolingUntil sql.NullTime
 	AccountCancelledAt       sql.NullTime
 }
@@ -118,4 +118,3 @@ func (p *ProfileUpdate) Any() bool {
 		p.ProfileComplete != nil || p.ProfileCompleteScore != nil ||
 		p.Hobbies != nil || p.Location != nil
 }
-

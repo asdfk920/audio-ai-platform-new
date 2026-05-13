@@ -12,11 +12,11 @@ func TestComputeMemberRenewal(t *testing.T) {
 	now := day(0)
 
 	tcases := []struct {
-		name   string
-		st     UserMemberRenewalState
-		days   int
-		want   time.Time
-		scene  string
+		name  string
+		st    UserMemberRenewalState
+		days  int
+		want  time.Time
+		scene string
 	}{
 		{
 			name:  "no_row",

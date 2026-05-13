@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/pkg/jwtx"
 	"github.com/jacklau/audio-ai-platform/pkg/redisx"
@@ -15,8 +18,6 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/types"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/userdomain/profile/accountcancel"
-	"github.com/redis/go-redis/v9"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 func refreshTokenRedisKey(token string) string {

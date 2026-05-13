@@ -6,10 +6,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jacklau/audio-ai-platform/common/errorx"
-	"github.com/jacklau/audio-ai-platform/pkg/jwtx"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/rest/httpx"
+
+	"github.com/jacklau/audio-ai-platform/common/errorx"
+	"github.com/jacklau/audio-ai-platform/pkg/jwtx"
 )
 
 // Middleware JWT 认证中间件
@@ -26,7 +27,7 @@ func Middleware(secret string) rest.Middleware {
 			// 获取 Authorization Header
 			auth := strings.TrimSpace(r.Header.Get("Authorization"))
 			const prefix = "Bearer "
-			
+
 			// 验证 Bearer Token 格式
 			if !strings.HasPrefix(auth, prefix) {
 				httpx.WriteJsonCtx(r.Context(), w, http.StatusUnauthorized, map[string]any{

@@ -6,10 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/pkg/redisx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/config"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // WithRegisterTargetLock 同一邮箱/手机互斥注册，避免并发双插；调用方须在流程结束时执行 release（含失败路径）。

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/repo/dao"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"

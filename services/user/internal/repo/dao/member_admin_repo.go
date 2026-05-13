@@ -10,15 +10,15 @@ import (
 
 // MemberAdminFilter 后台会员列表筛选
 type MemberAdminFilter struct {
-	UserID          int64
-	NicknameSub     string
-	MobileSub       string
-	LevelCode       string
-	MemberStatus    *int16 // 1=有效 2=已过期 3=未开通；nil=全部
-	OpenedFrom      *time.Time
-	OpenedTo        *time.Time
-	ExpireFrom      *time.Time
-	ExpireTo        *time.Time
+	UserID       int64
+	NicknameSub  string
+	MobileSub    string
+	LevelCode    string
+	MemberStatus *int16 // 1=有效 2=已过期 3=未开通；nil=全部
+	OpenedFrom   *time.Time
+	OpenedTo     *time.Time
+	ExpireFrom   *time.Time
+	ExpireTo     *time.Time
 }
 
 // MemberAdminRow 列表一行（数据库扫描）

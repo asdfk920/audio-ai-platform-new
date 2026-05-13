@@ -5,9 +5,10 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/pkg/redisx"
-	"github.com/redis/go-redis/v9"
 )
 
 // CheckStoredEquals 校验 Redis 中验证码是否与提交一致（不删除；成功后由业务调用 DeleteStored）。

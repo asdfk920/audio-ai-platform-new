@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/pkg/passwd"
-	avatarutil "github.com/jacklau/audio-ai-platform/services/user/internal/userdomain/profile/avatar"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/pkg/util/userconst"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/userdomain/auth/verifycode"
-	"github.com/zeromicro/go-zero/core/logx"
+	avatarutil "github.com/jacklau/audio-ai-platform/services/user/internal/userdomain/profile/avatar"
 )
 
 // UserRepo 用户读写与查询（业务错误在层内转为 errorx）。
@@ -589,6 +590,26 @@ func (r *UserRepo) Create(ctx context.Context, email, mobile, passwordHash, salt
 		return 0, errorx.NewDefaultError(errorx.CodeSystemError)
 	}
 	return InsertUser(ctx, r.db, email, mobile, passwordHash, salt, nickname, avatar, int(status), nil, nil, nil, nil)
+}
+
+// UpdateStatus 更新用户状态（用于登录时自动恢复被禁用/登出的用户）
+// status: 0=正常, 1=禁用
+func (r *UserRepo) UpdateStatus(ctx context.Context, userID int64, status int16) error {
+	if r == nil || r.db == nil {
+		return errorx.NewDefaultError(errorx.CodeSystemError)
+	}
+	if userID <= 0 {
+		return errorx.NewCodeError(errorx.CodeInvalidParam, "invalid user_id")
+	}
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL`,
+		status, userID,
+	)
+	if err != nil {
+		logx.WithContext(ctx).Errorf("update user status failed: user_id=%d, status=%d, err=%v", userID, status, err)
+		return errorx.NewCodeError(errorx.CodeDatabaseError, "更新用户状态失败")
+	}
+	return nil
 }
 
 // FindByAuth 根据第三方 auth_type + auth_id 查绑定用户 ID。

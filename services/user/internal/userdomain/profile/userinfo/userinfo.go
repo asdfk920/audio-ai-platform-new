@@ -14,9 +14,8 @@ func FromDAO(u *dao.User) types.UserInfo {
 	info := types.UserInfo{
 		UserId:               u.Id,
 		Status:               int32(u.Status),
-		RealNameStatus:       int32(u.RealNameStatus),
-		ProfileComplete:      int32(u.ProfileComplete),
-		ProfileCompleteScore: int32(u.ProfileCompleteScore),
+		ProfileComplete:      int(u.ProfileComplete),
+		ProfileCompleteScore: int(u.ProfileCompleteScore),
 	}
 	if u.Email != nil {
 		info.Email = *u.Email
@@ -30,17 +29,11 @@ func FromDAO(u *dao.User) types.UserInfo {
 	if u.Avatar != nil {
 		info.Avatar = *u.Avatar
 	}
-	if u.RealNameCertType.Valid {
-		info.RealNameCertType = int32(u.RealNameCertType.Int16)
-	}
-	if u.RealNameAt.Valid {
-		info.RealNameAt = u.RealNameAt.Time.Unix()
-	}
 	if u.Constellation.Valid {
 		info.Constellation = u.Constellation.String
 	}
 	if u.Age.Valid {
-		info.Age = int32(u.Age.Int16)
+		info.Age = int(u.Age.Int16)
 	}
 	if u.Signature.Valid {
 		info.Signature = u.Signature.String
@@ -49,10 +42,10 @@ func FromDAO(u *dao.User) types.UserInfo {
 		info.Bio = u.Bio.String
 	}
 	if u.BirthdayVisibility.Valid {
-		info.BirthdayVisibility = int32(u.BirthdayVisibility.Int16)
+		info.BirthdayVisibility = int(u.BirthdayVisibility.Int16)
 	}
 	if u.GenderVisibility.Valid {
-		info.GenderVisibility = int32(u.GenderVisibility.Int16)
+		info.GenderVisibility = int(u.GenderVisibility.Int16)
 	}
 	if u.Hobbies.Valid {
 		info.Hobbies = u.Hobbies.String

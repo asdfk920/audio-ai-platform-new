@@ -6,10 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/pkg/redisx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/config"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 func ipRateLimitKey(clientIP string) string {

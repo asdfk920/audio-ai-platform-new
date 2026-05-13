@@ -4,13 +4,15 @@
 package handler
 
 import (
-	"github.com/jacklau/audio-ai-platform/services/user/internal/logic"
 	"net/http"
+
+	"github.com/jacklau/audio-ai-platform/services/user/internal/logic"
+
+	"github.com/zeromicro/go-zero/rest/httpx"
 
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // SendVerifyCodeHandler 发送验证码处理器

@@ -6,10 +6,11 @@ package handler
 import (
 	"net/http"
 
+	"github.com/zeromicro/go-zero/rest/httpx"
+
 	"github.com/jacklau/audio-ai-platform/services/user/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // RefreshTokenHandler 刷新 Token 处理器

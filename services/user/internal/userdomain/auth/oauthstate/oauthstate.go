@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jacklau/audio-ai-platform/pkg/redisx"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/jacklau/audio-ai-platform/pkg/redisx"
 )
 
 // ErrInvalidState state 缺失、不匹配或已过期。

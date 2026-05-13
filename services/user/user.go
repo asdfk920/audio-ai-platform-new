@@ -47,8 +47,9 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/rest/httpx"
 
-	_ "github.com/jacklau/audio-ai-platform/services/user/docs"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
+
+	_ "github.com/jacklau/audio-ai-platform/services/user/docs"
 )
 
 var configFile = flag.String("f", "etc/user.yaml", "the config file")
@@ -296,13 +297,6 @@ func main() {
 
 	handler.RegisterHandlers(server, ctx)
 
-	// 启动账号注销定时任务
-	sched := scheduler.NewCancellationScheduler(context.Background(), ctx, c.Cancellation)
-	if err := sched.Start(); err != nil {
-		panic("启动注销定时任务失败：" + err.Error())
-	}
-	defer func() { _ = sched.Stop() }()
-
 	deviceShareSched := scheduler.NewDeviceShareScheduler(context.Background(), ctx, c.DeviceShare)
 	if err := deviceShareSched.Start(); err != nil {
 		panic("启动设备共享过期任务失败：" + err.Error())
@@ -314,12 +308,6 @@ func main() {
 		panic("启动会员自动续费扫描任务失败：" + err.Error())
 	}
 	defer func() { _ = arSched.Stop() }()
-
-	drSched := scheduler.NewDownloadRecordCleanScheduler(context.Background(), ctx, c.DownloadRecordClean)
-	if err := drSched.Start(); err != nil {
-		panic("启动下载记录清理任务失败：" + err.Error())
-	}
-	defer func() { _ = drSched.Stop() }()
 
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
 	server.Start()
