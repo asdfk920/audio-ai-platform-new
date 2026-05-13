@@ -3,10 +3,11 @@ package handler
 import (
 	"net/http"
 
+	"github.com/zeromicro/go-zero/rest/httpx"
+
 	"github.com/jacklau/audio-ai-platform/services/device/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // deviceStatusUpdateHandler 设备状态更新处理器
@@ -68,4 +69,3 @@ func deviceStatusUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func DeviceStatusUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return deviceStatusUpdateHandler(svcCtx)
 }
-

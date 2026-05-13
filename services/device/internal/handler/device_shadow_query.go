@@ -3,10 +3,11 @@ package handler
 import (
 	"net/http"
 
+	"github.com/zeromicro/go-zero/rest/httpx"
+
 	"github.com/jacklau/audio-ai-platform/services/device/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/middleware/jwt"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // deviceShadowQueryHandler 设备影子查询处理器
@@ -67,4 +68,3 @@ func deviceShadowQueryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func DeviceShadowQueryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return deviceShadowQueryHandler(svcCtx)
 }
-

@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/threading"
+
+	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 )
 
 type OfflineChecker struct {
@@ -46,7 +47,7 @@ func (c *OfflineChecker) Start() {
 func (c *OfflineChecker) checkOfflineDevices() {
 	// 检测超过3分钟没有心跳的设备
 	const timeoutMinutes = 3
-	
+
 	rowsAffected, err := c.svcCtx.DeviceRepo.UpdateOfflineDevices(c.ctx, timeoutMinutes)
 	if err != nil {
 		c.logger.Errorf("离线设备检测失败: %v", err)

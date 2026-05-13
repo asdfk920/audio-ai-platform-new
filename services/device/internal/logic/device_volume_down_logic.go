@@ -7,12 +7,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/services/device/internal/commandsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/device/shadow"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/middleware/jwt"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
-	"github.com/jacklau/audio-ai-platform/services/device/internal/middleware/jwt"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // DeviceVolumeDownLogic 设备音量减指令逻辑
@@ -93,10 +94,10 @@ func (l *DeviceVolumeDownLogic) DeviceVolumeDown(req *types.DeviceVolumeDownReq)
 
 	// 7. 构造音量减指令参数
 	params := map[string]interface{}{
-		"action":        action,
-		"step":          step,
+		"action":         action,
+		"step":           step,
 		"current_volume": currentVolume,
-		"target_volume": targetVolume,
+		"target_volume":  targetVolume,
 	}
 
 	// 8. 通过 commandsvc 创建并下发音量减指令
@@ -189,7 +190,7 @@ func validateDeviceVolumeDownReq(req *types.DeviceVolumeDownReq) error {
 	if sn == "" {
 		return fmt.Errorf("设备序列号不能为空")
 	}
-	
+
 	matched, _ := regexp.MatchString(`^[A-Za-z0-9]{16}$`, sn)
 	if !matched {
 		return fmt.Errorf("设备序列号格式错误，必须为16位字母数字组合")

@@ -96,14 +96,14 @@ func TestAggregateReportedPrefersRedisJSONAndScalarFields(t *testing.T) {
 		}),
 	}
 	redisMap := map[string]string{
-		"reported_json":     `{"temperature":25,"mode":"cool"}`,
-		"firmware_version":  "1.0.3",
-		"run_state":         "normal",
-		"battery":           "88",
-		"online":            "1",
-		"product_key":       "pk-1",
-		"mac":               "AA:BB",
-		"ip":                "192.168.1.2",
+		"reported_json":    `{"temperature":25,"mode":"cool"}`,
+		"firmware_version": "1.0.3",
+		"run_state":        "normal",
+		"battery":          "88",
+		"online":           "1",
+		"product_key":      "pk-1",
+		"mac":              "AA:BB",
+		"ip":               "192.168.1.2",
 	}
 
 	got := aggregateReported(row, redisMap)

@@ -7,11 +7,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/services/device/internal/device/shadow"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/middleware/jwt"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // DeviceDetailLogic 设备详情查询逻辑

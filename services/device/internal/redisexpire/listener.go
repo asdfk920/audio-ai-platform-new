@@ -8,13 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/device/reg"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/device/shadow"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/repo"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/statuspersist"
-	"github.com/redis/go-redis/v9"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // StartOnlineKeyExpiryListener 使用独立 Redis 连接订阅 __keyevent@db__:expired。

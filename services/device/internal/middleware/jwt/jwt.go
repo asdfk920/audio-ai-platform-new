@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/jacklau/audio-ai-platform/pkg/jwtx"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
+
+	"github.com/jacklau/audio-ai-platform/pkg/jwtx"
 )
 
 type contextKey struct{}

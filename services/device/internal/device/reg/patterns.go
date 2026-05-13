@@ -4,8 +4,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
 	"github.com/zeromicro/go-zero/core/logx"
+
+	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
 )
 
 const (

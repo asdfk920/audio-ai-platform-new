@@ -8,14 +8,15 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/pkg/mqttx"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/device/reg"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/reportsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/statuspersist"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
-	"github.com/redis/go-redis/v9"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // Handler MQTT device/{sn}/report：解析统一报文后进入 reportsvc。

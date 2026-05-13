@@ -8,10 +8,11 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
-	"github.com/jacklau/audio-ai-platform/services/device/internal/device/shadow"
 	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx"
+
+	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/device/shadow"
 )
 
 // ConnectionEventHandler MQTT 设备连接/断开事件处理器

@@ -9,13 +9,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/pkg/mqttx"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/heartbeat"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/pkg/ip"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/repository"
-	"github.com/redis/go-redis/v9"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // ServiceContext 设备进程上下文：配置、DB、Redis、仓储与 MQTT 客户端等。

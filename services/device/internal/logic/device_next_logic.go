@@ -6,11 +6,12 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/services/device/internal/commandsvc"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/middleware/jwt"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
-	"github.com/jacklau/audio-ai-platform/services/device/internal/middleware/jwt"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // DeviceNextLogic 设备下一首指令逻辑
@@ -128,7 +129,7 @@ func validateDeviceNextReq(req *types.DeviceNextReq) error {
 	if sn == "" {
 		return fmt.Errorf("设备序列号不能为空")
 	}
-	
+
 	matched, _ := regexp.MatchString(`^[A-Za-z0-9]{16}$`, sn)
 	if !matched {
 		return fmt.Errorf("设备序列号格式错误，必须为16位字母数字组合")

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/commandsvc"
 	redisshadow "github.com/jacklau/audio-ai-platform/services/device/internal/device/shadow"
@@ -19,7 +21,6 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/repo"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/shadowmqtt"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
-	"github.com/redis/go-redis/v9"
 )
 
 type Service struct {

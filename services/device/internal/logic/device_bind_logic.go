@@ -6,11 +6,12 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"github.com/jacklau/audio-ai-platform/services/device/internal/middleware/jwt"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/model"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // DeviceBindLogic 设备绑定逻辑

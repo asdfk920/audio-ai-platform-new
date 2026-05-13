@@ -6,11 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeromicro/go-zero/core/logx"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/jacklau/audio-ai-platform/services/device/internal/model"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/repo"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
-	"github.com/zeromicro/go-zero/core/logx"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // MqttAuthLogic MQTT 设备认证逻辑

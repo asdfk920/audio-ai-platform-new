@@ -51,7 +51,7 @@ func GetAdminId(ctx context.Context) int64 {
 	// 从上下文中获取管理员ID
 	// 这里假设管理员ID存储在上下文的特定键中
 	// 实际实现需要根据你的JWT中间件来确定
-	
+
 	// 示例实现：从上下文的"adminId"键获取
 	if adminIdVal := ctx.Value("adminId"); adminIdVal != nil {
 		switch v := adminIdVal.(type) {
@@ -65,7 +65,7 @@ func GetAdminId(ctx context.Context) int64 {
 			}
 		}
 	}
-	
+
 	// 如果无法获取管理员ID，记录警告日志
 	logx.WithContext(ctx).Error("无法从上下文中获取管理员ID")
 	return 0

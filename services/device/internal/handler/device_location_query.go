@@ -3,10 +3,11 @@ package handler
 import (
 	"net/http"
 
+	"github.com/zeromicro/go-zero/rest/httpx"
+
 	"github.com/jacklau/audio-ai-platform/services/device/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/middleware/jwt"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // deviceLocationQueryHandler 设备位置查询处理器
@@ -67,4 +68,3 @@ func deviceLocationQueryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func DeviceLocationQueryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return deviceLocationQueryHandler(svcCtx)
 }
-

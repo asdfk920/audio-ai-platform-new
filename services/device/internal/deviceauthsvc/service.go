@@ -17,10 +17,11 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/repo"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // contextKey 上下文键类型定义

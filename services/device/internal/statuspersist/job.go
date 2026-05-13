@@ -6,8 +6,9 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/jacklau/audio-ai-platform/services/device/internal/repo"
 	"github.com/zeromicro/go-zero/core/logx"
+
+	"github.com/jacklau/audio-ai-platform/services/device/internal/repo"
 )
 
 // Job 单条异步落库任务。

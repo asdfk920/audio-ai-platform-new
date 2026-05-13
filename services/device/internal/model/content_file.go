@@ -13,8 +13,8 @@ type ContentFile struct {
 }
 
 const (
-	ContentFileTypeAudio  int16 = 1
-	ContentFileTypeVideo  int16 = 2
-	ContentFileTypeImage  int16 = 3
-	ContentFileTypeCover  int16 = 4
+	ContentFileTypeAudio int16 = 1
+	ContentFileTypeVideo int16 = 2
+	ContentFileTypeImage int16 = 3
+	ContentFileTypeCover int16 = 4
 )

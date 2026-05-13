@@ -203,4 +203,3 @@ func parseReportedAt(s string) (time.Time, error) {
 func StatusReportHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return statusReportHandler(svcCtx)
 }
-

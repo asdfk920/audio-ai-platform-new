@@ -3,10 +3,11 @@ package handler
 import (
 	"net/http"
 
+	"github.com/zeromicro/go-zero/rest/httpx"
+
 	"github.com/jacklau/audio-ai-platform/services/device/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // deviceAuthHandler 设备认证处理器
@@ -68,4 +69,3 @@ func deviceAuthHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func DeviceAuthHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return deviceAuthHandler(svcCtx)
 }
-

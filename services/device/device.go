@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
+
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/common/validate"
 	"github.com/jacklau/audio-ai-platform/pkg/mqttx"
@@ -32,7 +34,6 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/shadowsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/statuspersist"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
-	"github.com/joho/godotenv"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	_ "github.com/jackc/pgx/v5/stdlib"

@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/zeromicro/go-zero/rest/httpx"
+
 	"github.com/jacklau/audio-ai-platform/services/device/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/middleware/jwt"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // deviceDiagnoseHandler 设备远程诊断处理器
@@ -79,4 +80,3 @@ func deviceDiagnoseHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func DeviceDiagnoseHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return deviceDiagnoseHandler(svcCtx)
 }
-
