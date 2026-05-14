@@ -1,6 +1,7 @@
 Name: user-api
 Host: 0.0.0.0
 Port: 8888
+MaxBytes: 10485760
 Auth:
   AccessSecret: "audio-ai-platform-secret-key-2024"
   AccessExpire: 86400

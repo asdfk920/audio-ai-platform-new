@@ -105,18 +105,6 @@ func (s *Service) CreateShareInvite(ctx context.Context, in CreateShareInviteInp
 		if err != nil {
 			return nil, err
 		}
-		txLookup, lookupErr := s.svcCtx.DB.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-		if lookupErr != nil {
-			return nil, lookupErr
-		}
-		defer func() { _ = txLookup.Rollback() }()
-		member, lookupErr := dao.FindFamilyMember(ctx, txLookup, family.ID, in.OperatorUserID)
-		if lookupErr != nil {
-			return nil, lookupErr
-		}
-		if member == nil || member.Status != dao.FamilyMemberStatusActive {
-			return nil, errorx.NewCodeError(errorx.CodeFamilyNotFound, "设备主人未加入家庭")
-		}
 		operatorRole = dao.FamilyRoleOwner
 		ownerUserID = in.OperatorUserID
 		deviceID = bind.DeviceID
@@ -156,13 +144,6 @@ func (s *Service) CreateShareInvite(ctx context.Context, in CreateShareInviteInp
 		}
 	}
 
-	member, err := dao.FindFamilyMember(ctx, tx, family.ID, target.ID)
-	if err != nil {
-		return nil, err
-	}
-	if member == nil || member.Status != dao.FamilyMemberStatusActive {
-		return nil, errorx.NewCodeError(errorx.CodeFamilyMemberExists, "目标账号尚未加入当前家庭")
-	}
 	existing, err := dao.FindActiveShareForDeviceUser(ctx, tx, deviceID, target.ID)
 	if err != nil {
 		return nil, err

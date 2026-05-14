@@ -1,11 +1,12 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package logic
 
 import (
 	"context"
+	"encoding/json"
+	"strconv"
+	"time"
 
+	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/types"
 
@@ -18,7 +19,6 @@ type ListReceivedDeviceSharesLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 查询我收到的共享
 func NewListReceivedDeviceSharesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListReceivedDeviceSharesLogic {
 	return &ListReceivedDeviceSharesLogic{
 		Logger: logx.WithContext(ctx),
@@ -28,7 +28,68 @@ func NewListReceivedDeviceSharesLogic(ctx context.Context, svcCtx *svc.ServiceCo
 }
 
 func (l *ListReceivedDeviceSharesLogic) ListReceivedDeviceShares() (resp *types.DeviceShareListResp, err error) {
-	// todo: add your logic here and delete this line
+	userId := l.getUserIdFromCtx()
+	if userId == 0 {
+		l.Logger.Errorf("ListReceivedDeviceShares: 获取用户ID失败")
+		return nil, errorx.NewCodeError(errorx.CodeTokenInvalid, "请重新登录")
+	}
 
-	return
+	rows, err := l.svcCtx.DB.QueryContext(l.ctx, `
+		SELECT s.id, s.device_sn, s.owner_user_id, s.shared_user_id, s.target_account, s.status, s.created_at, s.end_at
+		FROM public.user_device_share s
+		WHERE s.shared_user_id = $1
+		ORDER BY s.created_at DESC
+	`, userId)
+	if err != nil {
+		l.Logger.Errorf("ListReceivedDeviceShares: 查询共享列表失败, userId=%d, err=%v", userId, err)
+		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "查询失败")
+	}
+	defer rows.Close()
+
+	var list []types.DeviceShareItem
+	for rows.Next() {
+		var item types.DeviceShareItem
+		var endAt *time.Time
+		var createdAt time.Time
+		if err := rows.Scan(&item.ShareId, &item.Sn, &item.FromUserId, &item.ToUserId, &item.ToAccount, &item.Status, &createdAt, &endAt); err != nil {
+			l.Logger.Errorf("ListReceivedDeviceShares: 扫描行数据失败, err=%v", err)
+			continue
+		}
+		item.CreatedAt = createdAt.Format("2006-01-02 15:04:05")
+		if endAt != nil {
+			item.EndAt = endAt.Format("2006-01-02 15:04:05")
+		}
+		list = append(list, item)
+	}
+
+	return &types.DeviceShareListResp{List: list}, nil
+}
+
+func (l *ListReceivedDeviceSharesLogic) getUserIdFromCtx() int64 {
+	v := l.ctx.Value("userId")
+	if v == nil {
+		return 0
+	}
+	switch id := v.(type) {
+	case json.Number:
+		n, err := id.Int64()
+		if err != nil {
+			return 0
+		}
+		return n
+	case float64:
+		return int64(id)
+	case int64:
+		return id
+	case int:
+		return int64(id)
+	case string:
+		n, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			return 0
+		}
+		return n
+	default:
+		return 0
+	}
 }

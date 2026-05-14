@@ -36,6 +36,7 @@ const (
 
 	DeviceShareStatusPending = "pending"
 	DeviceShareStatusActive  = "active"
+	DeviceShareStatusRejected = "rejected"
 	DeviceShareStatusRevoked = "revoked"
 	DeviceShareStatusExpired = "expired"
 	DeviceShareStatusQuit    = "quit"

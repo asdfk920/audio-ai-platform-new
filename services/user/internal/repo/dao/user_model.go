@@ -90,10 +90,12 @@ type RegisterMeta struct {
 
 // ProfileUpdate 更新用户资料可选字段（nil 表示不修改该列）。
 type ProfileUpdate struct {
+	Username             *string
 	Nickname             *string
 	Avatar               *string
 	Birthday             *time.Time
 	Gender               *int16
+	RealName             *string
 	Constellation        *string
 	Age                  *int16
 	Signature            *string
@@ -104,6 +106,8 @@ type ProfileUpdate struct {
 	ProfileCompleteScore *int16
 	Hobbies              *string
 	Location             *string
+	Language             *string
+	Timezone             *string
 }
 
 // Any 是否至少有一项要更新。
@@ -111,10 +115,10 @@ func (p *ProfileUpdate) Any() bool {
 	if p == nil {
 		return false
 	}
-	return p.Nickname != nil || p.Avatar != nil ||
-		p.Birthday != nil || p.Gender != nil ||
+	return p.Username != nil || p.Nickname != nil || p.Avatar != nil ||
+		p.Birthday != nil || p.Gender != nil || p.RealName != nil ||
 		p.Constellation != nil || p.Age != nil || p.Signature != nil || p.Bio != nil ||
 		p.BirthdayVisibility != nil || p.GenderVisibility != nil ||
 		p.ProfileComplete != nil || p.ProfileCompleteScore != nil ||
-		p.Hobbies != nil || p.Location != nil
+		p.Hobbies != nil || p.Location != nil || p.Language != nil || p.Timezone != nil
 }

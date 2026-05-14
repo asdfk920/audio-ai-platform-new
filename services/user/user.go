@@ -303,12 +303,6 @@ func main() {
 	}
 	defer func() { _ = deviceShareSched.Stop() }()
 
-	arSched := scheduler.NewMemberAutoRenewScheduler(context.Background(), ctx, c.MemberAutoRenew)
-	if err := arSched.Start(); err != nil {
-		panic("启动会员自动续费扫描任务失败：" + err.Error())
-	}
-	defer func() { _ = arSched.Stop() }()
-
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
 	server.Start()
 }

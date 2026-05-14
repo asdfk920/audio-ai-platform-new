@@ -1,14 +1,15 @@
 Name: user-api
 Host: 0.0.0.0
 Port: 8001
+MaxBytes: 10485760
 
 Postgres:
-  DataSource: postgres://admin:admin123@localhost:5432/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai
+  DataSource: admin:admin123@tcp(14.103.202.69:5432)/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai
 
 Redis:
-  Addr: localhost:6379
-  # 本机 Redis 无密码时留空；docker-compose 中 Redis 使用 requirepass 时改为 redis123
-  Password: ""
+  Host: 14.103.202.69:6379
+  Pass: "4ay1nka13u8ed77y"
+  Type: node
   DB: 0
 
 Auth:
@@ -61,10 +62,6 @@ VerifyCode:
   MaxPerMinute: 3
   BlockMinutes: 3
 
-# 会员支付回调验签：sign = hex(HMAC-SHA256(MockCallbackSecret, order_no+"|"+trade_no))
-Payment:
-  MockCallbackSecret: ""
-
 # 实名认证：证件号 AES-GCM 加密入库；MockOutcome=pass|fail|error；人工审核在用户服务无 HTTP 入口，由管理后台实现
 # 账号注销：冷静期天数 7–30；RequireRealName 为 true 时仅已通过实名用户可申请
 Cancellation:
@@ -75,12 +72,6 @@ Cancellation:
 DeviceShare:
   ExpireCronExpr: "0 */5 * * * *"
   BatchSize: 100
-
-# 自动续费占位：扫描「开启自动续费且 N 天内到期」的用户，仅写日志（不真实扣款）
-MemberAutoRenew:
-  CronExpr: "0 0 3 * * *"
-  WithinDaysBeforeExpire: 7
-  BatchSize: 200
 
 RealName:
   SubmitLockSeconds: 5

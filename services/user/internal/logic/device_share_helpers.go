@@ -1,63 +1,50 @@
 package logic
 
 import (
-	"encoding/json"
-	"time"
+	"database/sql"
 
 	"github.com/jacklau/audio-ai-platform/services/user/internal/devicesharesvc"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/types"
 )
 
-func unixPtr(t int64) *time.Time {
-	if t == 0 {
-		return nil
+func statusToInt(s string) int16 {
+	switch s {
+	case "pending":
+		return 0
+	case "active":
+		return 1
+	case "rejected":
+		return 2
+	case "revoked":
+		return 3
+	case "expired":
+		return 4
+	case "quit":
+		return 5
+	default:
+		return 0
 	}
-	u := time.Unix(t, 0)
-	return &u
 }
 
 func toDeviceShareItem(v *devicesharesvc.ShareView) *types.DeviceShareItem {
 	if v == nil {
 		return nil
 	}
-	var permStr string
-	if v.Permission != nil {
-		b, _ := json.Marshal(v.Permission)
-		permStr = string(b)
-	}
-	var startAt, endAt, confirmedAt int64
-	if v.StartAt != nil {
-		startAt = v.StartAt.Unix()
+	var createdAt, endAt string
+	if !v.CreatedAt.IsZero() {
+		createdAt = v.CreatedAt.Format("2006-01-02 15:04:05")
 	}
 	if v.EndAt != nil {
-		endAt = v.EndAt.Unix()
-	}
-	if v.ConfirmedAt != nil {
-		confirmedAt = v.ConfirmedAt.Unix()
-	}
-	var createdAt int64
-	if !v.CreatedAt.IsZero() {
-		createdAt = v.CreatedAt.Unix()
+		endAt = v.EndAt.Format("2006-01-02 15:04:05")
 	}
 	return &types.DeviceShareItem{
-		ShareId:         v.ID,
-		DeviceId:        v.DeviceID,
-		DeviceSn:        v.DeviceSN,
-		DeviceName:      v.DeviceName,
-		OwnerUserId:     v.OwnerUserID,
-		OwnerNickname:   v.OwnerNickname,
-		SharedUserId:    v.SharedUserID,
-		SharedNickname:  v.SharedNickname,
-		TargetAccount:   v.TargetAccount,
-		InviteCode:      v.InviteCode,
-		ShareType:       v.ShareType,
-		PermissionLevel: v.PermissionLevel,
-		Permission:      permStr,
-		Status:          v.Status,
-		StartAt:         startAt,
-		EndAt:           endAt,
-		CreatedAt:       createdAt,
-		ConfirmedAt:     confirmedAt,
+		ShareId:   v.ID,
+		Sn:        v.DeviceSN,
+		ToUserId:  v.SharedUserID,
+		ToAccount: v.TargetAccount,
+		Status:    statusToInt(v.Status),
+		CreatedAt: createdAt,
+		EndAt:     endAt,
 	}
 }
 
@@ -70,4 +57,20 @@ func toDeviceShareListResp(list []devicesharesvc.ShareView) *types.DeviceShareLi
 		}
 	}
 	return &types.DeviceShareListResp{List: items}
+}
+
+func formatNullTime(t sql.NullTime) string {
+	if t.Valid {
+		return t.Time.Format("2006-01-02 15:04:05")
+	}
+	return ""
+}
+
+func firstNonEmpty(strs ...string) string {
+	for _, s := range strs {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
 }

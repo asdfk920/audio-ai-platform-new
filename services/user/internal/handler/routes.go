@@ -68,13 +68,31 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: bindContactHandler(serverCtx),
 			},
 			{
-				// 发起设备共享
+				// 绑定设备（用户通过蓝牙或扫描二维码获取设备SN，输入备注信息进行绑定）
 				Method:  http.MethodPost,
-				Path:    "/device/share",
-				Handler: createDeviceShareHandler(serverCtx),
+				Path:    "/device/bind",
+				Handler: BindDeviceHandler(serverCtx),
 			},
 			{
-				// 创建设备共享邀请（兼容旧接口）
+				// 查询当前用户绑定的设备列表（仅返回 SN 和备注名称）
+				Method:  http.MethodGet,
+				Path:    "/device/list",
+				Handler: ListBindDeviceHandler(serverCtx),
+			},
+			{
+				// 查询设备详情（返回设备全字段，需校验用户权限）
+				Method:  http.MethodGet,
+				Path:    "/device/detail",
+				Handler: GetDeviceDetailHandler(serverCtx),
+			},
+			{
+				// 解绑设备（用户解除自己账号下某台设备的绑定关系）
+				Method:  http.MethodPost,
+				Path:    "/device/unbind",
+				Handler: UnbindDeviceHandler(serverCtx),
+			},
+			{
+				// 发起设备共享
 				Method:  http.MethodPost,
 				Path:    "/device/share/create",
 				Handler: createDeviceShareHandler(serverCtx),
@@ -94,8 +112,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				// 撤销设备共享（仅共享者可操作）
 				Method:  http.MethodPost,
-				Path:    "/device/share/revoke",
-				Handler: revokeDeviceShareHandler(serverCtx),
+				Path:    "/device/share/cancel",
+				Handler: cancelDeviceShareHandler(serverCtx),
 			},
 			{
 				// 退出设备共享（被共享者主动退出）
@@ -106,13 +124,13 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				// 查询我发出的设备共享列表
 				Method:  http.MethodGet,
-				Path:    "/device/share/sent",
+				Path:    "/device/share/my/send/list",
 				Handler: listSentDeviceSharesHandler(serverCtx),
 			},
 			{
 				// 查询我收到的设备共享列表
 				Method:  http.MethodGet,
-				Path:    "/device/share/received",
+				Path:    "/device/share/my/receive/list",
 				Handler: listReceivedDeviceSharesHandler(serverCtx),
 			},
 			{
@@ -122,34 +140,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: getDeviceShareDetailHandler(serverCtx),
 			},
 			{
-				// 查询自动续费意向（占位字段，非真实代扣）
+				// 查询当前用户信息
 				Method:  http.MethodGet,
-				Path:    "/member/auto_renew",
-				Handler: getMemberAutoRenewHandler(serverCtx),
+				Path:    "/info",
+				Handler: GetUserInfoHandler(serverCtx),
 			},
 			{
-				// 设置自动续费开关与意向套餐/支付方式（需已有 user_member 行；不真实扣款）
-				Method:  http.MethodPost,
-				Path:    "/member/auto_renew",
-				Handler: setMemberAutoRenewHandler(serverCtx),
-			},
-			{
-				// 会员套餐预下单：package_code 为上架套餐编码；pay_type 1微信 2支付宝 3余额
-				Method:  http.MethodPost,
-				Path:    "/member/create_order",
-				Handler: createMemberOrderHandler(serverCtx),
-			},
-			{
-				// 会员退订：当前周期内仍有效，到期后终止；关闭自动续费并记录原因
-				Method:  http.MethodPost,
-				Path:    "/member/unsubscribe",
-				Handler: unsubscribeMemberHandler(serverCtx),
-			},
-			{
-				// 撤销会员退订标记（不自动恢复自动续费）
-				Method:  http.MethodPost,
-				Path:    "/member/unsubscribe/revoke",
-				Handler: revokeMemberUnsubscribeHandler(serverCtx),
+				// 修改用户基本信息（支持头像上传）
+				Method:  http.MethodPut,
+				Path:    "/info",
+				Handler: UpdateUserInfoHandler(serverCtx),
 			},
 			{
 				// 修改密码：验证旧密码后修改（新密码需输入两次且一致，且不能与旧密码一致）
@@ -162,6 +162,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPut,
 				Path:    "/rebind",
 				Handler: rebindContactHandler(serverCtx),
+			},
+			{
+				// 退出登录（将当前token加入黑名单，同时清理refresh_token）
+				Method:  http.MethodPost,
+				Path:    "/logout",
+				Handler: LogoutHandler(serverCtx),
 			},
 		},
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),

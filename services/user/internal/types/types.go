@@ -25,102 +25,101 @@ type BindContactReq struct {
 	NewVerifyCode string `json:"new_verify_code,optional"`
 }
 
-type BindUserDeviceReq struct {
-	DeviceSn      string `json:"device_sn"`
-	DeviceName    string `json:"device_name,optional"`
-	DeviceModel   string `json:"device_model,optional"`
-	SystemVersion string `json:"system_version,optional"`
-}
-
-type BindUserDeviceResp struct {
-	UserId     int64  `json:"user_id"`
-	DeviceSn   string `json:"device_sn"`
-	DeviceName string `json:"device_name"`
-	BindTime   string `json:"bind_time"`
-}
-
 type ChangePasswordReq struct {
 	OldPassword        string `json:"old_password"`
 	NewPassword        string `json:"new_password"`
 	NewPasswordConfirm string `json:"new_password_confirm"`
 }
 
-type CreateMemberOrderReq struct {
-	PackageCode string `json:"package_code"` // 须与 public.member_package.package_code 一致且 status=1 上架
-	PayType     int64  `json:"pay_type"`     // 1微信 2支付宝 3余额（须 1–3，见 create_member_order_logic 校验）
+type BindDeviceReq struct {
+	Sn         string `json:"sn"`
+	DeviceName string `json:"device_name"`
 }
 
-type CreateMemberOrderResp struct {
-	OrderNo            string `json:"order_no"`
-	AmountCent         int64  `json:"amount_cent"`
-	AmountYuan         string `json:"amount_yuan"`
-	OriginalAmountCent int64  `json:"original_amount_cent"`
-	DiscountCent       int64  `json:"discount_cent"`
-	BizScene           string `json:"biz_scene"`
-	PackageName        string `json:"package_name"`
-	PackageCode        string `json:"package_code"`
-	DurationDays       int64  `json:"duration_days"`
-	PreviewExpireAt    int64  `json:"preview_expire_at"`
-	PayType            int64  `json:"pay_type"`
+type BindDeviceResp struct {
+	UserId     int64  `json:"user_id"`
+	DeviceSn   string `json:"device_sn"`
+	DeviceName string `json:"device_name"`
+	BindTime   string `json:"bind_time"`
 }
 
-type DeviceShareAcceptReq struct {
+type DeviceDetailReq struct {
+	Sn string `form:"sn"`
+}
+
+type DeviceDetailResp struct {
+	Sn              string `json:"sn"`
+	DeviceType      string `json:"device_type"`
+	OnlineStatus    int16  `json:"online_status"`
+	FirmwareVersion string `json:"firmware_version"`
+	HardwareVersion string `json:"hardware_version"`
+	Manufacturer    string `json:"manufacturer"`
+	CreateTime      string `json:"create_time"`
+	UpdateTime      string `json:"update_time"`
+}
+
+type DeviceListItem struct {
+	Sn         string `json:"sn"`
+	DeviceName string `json:"device_name"`
+}
+
+type DeviceListResp struct {
+	List []DeviceListItem `json:"list"`
+}
+
+type UnbindDeviceReq struct {
 	Sn string `json:"sn"`
 }
 
-type DeviceShareCreateReq struct {
-	DeviceSn        string `json:"device_sn"`
-	TargetUserId    int64  `json:"target_user_id,optional"`
-	TargetAccount   string `json:"target_account,optional"`
-	ShareType       string `json:"share_type,optional"`
-	PermissionLevel string `json:"permission_level,optional"`
-	Permission      string `json:"permission,optional"`
-	StartAt         int64  `json:"start_at,optional"`
-	EndAt           int64  `json:"end_at,optional"`
-	Remark          string `json:"remark,optional"`
+type UnbindDeviceResp struct {
+	UserId     int64  `json:"user_id"`
+	DeviceSn   string `json:"device_sn"`
+	UnbindTime string `json:"unbind_time"`
 }
 
-type DeviceShareDetailReq struct {
-	ShareId int64 `form:"share_id"`
+type DeviceShareCreateReq struct {
+	Sn       string `json:"sn"`
+	ToUserId int64  `json:"to_user_id,optional"`
+	ShareTo  string `json:"share_to,optional"`
+}
+
+type DeviceShareAcceptReq struct {
+	ShareId int64 `json:"share_id"`
+}
+
+type DeviceShareRejectReq struct {
+	ShareId int64 `json:"share_id"`
+}
+
+type DeviceShareCancelReq struct {
+	ShareId int64 `json:"share_id"`
 }
 
 type DeviceShareItem struct {
-	ShareId         int64  `json:"share_id"`
-	FamilyId        int64  `json:"family_id"`
-	DeviceId        int64  `json:"device_id"`
-	DeviceSn        string `json:"device_sn"`
-	DeviceName      string `json:"device_name"`
-	OwnerUserId     int64  `json:"owner_user_id"`
-	OwnerNickname   string `json:"owner_nickname,optional"`
-	SharedUserId    int64  `json:"shared_user_id"`
-	SharedNickname  string `json:"shared_user_nickname,optional"`
-	TargetAccount   string `json:"target_account,optional"`
-	InviteCode      string `json:"invite_code,optional"`
-	ShareType       string `json:"share_type"`
-	PermissionLevel string `json:"permission_level"`
-	Permission      string `json:"permission,optional"`
-	Status          string `json:"status"`
-	FamilyName      string `json:"family_name,optional"`
-	StartAt         int64  `json:"start_at,optional"`
-	EndAt           int64  `json:"end_at,optional"`
-	CreatedAt       int64  `json:"created_at"`
-	ConfirmedAt     int64  `json:"confirmed_at,optional"`
+	ShareId    int64  `json:"id"`
+	Sn         string `json:"sn"`
+	FromUserId int64  `json:"from_user_id"`
+	ToUserId   int64  `json:"to_user_id"`
+	ToAccount  string `json:"to_account"`
+	Status     int16  `json:"status"`
+	CreatedAt  string `json:"create_time"`
+	EndAt      string `json:"expire_time"`
 }
 
 type DeviceShareListResp struct {
 	List []DeviceShareItem `json:"list"`
 }
 
-type DeviceShareQuitReq struct {
-	Sn string `json:"sn"`
+type DeviceShareDetailReq struct {
+	ShareId int64 `form:"share_id"`
 }
 
-type DeviceShareRejectReq struct {
-	Sn string `json:"sn"`
+type DeviceShareQuitReq struct {
+	ShareId int64 `json:"share_id"`
 }
 
 type DeviceShareRevokeReq struct {
-	Sn string `json:"sn"`
+	ShareId int64 `json:"share_id"`
 }
 
 type FamilyCreateReq struct {
@@ -220,35 +219,8 @@ type LoginResp struct {
 	ExpiresIn    int64  `json:"expires_in"`
 }
 
-type MemberAutoRenewInfoResp struct {
-	AutoRenew            bool   `json:"auto_renew"`
-	AutoRenewPackageCode string `json:"auto_renew_package_code,optional"`
-	AutoRenewPayType     int64  `json:"auto_renew_pay_type,optional"`
-	AutoRenewUpdatedAt   int64  `json:"auto_renew_updated_at,optional"`
-}
-
-type MemberBenefit struct {
-	BenefitCode string `json:"benefit_code"`
-	BenefitName string `json:"benefit_name"`
-	Description string `json:"description,optional"`
-}
-
-type MemberPayCallbackReq struct {
-	OrderNo string `json:"order_no"`
-	TradeNo string `json:"trade_no"`
-	Sign    string `json:"sign"`
-}
-
-type MemberUnsubscribeReq struct {
-	ReasonCode string `json:"reason_code"` // price|features|low_usage|switch_platform|service|other
-	Feedback   string `json:"feedback,optional"`
-}
-
-type MemberUnsubscribeResp struct {
-	Success bool `json:"success"`
-}
-
-type MemberUnsubscribeRevokeReq struct {
+type LogoutResp struct {
+	Message string `json:"message"`
 }
 
 type OAuthCallbackReq struct {
@@ -261,15 +233,6 @@ type OAuthLoginResp struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int64  `json:"expires_in"`
-}
-
-type PayMemberOrderReq struct {
-	OrderNo string `json:"order_no"`
-}
-
-type PayMemberOrderResp struct {
-	OrderNo string `json:"order_no"`
-	PayType int64  `json:"pay_type"`
 }
 
 type RealNameAuditInfoResp struct {
@@ -356,6 +319,10 @@ type RegisterResp struct {
 	UserId int64 `json:"user_id"`
 }
 
+type UserInfoResp struct {
+	UserInfo UserInfo `json:"user_info"`
+}
+
 type ResetPasswordReq struct {
 	Email              string `json:"email,optional"`
 	Mobile             string `json:"mobile,optional"`
@@ -374,16 +341,6 @@ type SendVerifyCodeResp struct {
 	ExpireSeconds int `json:"expire_seconds"`
 }
 
-type SetMemberAutoRenewReq struct {
-	Enabled     bool   `json:"enabled"`
-	PackageCode string `json:"package_code,optional"`
-	PayType     int64  `json:"pay_type,optional"`
-}
-
-type UnbindUserDeviceReq struct {
-	DeviceSn string `json:"device_sn"`
-}
-
 type UnbindUserDeviceResp struct {
 	DeviceSn string `json:"device_sn"`
 	UserId   int64  `json:"user_id"`
@@ -391,10 +348,12 @@ type UnbindUserDeviceResp struct {
 }
 
 type UpdateUserInfoReq struct {
+	Username             string `json:"username,optional"`
 	Nickname             string `json:"nickname,optional"`
 	Avatar               string `json:"avatar,optional"`
 	Birthday             string `json:"birthday,optional"`
 	Gender               int    `json:"gender,optional"`
+	RealName             string `json:"real_name,optional"`
 	Constellation        string `json:"constellation,optional"`
 	Age                  int    `json:"age,optional"`
 	Signature            string `json:"signature,optional"`
@@ -405,6 +364,8 @@ type UpdateUserInfoReq struct {
 	ProfileCompleteScore int    `json:"profile_complete_score,optional"`
 	Hobbies              string `json:"hobbies,optional"`
 	Location             string `json:"location,optional"`
+	Language             string `json:"language,optional"`
+	Timezone             string `json:"timezone,optional"`
 }
 
 type UserDeviceItem struct {
@@ -442,21 +403,6 @@ type UserInfo struct {
 	ProfileCompleteScore int    `json:"profile_complete_score,optional"`
 	Hobbies              string `json:"hobbies,optional"`
 	Location             string `json:"location,optional"`
-}
-
-type UserMemberBenefitsResp struct {
-	UserId             int64           `json:"user_id"`
-	LevelCode          string          `json:"level_code"`         // 当前生效等级（过期或无档会回落 ordinary）
-	LevelName          string          `json:"level_name"`         // member_level.level_name
-	LevelSort          int32           `json:"level_sort"`         // member_level.sort，越小越靠前，可作「几档」展示
-	ExpireAt           int64           `json:"expire_at,optional"` // 当前生效权益的到期 Unix 秒；永久/普通无截止为 0
-	IsPermanent        bool            `json:"is_permanent"`
-	RecordExpireAt     int64           `json:"record_expire_at,optional"` // user_member 档案中的到期日（可能已过期）；无行为 0
-	SubscriptionActive bool            `json:"subscription_active"`       // 库内会员行有效且未过期或为永久
-	RegisterType       string          `json:"register_type,optional"`    // user_member.register_type：pay/gift/admin 等
-	MemberSince        int64           `json:"member_since,optional"`     // user_member.created_at Unix 秒；无行为 0
-	IsExpired          bool            `json:"is_expired"`                // 档案到期已过期且非永久
-	Benefits           []MemberBenefit `json:"benefits"`
 }
 
 type WithdrawAccountCancellationResp struct {

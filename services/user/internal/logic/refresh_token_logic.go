@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/jacklau/audio-ai-platform/common/errorx"
+	"github.com/jacklau/audio-ai-platform/pkg/jwtx"
 	"github.com/jacklau/audio-ai-platform/pkg/redisx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/types"
@@ -55,9 +55,11 @@ func (l *RefreshTokenLogic) RefreshToken(req *types.RefreshTokenReq) (resp *type
 	// 为什么不延长旧 access_token：
 	// - access_token 为 JWT，无状态；“续期”语义用刷新接口显式完成更清晰。
 	// - 便于前端在 401/过期时统一走刷新逻辑，然后重放业务请求。
-	now := time.Now().Unix()
-	expire := l.svcCtx.Config.Auth.AccessExpire
-	accessToken, err := buildJWT(l.svcCtx.Config.Auth.AccessSecret, now, expire, userId)
+	accessToken, err := jwtx.SignAccessToken(jwtx.SignAccessOptions{
+		Secret:     l.svcCtx.Config.Auth.AccessSecret,
+		TTLSeconds: l.svcCtx.Config.Auth.AccessExpire,
+		UserID:     userId,
+	})
 	if err != nil {
 		l.Logger.Errorf("buildJWT: %v", err)
 		return nil, errorx.NewCodeError(errorx.CodeSystemError, "生成令牌失败")
@@ -77,7 +79,7 @@ func (l *RefreshTokenLogic) RefreshToken(req *types.RefreshTokenReq) (resp *type
 	return &types.RefreshTokenResp{
 		AccessToken:  accessToken,
 		RefreshToken: newRefresh,
-		ExpiresIn:    expire,
+		ExpiresIn:    l.svcCtx.Config.Auth.AccessExpire,
 	}, nil
 }
 
@@ -87,14 +89,4 @@ func refreshTokenKey(token string) string {
 
 func userRefreshTokenKey(userId int64) string {
 	return fmt.Sprintf("user:%d:refresh", userId)
-}
-
-func buildJWT(secret string, iat, seconds, userId int64) (string, error) {
-	claims := jwt.MapClaims{
-		"exp":    iat + seconds,
-		"iat":    iat,
-		"userId": userId,
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
 }

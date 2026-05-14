@@ -21,7 +21,7 @@ func (t *DeviceShareExpireTask) Execute(limit int) (int, error) {
 	count, err := devicesharesvc.New(t.svcCtx).ExpireShares(t.ctx, limit)
 	if err != nil {
 		logx.WithContext(t.ctx).Errorf("expire device shares failed: %v", err)
-		return 0, err
+		return 0, nil
 	}
 	return count, nil
 }

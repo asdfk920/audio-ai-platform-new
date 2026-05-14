@@ -14,7 +14,6 @@ type ServiceContext struct {
 	SendVerify  *dao.SendVerifyRepo
 	UserRepo    *dao.UserRepo
 	DeviceBind  *dao.UserDeviceBindRepo
-	MemberOrder *dao.MemberOrderRepo
 	Entitlement *entitlementsvc.Service
 }
 
@@ -25,7 +24,6 @@ func NewServiceContext(c config.Config, db *sql.DB) *ServiceContext {
 		SendVerify:  dao.NewSendVerifyRepo(db),
 		UserRepo:    dao.NewUserRepo(db),
 		DeviceBind:  dao.NewUserDeviceBindRepo(db),
-		MemberOrder: dao.NewMemberOrderRepo(db),
 		Entitlement: entitlementsvc.NewService(),
 	}
 }

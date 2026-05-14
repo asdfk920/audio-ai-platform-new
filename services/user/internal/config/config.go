@@ -37,11 +37,8 @@ type Config struct {
 			RedirectURL string `json:",optional"`
 		}
 	}
-	VerifyCode      VerifyCodeConfig
-	DeviceShare     DeviceShareWorker     `json:",optional"`
-	MemberAutoRenew MemberAutoRenewWorker `json:",optional"`
-	// Payment 会员订单支付：MockCallbackSecret 非空时，回调 JSON 验签 HMAC-SHA256(secret, order_no+"|"+trade_no)
-	Payment Payment `json:",optional"`
+	VerifyCode  VerifyCodeConfig
+	DeviceShare DeviceShareWorker `json:",optional"`
 	// 设备绑定配置
 	MaxDeviceBinds int `json:",default=10"` // 用户最大绑定设备数
 	// 文件上传配置
@@ -58,21 +55,9 @@ type UploadConfig struct {
 	AllowedExtensions []string `json:",optional"`
 }
 
-// Payment 配置（微信/支付宝正式对接可扩展字段）。
-type Payment struct {
-	MockCallbackSecret string `json:",optional"`
-}
-
 type DeviceShareWorker struct {
 	ExpireCronExpr string `json:",optional"`
 	BatchSize      int    `json:",optional"`
-}
-
-// MemberAutoRenewWorker 自动续费占位扫描：仅打日志，不真实扣款。
-type MemberAutoRenewWorker struct {
-	CronExpr               string `json:",optional"` // 默认每日一次
-	WithinDaysBeforeExpire int    `json:",optional"` // 到期前窗口（天）
-	BatchSize              int    `json:",optional"`
 }
 
 // VerifyCodeConfig 验证码：过期、频控、黑名单等（供 util 与配置加载共用类型名）。

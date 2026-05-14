@@ -1182,3 +1182,94 @@ func (r *UserRepo) DeleteUserAuth(ctx context.Context, userID int64, authType st
 	}
 	return nil
 }
+
+// UpdateProfile 更新用户资料（仅更新非空字段）。
+func (r *UserRepo) UpdateProfile(ctx context.Context, userID int64, update *ProfileUpdate) error {
+	if r == nil || r.db == nil || userID <= 0 || update == nil || !update.Any() {
+		return errorx.NewCodeError(errorx.CodeInvalidParam, "无更新内容")
+	}
+
+	var sets []string
+	var args []interface{}
+	argIdx := 1
+
+	addSet := func(col string, val interface{}) {
+		sets = append(sets, fmt.Sprintf("%s = $%d", col, argIdx))
+		args = append(args, val)
+		argIdx++
+	}
+
+	if update.Username != nil {
+		addSet("username", *update.Username)
+	}
+	if update.Nickname != nil {
+		addSet("nickname", *update.Nickname)
+	}
+	if update.Avatar != nil {
+		addSet("avatar", *update.Avatar)
+	}
+	if update.Birthday != nil {
+		addSet("birthday", *update.Birthday)
+	}
+	if update.Gender != nil {
+		addSet("gender", *update.Gender)
+	}
+	if update.RealName != nil {
+		addSet("real_name", *update.RealName)
+	}
+	if update.Constellation != nil {
+		addSet("constellation", *update.Constellation)
+	}
+	if update.Age != nil {
+		addSet("age", *update.Age)
+	}
+	if update.Signature != nil {
+		addSet("signature", *update.Signature)
+	}
+	if update.Bio != nil {
+		addSet("bio", *update.Bio)
+	}
+	if update.BirthdayVisibility != nil {
+		addSet("birthday_visibility", *update.BirthdayVisibility)
+	}
+	if update.GenderVisibility != nil {
+		addSet("gender_visibility", *update.GenderVisibility)
+	}
+	if update.ProfileComplete != nil {
+		addSet("profile_complete", *update.ProfileComplete)
+	}
+	if update.ProfileCompleteScore != nil {
+		addSet("profile_complete_score", *update.ProfileCompleteScore)
+	}
+	if update.Hobbies != nil {
+		addSet("hobbies", *update.Hobbies)
+	}
+	if update.Location != nil {
+		addSet("location", *update.Location)
+	}
+	if update.Language != nil {
+		addSet("language", *update.Language)
+	}
+	if update.Timezone != nil {
+		addSet("timezone", *update.Timezone)
+	}
+
+	args = append(args, userID)
+	query := fmt.Sprintf(`UPDATE users SET %s, updated_at = NOW() WHERE id = $%d`, strings.Join(sets, ", "), argIdx)
+
+	res, err := r.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		logx.WithContext(ctx).Errorf("UpdateProfile: %v", err)
+		return errorx.NewDefaultError(errorx.CodeDatabaseError)
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return errorx.NewDefaultError(errorx.CodeDatabaseError)
+	}
+	if n == 0 {
+		return errorx.NewCodeError(errorx.CodeInvalidParam, "用户不存在或未更新")
+	}
+
+	return nil
+}

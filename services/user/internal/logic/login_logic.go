@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/jacklau/audio-ai-platform/common/errorx"
+	"github.com/jacklau/audio-ai-platform/pkg/jwtx"
 	"github.com/jacklau/audio-ai-platform/pkg/passwd"
 	"github.com/jacklau/audio-ai-platform/pkg/redisx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/pkg/logger"
@@ -72,9 +72,11 @@ func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.LoginResp, err erro
 	// refresh_token 不用 JWT：
 	// - 避免把刷新逻辑也做成“可自验证”的 token（更难做吊销/单点登录）。
 	// - 随机串配合 Redis 存储，可随时失效、可轮换，安全边界更清晰。
-	now := time.Now().Unix()
-	expire := l.svcCtx.Config.Auth.AccessExpire
-	accessToken, err := l.buildJWT(l.svcCtx.Config.Auth.AccessSecret, now, expire, u.Id)
+	accessToken, err := jwtx.SignAccessToken(jwtx.SignAccessOptions{
+		Secret:     l.svcCtx.Config.Auth.AccessSecret,
+		TTLSeconds: l.svcCtx.Config.Auth.AccessExpire,
+		UserID:     u.Id,
+	})
 	if err != nil {
 		l.Logger.Errorf("buildJWT: %v", err)
 		return nil, errorx.NewCodeError(errorx.CodeSystemError, "生成令牌失败")
@@ -82,9 +84,7 @@ func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.LoginResp, err erro
 	// #region agent log
 	logger.AgentNDJSON("H1", "login_logic.go:Login", "issued login access token", map[string]any{
 		"userId":          u.Id,
-		"accessExpireSec": expire,
-		"iat":             now,
-		"exp":             now + expire,
+		"accessExpireSec": l.svcCtx.Config.Auth.AccessExpire,
 		"tokenLen":        len(accessToken),
 		"jwtDotCount":     func() int64 { return int64(countDots(accessToken)) }(),
 	})
@@ -111,7 +111,7 @@ func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.LoginResp, err erro
 		UserId:       u.Id,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		ExpiresIn:    expire,
+		ExpiresIn:    l.svcCtx.Config.Auth.AccessExpire,
 	}, nil
 }
 
@@ -133,17 +133,6 @@ func (l *LoginLogic) refreshTokenKey(token string) string {
 
 func (l *LoginLogic) userRefreshTokenKey(userId int64) string {
 	return fmt.Sprintf("user:%d:refresh", userId)
-}
-
-// buildJWT 生成 JWT access_token，供后续请求携带鉴权
-func (l *LoginLogic) buildJWT(secret string, iat, seconds, userId int64) (string, error) {
-	claims := jwt.MapClaims{
-		"exp":    iat + seconds,
-		"iat":    iat,
-		"userId": userId,
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
 }
 
 func countDots(token string) int {

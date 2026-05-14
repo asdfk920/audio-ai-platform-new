@@ -6,7 +6,7 @@ MaxBytes: 134217728
 
 Database:
   # PostgreSQL（与 docker-compose / go-admin 一致）；执行过 045_content_service_catalog 迁移
-  DataSource: host=127.0.0.1 port=5432 user=admin password=admin123 dbname=audio_platform sslmode=disable TimeZone=Asia/Shanghai
+  DataSource: host=14.103.202.69 port=5432 user=admin password=admin123 dbname=audio_platform sslmode=disable TimeZone=Asia/Shanghai
 
 Storage:
   # local：开发默认写入 ./data/content-objects；生产可改为 s3/minio
@@ -44,8 +44,8 @@ ContentAuth:
   PreviewSeconds: 60
 
 CacheRedis:
-  - Host: localhost:6379
-    Pass: redis123
+  - Host: 14.103.202.69:6379
+    Pass: "4ay1nka13u8ed77y"
     Type: node
 
 # 非空时开放 POST /api/v1/content/internal/bump-list-cache，Header: X-Internal-Secret
