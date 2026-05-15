@@ -2,6 +2,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -13,6 +14,10 @@ import (
 	"github.com/jacklau/audio-ai-platform/pkg/jwtx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/pkg/logger"
 )
+
+type contextKey string
+
+const userIdKey contextKey = "userId"
 
 // Middleware 校验 Authorization 中 access JWT 的 jti 是否被登出拉黑（Login.JWTBlacklistDisabled=true 时跳过）。
 // 执行流程：
@@ -142,7 +147,8 @@ func Middleware(secret string, disabled bool) rest.Middleware {
 				return
 			}
 
-			next(w, r)
+			ctx := context.WithValue(r.Context(), userIdKey, claims.UserID)
+			next(w, r.WithContext(ctx))
 		}
 	}
 }

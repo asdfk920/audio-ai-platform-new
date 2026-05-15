@@ -14,7 +14,6 @@ type ParsedRebind struct {
 	NewTarget string
 	Channel   string
 	OldCode   string
-	NewCode   string
 }
 
 // ParseAndValidate 入参校验（不含库表、不含 Redis 验证码比对）。
@@ -54,9 +53,8 @@ func ParseAndValidate(req *types.RebindContactReq) (*ParsedRebind, error) {
 	}
 
 	oldCode := strings.TrimSpace(req.OldVerifyCode)
-	newCode := strings.TrimSpace(req.NewVerifyCode)
-	if oldCode == "" || newCode == "" {
-		return nil, errorx.NewDefaultError(errorx.CodeVerifyCodeInvalid)
+	if oldCode == "" {
+		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "验证码不能为空")
 	}
 
 	return &ParsedRebind{
@@ -64,6 +62,5 @@ func ParseAndValidate(req *types.RebindContactReq) (*ParsedRebind, error) {
 		NewTarget: newTarget,
 		Channel:   channel,
 		OldCode:   oldCode,
-		NewCode:   newCode,
 	}, nil
 }

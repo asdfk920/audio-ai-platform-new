@@ -31,6 +31,10 @@ type ChangePasswordReq struct {
 	NewPasswordConfirm string `json:"new_password_confirm"`
 }
 
+type ChangePasswordResp struct {
+	Message string `json:"message"`
+}
+
 type BindDeviceReq struct {
 	Sn         string `json:"sn"`
 	DeviceName string `json:"device_name"`
@@ -78,9 +82,9 @@ type UnbindDeviceResp struct {
 }
 
 type DeviceShareCreateReq struct {
-	Sn       string `json:"sn"`
-	ToUserId int64  `json:"to_user_id,optional"`
-	ShareTo  string `json:"share_to,optional"`
+	Sn         string `json:"sn"`
+	ShareTo    string `json:"share_to"`
+	ExpireDays int    `json:"expire_days,optional"`
 }
 
 type DeviceShareAcceptReq struct {
@@ -293,7 +297,14 @@ type RebindContactReq struct {
 	OldVerifyCode string `json:"old_verify_code"`
 	NewEmail      string `json:"new_email,optional"`
 	NewMobile     string `json:"new_mobile,optional"`
-	NewVerifyCode string `json:"new_verify_code"`
+}
+
+type RebindContactResp struct {
+	Message string `json:"message"`
+}
+
+type ResetPasswordResp struct {
+	Message string `json:"message"`
 }
 
 type RefreshTokenReq struct {

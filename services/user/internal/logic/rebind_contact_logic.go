@@ -2,16 +2,14 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
-	"strconv"
 
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/pkg/redisx"
+	"github.com/jacklau/audio-ai-platform/services/user/internal/pkg/util/ctxuser"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/types"
-	"github.com/jacklau/audio-ai-platform/services/user/internal/userdomain/profile/userinfo"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -26,7 +24,6 @@ type RebindContactLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// NewRebindContactLogic 换绑手机号/邮箱（已登录：旧验证码 + 新验证码）
 func NewRebindContactLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RebindContactLogic {
 	return &RebindContactLogic{
 		Logger: logx.WithContext(ctx),
@@ -35,133 +32,142 @@ func NewRebindContactLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Reb
 	}
 }
 
-func (l *RebindContactLogic) RebindContact(req *types.RebindContactReq) (resp *types.UserInfo, err error) {
-	userId := l.getUserIdFromCtx()
+func (l *RebindContactLogic) RebindContact(req *types.RebindContactReq) (resp *types.RebindContactResp, err error) {
+	userId := ctxuser.ParseUserID(l.ctx)
 	if userId <= 0 {
 		return nil, errorx.NewCodeError(errorx.CodeTokenInvalid, "登录已过期或无效，请重新登录")
 	}
 	if req == nil {
-		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "参数错误")
+		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "参数错误：请求体不能为空")
 	}
 
 	oldTarget, newTarget, by := l.normalizeTargets(req)
 	if by == "" {
-		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "请按同一种方式换绑（邮箱->邮箱 或 手机号->手机号）")
+		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "请按同一种方式换绑（邮箱→邮箱 或 手机号→手机号）")
 	}
-	if req.OldVerifyCode == "" || req.NewVerifyCode == "" {
-		return nil, errorx.NewDefaultError(errorx.CodeVerifyCodeInvalid)
+	if oldTarget == "" || newTarget == "" {
+		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "请填写旧的和新的联系方式")
+	}
+	if req.OldVerifyCode == "" {
+		return nil, errorx.NewCodeError(errorx.CodeVerifyCodeInvalid, "请输入旧联系方式的验证码")
 	}
 
-	// 绑定前校验当前用户是否确实绑定了 oldTarget
-	// 为什么要校验 oldTarget 属于当前用户：
-	// - 换绑的安全前提是“证明你拥有旧账号”（旧验证码校验）并且“旧账号确实是你当前绑定的”。
-	// - 防止用户拿到别人的旧验证码后越权换绑（oldTarget guard 是关键）。
 	u, err := l.svcCtx.UserRepo.FindByID(l.ctx, userId)
 	if err != nil {
 		l.Logger.Errorf("FindByID: %v", err)
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, err.Error())
+		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "系统繁忙，请稍后重试")
 	}
 	if u == nil {
 		return nil, errorx.NewDefaultError(errorx.CodeUserNotFound)
 	}
-	if by == "email" {
+
+	switch by {
+	case "email":
 		if u.Email == nil || *u.Email != oldTarget {
-			return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "旧邮箱与当前绑定不一致")
+			return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "旧邮箱与当前绑定的邮箱不一致")
 		}
 		if !regEmailRegexRebind.MatchString(newTarget) {
 			return nil, errorx.NewDefaultError(errorx.CodeInvalidEmail)
 		}
-	} else {
+	case "mobile":
 		if u.Mobile == nil || *u.Mobile != oldTarget {
-			return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "旧手机号与当前绑定不一致")
+			return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "旧手机号与当前绑定的手机号不一致")
 		}
 		if !regMobileRegexRebind.MatchString(newTarget) {
 			return nil, errorx.NewDefaultError(errorx.CodeInvalidMobile)
 		}
 	}
+
 	if oldTarget == newTarget {
-		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "新旧账号不能相同")
+		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "新旧联系方式不能相同")
 	}
 
-	// 校验旧账号验证码
-	// 说明：验证码 key 按目标账号区分，所以必须分别对 oldTarget/newTarget 做校验。
-	if err := l.verifyCode(oldTarget, req.OldVerifyCode); err != nil {
-		return nil, err
-	}
-	// 校验新账号验证码
-	if err := l.verifyCode(newTarget, req.NewVerifyCode); err != nil {
+	if err := l.verifyOldCode(oldTarget, req.OldVerifyCode); err != nil {
 		return nil, err
 	}
 
-	// 绑定前先查库：新账号是否已被其他用户绑定
-	if by == "email" {
-		exist, err := l.svcCtx.UserRepo.FindByEmail(l.ctx, newTarget)
-		if err != nil {
-			l.Logger.Errorf("FindByEmail: %v", err)
-			return nil, errorx.NewCodeError(errorx.CodeDatabaseError, err.Error())
-		}
-		if exist != nil && exist.Id != userId {
-			return nil, errorx.NewCodeError(errorx.CodeUserExists, "该账号已被其他用户绑定")
-		}
-	} else {
-		exist, err := l.svcCtx.UserRepo.FindByMobile(l.ctx, newTarget)
-		if err != nil {
-			l.Logger.Errorf("FindByMobile: %v", err)
-			return nil, errorx.NewCodeError(errorx.CodeDatabaseError, err.Error())
-		}
-		if exist != nil && exist.Id != userId {
-			return nil, errorx.NewCodeError(errorx.CodeUserExists, "该账号已被其他用户绑定")
-		}
+	conflictUser, err := l.checkConflict(newTarget, by, userId)
+	if err != nil {
+		return nil, err
+	}
+	if conflictUser != nil {
+		msg := fmt.Sprintf("该%s已被其他用户绑定", byLabel(by))
+		return nil, errorx.NewCodeError(errorx.CodeUserExists, msg)
 	}
 
-	// 执行换绑（带旧值 guard + 唯一性兜底）
-	// 这里的 RebindEmail/RebindMobile 带 WHERE email/mobile = oldTarget：
-	// - 能抵御并发/状态变化（例如用户在另一端已换绑）
-	// - 也让“旧账号不匹配”时不会误更新到新账号
 	var affected int64
-	if by == "email" {
+	switch by {
+	case "email":
 		affected, err = l.svcCtx.UserRepo.RebindEmail(l.ctx, userId, oldTarget, newTarget)
-	} else {
+	default:
 		affected, err = l.svcCtx.UserRepo.RebindMobile(l.ctx, userId, oldTarget, newTarget)
 	}
 	if err != nil {
-		l.Logger.Errorf("rebind: %v", err)
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, err.Error())
+		l.Logger.Errorf("rebind %s: %v", by, err)
+		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "换绑失败，请稍后重试")
 	}
 	if affected == 0 {
-		return nil, errorx.NewCodeError(errorx.CodeUserExists, "换绑失败：账号已被绑定或旧账号不匹配")
+		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "换绑失败：数据状态异常或已被修改")
 	}
 
-	// 删除两个验证码
 	_ = redisx.Del(l.ctx, l.verifyCodeKey(oldTarget))
-	_ = redisx.Del(l.ctx, l.verifyCodeKey(newTarget))
 
-	uu, err := l.svcCtx.UserRepo.FindByID(l.ctx, userId)
-	if err != nil {
-		l.Logger.Errorf("FindByID: %v", err)
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, err.Error())
-	}
-	if uu == nil {
-		return nil, errorx.NewDefaultError(errorx.CodeUserNotFound)
-	}
-
-	info := userinfo.FromDAO(uu)
-	return &info, nil
+	return &types.RebindContactResp{
+		Message: "换绑成功",
+	}, nil
 }
 
-func (l *RebindContactLogic) verifyCode(target, code string) error {
-	stored, err := redisx.Get(l.ctx, l.verifyCodeKey(target))
-	if err != nil || stored == "" {
-		return errorx.NewDefaultError(errorx.CodeVerifyCodeInvalid)
+func (l *RebindContactLogic) verifyOldCode(target, code string) error {
+	codeKey := l.verifyCodeKey(target)
+	storedCode, err := redisx.Get(l.ctx, codeKey)
+	if err != nil {
+		l.Logger.Errorf("redis get %s: %v", codeKey, err)
+		exists, existsErr := redisx.Exists(l.ctx, codeKey)
+		if existsErr != nil {
+			return errorx.NewCodeError(errorx.CodeRedisError, "系统繁忙，请稍后重试")
+		}
+		if exists == 0 {
+			return errorx.NewCodeError(errorx.CodeVerifyCodeInvalid, "验证码已过期，请重新获取验证码")
+		}
+		return errorx.NewCodeError(errorx.CodeVerifyCodeInvalid, "验证码无效，请重新发送验证码")
 	}
-	if stored != code {
-		return errorx.NewDefaultError(errorx.CodeVerifyCodeInvalid)
+	if storedCode == "" {
+		exists, _ := redisx.Exists(l.ctx, codeKey)
+		if exists == 0 {
+			return errorx.NewCodeError(errorx.CodeVerifyCodeInvalid, "验证码已过期，请重新获取验证码")
+		}
+		return errorx.NewCodeError(errorx.CodeVerifyCodeInvalid, "验证码无效，请重新发送验证码")
+	}
+	if storedCode != code {
+		return errorx.NewCodeError(errorx.CodeVerifyCodeInvalid, "验证码错误，请检查后重新输入")
 	}
 	return nil
 }
 
-func (l *RebindContactLogic) verifyCodeKey(target string) string {
-	return fmt.Sprintf("user:verify_code:%s", target)
+func (l *RebindContactLogic) checkConflict(target string, by string, currentUserId int64) (*interface{}, error) {
+	switch by {
+	case "email":
+		exist, err := l.svcCtx.UserRepo.FindByEmail(l.ctx, target)
+		if err != nil {
+			l.Logger.Errorf("FindByEmail: %v", err)
+			return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "系统繁忙，请稍后重试")
+		}
+		if exist != nil && exist.Id != currentUserId {
+			var result interface{} = exist
+			return &result, nil
+		}
+	default:
+		exist, err := l.svcCtx.UserRepo.FindByMobile(l.ctx, target)
+		if err != nil {
+			l.Logger.Errorf("FindByMobile: %v", err)
+			return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "系统繁忙，请稍后重试")
+		}
+		if exist != nil && exist.Id != currentUserId {
+			var result interface{} = exist
+			return &result, nil
+		}
+	}
+	return nil, nil
 }
 
 func (l *RebindContactLogic) normalizeTargets(req *types.RebindContactReq) (oldTarget, newTarget, by string) {
@@ -179,31 +185,13 @@ func (l *RebindContactLogic) normalizeTargets(req *types.RebindContactReq) (oldT
 	return "", "", ""
 }
 
-func (l *RebindContactLogic) getUserIdFromCtx() int64 {
-	v := l.ctx.Value("userId")
-	if v == nil {
-		return 0
+func (l *RebindContactLogic) verifyCodeKey(target string) string {
+	return fmt.Sprintf("user:verify_code:%s", target)
+}
+
+func byLabel(by string) string {
+	if by == "email" {
+		return "邮箱"
 	}
-	switch id := v.(type) {
-	case json.Number:
-		n, err := id.Int64()
-		if err != nil {
-			return 0
-		}
-		return n
-	case float64:
-		return int64(id)
-	case int64:
-		return id
-	case int:
-		return int64(id)
-	case string:
-		n, err := strconv.ParseInt(id, 10, 64)
-		if err != nil {
-			return 0
-		}
-		return n
-	default:
-		return 0
-	}
+	return "手机号"
 }

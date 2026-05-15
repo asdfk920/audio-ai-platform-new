@@ -11,7 +11,6 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/user/internal/repo/dao"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/types"
-	"github.com/jacklau/audio-ai-platform/services/user/internal/userdomain/profile/userinfo"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -35,7 +34,7 @@ func NewResetPasswordLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Res
 	}
 }
 
-func (l *ResetPasswordLogic) ResetPassword(req *types.ResetPasswordReq) (resp *types.UserInfo, err error) {
+func (l *ResetPasswordLogic) ResetPassword(req *types.ResetPasswordReq) (resp *types.ResetPasswordResp, err error) {
 	target, by := l.normalizeTarget(req)
 	if target == "" {
 		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "请使用邮箱或手机号其中一种方式重置密码")
@@ -65,11 +64,26 @@ func (l *ResetPasswordLogic) ResetPassword(req *types.ResetPasswordReq) (resp *t
 	// - 验证码 key 按 target（邮箱/手机号）区分，因此“发送验证码的方式”和“重置密码填写的方式”必须一致。
 	codeKey := fmt.Sprintf("user:verify_code:%s", target)
 	stored, err := redisx.Get(l.ctx, codeKey)
-	if err != nil || stored == "" {
-		return nil, errorx.NewDefaultError(errorx.CodeVerifyCodeInvalid)
+	if err != nil {
+		l.Logger.Errorf("redis get %s: %v", codeKey, err)
+		exists, existsErr := redisx.Exists(l.ctx, codeKey)
+		if existsErr != nil {
+			return nil, errorx.NewCodeError(errorx.CodeRedisError, "系统繁忙，请稍后重试")
+		}
+		if exists == 0 {
+			return nil, errorx.NewCodeError(errorx.CodeVerifyCodeInvalid, "验证码已过期，请重新获取验证码")
+		}
+		return nil, errorx.NewCodeError(errorx.CodeVerifyCodeInvalid, "验证码无效，请重新发送验证码")
+	}
+	if stored == "" {
+		exists, _ := redisx.Exists(l.ctx, codeKey)
+		if exists == 0 {
+			return nil, errorx.NewCodeError(errorx.CodeVerifyCodeInvalid, "验证码已过期，请重新获取验证码")
+		}
+		return nil, errorx.NewCodeError(errorx.CodeVerifyCodeInvalid, "验证码无效，请重新发送验证码")
 	}
 	if stored != req.VerifyCode {
-		return nil, errorx.NewDefaultError(errorx.CodeVerifyCodeInvalid)
+		return nil, errorx.NewCodeError(errorx.CodeVerifyCodeInvalid, "验证码错误，请检查后重新输入")
 	}
 
 	repo := l.svcCtx.UserRepo
@@ -108,17 +122,9 @@ func (l *ResetPasswordLogic) ResetPassword(req *types.ResetPasswordReq) (resp *t
 
 	_ = redisx.Del(l.ctx, codeKey)
 
-	uu, err := repo.FindByID(l.ctx, u.Id)
-	if err != nil {
-		l.Logger.Errorf("FindByID: %v", err)
-		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, err.Error())
-	}
-	if uu == nil {
-		return nil, errorx.NewDefaultError(errorx.CodeUserNotFound)
-	}
-
-	info := userinfo.FromDAO(uu)
-	return &info, nil
+	return &types.ResetPasswordResp{
+		Message: "密码修改成功",
+	}, nil
 }
 
 func (l *ResetPasswordLogic) normalizeTarget(req *types.ResetPasswordReq) (target, by string) {

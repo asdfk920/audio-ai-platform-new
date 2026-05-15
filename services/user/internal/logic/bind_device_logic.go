@@ -151,5 +151,10 @@ func (l *BindDeviceLogic) checkBindStatus(userId, deviceID int64, sn string) err
 }
 
 func (l *BindDeviceLogic) executeBind(userId, deviceID int64, sn, deviceName string) error {
-	return l.svcCtx.DeviceBind.InsertBind(l.ctx, userId, deviceID, sn, deviceName, "", "")
+	if err := l.svcCtx.DeviceBind.BindDeviceWithTransaction(l.ctx, userId, deviceID, sn, deviceName); err != nil {
+		l.Logger.Errorf("BindDevice: 绑定事务失败, userId=%d, deviceID=%d, sn=%s, err=%v", userId, deviceID, sn, err)
+		return errorx.NewCodeError(errorx.CodeDatabaseError, "绑定失败：数据库操作异常")
+	}
+
+	return nil
 }

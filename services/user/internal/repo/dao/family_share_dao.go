@@ -34,12 +34,12 @@ const (
 	PermissionLevelPartial     = "partial_control"
 	PermissionLevelViewOnly    = "view_only"
 
-	DeviceShareStatusPending = "pending"
-	DeviceShareStatusActive  = "active"
+	DeviceShareStatusPending  = "pending"
+	DeviceShareStatusActive   = "active"
 	DeviceShareStatusRejected = "rejected"
-	DeviceShareStatusRevoked = "revoked"
-	DeviceShareStatusExpired = "expired"
-	DeviceShareStatusQuit    = "quit"
+	DeviceShareStatusRevoked  = "revoked"
+	DeviceShareStatusExpired  = "expired"
+	DeviceShareStatusQuit     = "quit"
 )
 
 type FamilyRow struct {
@@ -616,21 +616,17 @@ func ListSharedDevicesForUser(ctx context.Context, tx *sql.Tx, userID int64, dev
 		"s.status = $2",
 		"m.status = $3",
 	}
-	argIndex := 4
 	if v := strings.TrimSpace(deviceSn); v != "" {
-		where = append(where, fmt.Sprintf("s.device_sn ILIKE $%d", argIndex))
+		where = append(where, fmt.Sprintf("s.device_sn ILIKE $%d", len(args)+1))
 		args = append(args, "%"+v+"%")
-		argIndex++
 	}
 	if v := strings.TrimSpace(deviceName); v != "" {
-		where = append(where, fmt.Sprintf("s.device_name ILIKE $%d", argIndex))
+		where = append(where, fmt.Sprintf("s.device_name ILIKE $%d", len(args)+1))
 		args = append(args, "%"+v+"%")
-		argIndex++
 	}
 	if v := strings.TrimSpace(deviceModel); v != "" {
-		where = append(where, fmt.Sprintf("d.product_key ILIKE $%d", argIndex))
+		where = append(where, fmt.Sprintf("d.product_key ILIKE $%d", len(args)+1))
 		args = append(args, "%"+v+"%")
-		argIndex++
 	}
 	query := fmt.Sprintf(`
 		SELECT s.id, s.device_id, s.device_sn, s.device_name, d.product_key, d.firmware_version, d.firmware_version, d.hardware_version,

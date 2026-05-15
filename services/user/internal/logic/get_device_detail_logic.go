@@ -45,8 +45,25 @@ func (l *GetDeviceDetailLogic) GetDeviceDetail(req *types.DeviceDetailReq) (resp
 		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "查询失败")
 	}
 
-	if bindRow == nil || bindRow.UserID != userId {
-		l.Logger.Errorf("GetDeviceDetail: 用户无权限查看该设备, userId=%d, sn=%s", userId, sn)
+	if bindRow == nil {
+		l.Logger.Errorf("GetDeviceDetail: 未找到活跃绑定记录, userId=%d, sn=%s", userId, sn)
+
+		deviceBindStatus, checkErr := l.svcCtx.DeviceBind.CheckDeviceBindStatus(l.ctx, sn)
+		if checkErr != nil {
+			l.Logger.Errorf("GetDeviceDetail: 检查设备绑定状态失败, sn=%s, err=%v", sn, checkErr)
+		} else if deviceBindStatus != nil {
+			l.Logger.Infof("GetDeviceDetail: 设备表绑定状态, sn=%s, bind_status=%d, bound_user_id=%v",
+				sn, deviceBindStatus.BindStatus, deviceBindStatus.BoundUserID)
+		} else {
+			l.Logger.Infof("GetDeviceDetail: 设备不存在于设备表, sn=%s", sn)
+		}
+
+		return nil, errorx.NewCodeError(errorx.CodeDeviceNoPermission, "无权限查看该设备")
+	}
+
+	if bindRow.UserID != userId {
+		l.Logger.Errorf("GetDeviceDetail: 用户无权限查看该设备, userId=%d, bindUserId=%d, sn=%s",
+			userId, bindRow.UserID, sn)
 		return nil, errorx.NewCodeError(errorx.CodeDeviceNoPermission, "无权限查看该设备")
 	}
 

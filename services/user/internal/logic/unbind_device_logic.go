@@ -140,12 +140,14 @@ func (l *UnbindDeviceLogic) checkUserBinding(userId, deviceID int64, sn string) 
 }
 
 func (l *UnbindDeviceLogic) executeUnbind(userId, deviceID int64) error {
-	affected, err := l.svcCtx.DeviceBind.UnbindForUser(l.ctx, userId, deviceID)
+	affected, err := l.svcCtx.DeviceBind.UnbindDeviceWithTransaction(l.ctx, userId, deviceID)
 	if err != nil {
-		return err
+		l.Logger.Errorf("UnbindDevice: 解绑事务失败, userId=%d, deviceID=%d, err=%v", userId, deviceID, err)
+		return errorx.NewCodeError(errorx.CodeDatabaseError, "解绑失败：数据库操作异常")
 	}
 	if affected == 0 {
 		return errorx.NewCodeError(errorx.CodeDeviceNotBound, "你未绑定该设备，无法解绑")
 	}
+
 	return nil
 }

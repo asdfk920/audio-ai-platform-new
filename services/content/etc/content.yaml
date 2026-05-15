@@ -44,8 +44,8 @@ ContentAuth:
   PreviewSeconds: 60
 
 CacheRedis:
-  - Host: 14.103.202.69:6379
-    Pass: "4ay1nka13u8ed77y"
+  - Addr: "14.103.202.69:6379"
+    Password: "cjs110017"
     Type: node
 
 # 非空时开放 POST /api/v1/content/internal/bump-list-cache，Header: X-Internal-Secret

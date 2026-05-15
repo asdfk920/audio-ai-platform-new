@@ -105,6 +105,29 @@ VALUES ($1, $2, $3, $4, 0, 1, 1, CURRENT_TIMESTAMP)
 	return err
 }
 
+// UpsertBind 插入或更新绑定记录（支持重新绑定已解绑的设备）
+// 解决唯一约束冲突问题：用户解绑后可再次绑定同一设备
+func (r *UserDeviceBindRepo) UpsertBind(ctx context.Context, userID, deviceID int64, sn, deviceName string) error {
+	alias := deviceName
+	if len([]rune(alias)) > 32 {
+		alias = string([]rune(deviceName)[:32])
+	}
+	_, err := r.db.ExecContext(ctx, `
+INSERT INTO public.user_device_bind
+  (user_id, device_id, sn, alias, is_default, bind_type, status, bound_at)
+VALUES ($1, $2, $3, $4, 0, 1, 1, CURRENT_TIMESTAMP)
+ON CONFLICT (user_id, device_id)
+DO UPDATE SET
+    sn = EXCLUDED.sn,
+    alias = EXCLUDED.alias,
+    status = 1,
+    bound_at = CURRENT_TIMESTAMP,
+    unbound_at = NULL,
+    updated_at = CURRENT_TIMESTAMP
+`, userID, deviceID, sn, alias)
+	return err
+}
+
 // UnbindForUser 将当前用户对某设备的活跃绑定标记为解绑（status=0，不删行）。
 func (r *UserDeviceBindRepo) UnbindForUser(ctx context.Context, userID, deviceID int64) (affected int64, err error) {
 	res, err := r.db.ExecContext(ctx, `
@@ -117,6 +140,127 @@ UPDATE public.user_device_bind
 	}
 	n, _ := res.RowsAffected()
 	return n, nil
+}
+
+// ClearDeviceBindStatus 解绑后清空设备表中的绑定状态（bind_status=0）
+func (r *UserDeviceBindRepo) ClearDeviceBindStatus(ctx context.Context, deviceID int64) error {
+	_, err := r.db.ExecContext(ctx, `
+UPDATE public.device
+   SET bind_status = 0,
+       bound_user_id = NULL,
+       bound_at = NULL,
+       updated_at = CURRENT_TIMESTAMP
+ WHERE id = $1
+`, deviceID)
+	return err
+}
+
+// UnbindDeviceWithTransaction 使用事务完成完整的解绑流程（保证原子性）
+func (r *UserDeviceBindRepo) UnbindDeviceWithTransaction(ctx context.Context, userID, deviceID int64) (affected int64, err error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	res, err := tx.ExecContext(ctx, `
+UPDATE public.user_device_bind
+   SET status = 0, unbound_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+ WHERE user_id = $1 AND device_id = $2 AND status = 1
+`, userID, deviceID)
+
+	if err != nil {
+		return 0, err
+	}
+
+	n, _ := res.RowsAffected()
+
+	_, err = tx.ExecContext(ctx, `
+UPDATE public.device
+   SET bind_status = 0,
+       bound_user_id = NULL,
+       bound_at = NULL,
+       updated_at = CURRENT_TIMESTAMP
+ WHERE id = $1
+`, deviceID)
+
+	if err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+
+	return n, nil
+}
+
+// UpdateDeviceBindStatusForUser 绑定时更新设备表的绑定状态（bind_status=1）
+func (r *UserDeviceBindRepo) UpdateDeviceBindStatusForUser(ctx context.Context, deviceID, userID int64) error {
+	_, err := r.db.ExecContext(ctx, `
+UPDATE public.device
+   SET bind_status = 1,
+       bound_user_id = $2,
+       bound_at = CURRENT_TIMESTAMP,
+       updated_at = CURRENT_TIMESTAMP
+ WHERE id = $1
+`, deviceID, userID)
+	return err
+}
+
+// BindDeviceWithTransaction 使用事务完成完整的绑定流程（保证原子性）
+func (r *UserDeviceBindRepo) BindDeviceWithTransaction(ctx context.Context, userID, deviceID int64, sn, deviceName string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	alias := deviceName
+	if len([]rune(alias)) > 32 {
+		alias = string([]rune(deviceName)[:32])
+	}
+
+	_, err = tx.ExecContext(ctx, `
+INSERT INTO public.user_device_bind
+  (user_id, device_id, sn, alias, is_default, bind_type, status, bound_at)
+VALUES ($1, $2, $3, $4, 0, 1, 1, CURRENT_TIMESTAMP)
+ON CONFLICT (user_id, device_id)
+DO UPDATE SET
+    sn = EXCLUDED.sn,
+    alias = EXCLUDED.alias,
+    status = 1,
+    bound_at = CURRENT_TIMESTAMP,
+    unbound_at = NULL,
+    updated_at = CURRENT_TIMESTAMP
+`, userID, deviceID, sn, alias)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, `
+UPDATE public.device
+   SET bind_status = 1,
+       bound_user_id = $2,
+       bound_at = CURRENT_TIMESTAMP,
+       updated_at = CURRENT_TIMESTAMP
+ WHERE id = $1
+`, deviceID, userID)
+
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // ListActiveByUserID 用户当前绑定中的设备列表；nameSub/snSub/modelSub 非空时在库内做子串匹配（AND）。
@@ -149,6 +293,32 @@ SELECT d.sn,
 		out = append(out, it)
 	}
 	return out, rows.Err()
+}
+
+// DeviceBindStatus 设备绑定状态信息
+type DeviceBindStatus struct {
+	BindStatus  int16
+	BoundUserID *int64
+}
+
+// CheckDeviceBindStatus 检查设备表的绑定状态（用于调试和辅助判断）
+func (r *UserDeviceBindRepo) CheckDeviceBindStatus(ctx context.Context, sn string) (*DeviceBindStatus, error) {
+	var status DeviceBindStatus
+	err := r.db.QueryRowContext(ctx, `
+SELECT COALESCE(bind_status, 0)::smallint,
+       bound_user_id
+  FROM public.device
+ WHERE sn = $1
+ LIMIT 1
+`, sn).Scan(&status.BindStatus, &status.BoundUserID)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &status, nil
 }
 
 // UserDeviceListItem 列表一行（含绑定时间）。

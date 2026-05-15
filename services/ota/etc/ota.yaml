@@ -9,7 +9,6 @@ Postgres:
   DataSource: admin:admin123@tcp(14.103.202.69:5432)/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai
 
 Redis:
-  Host: 14.103.202.69:6379
-  Pass: "4ay1nka13u8ed77y"
-  Type: node
+  Addr: "14.103.202.69:6379"
+  Password: "cjs110017"
   DB: 0
