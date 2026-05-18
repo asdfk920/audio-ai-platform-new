@@ -6,7 +6,8 @@ on:
   pull_request:
     branches: [ develop, main ]
 
-# golangci-lint 与 Go 工具链版本（Go 具体版本由根目录 go.mod + setup-go 解析）
+# golangci-lint：勿使用官方 install.sh 的预编译包（常与 go.mod 中 go 1.25 不兼容）。
+# 在 setup-go 之后用「当前 Job 的 Go」源码编译安装，避免 “built with go1.24 < targeted 1.25”。
 # 注意：job.services.image 不能使用 env 表达式，Postgres/Redis 镜像版本在下方两处保持同步
 env:
   GOLANGCI_LINT_VERSION: v1.64.8
@@ -22,7 +23,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: '1.25'
           cache: true
           cache-dependency-path: |
             go.sum
@@ -32,9 +33,10 @@ jobs:
             services/content/go.sum
             services/media-processing/go.sum
 
-      - name: Install golangci-lint
+      - name: Install golangci-lint (compile with job Go; avoids prebuilt/toolchain mismatch)
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" "${{ env.GOLANGCI_LINT_VERSION }}"
+          set -euo pipefail
+          go install "github.com/golangci/golangci-lint/cmd/golangci-lint@${{ env.GOLANGCI_LINT_VERSION }}"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Sync root platform module (replace 指向根模块的 user 等子模块需先解析)
@@ -53,8 +55,11 @@ jobs:
           GOTOOLCHAIN: local
         run: |
           set -euo pipefail
-          cd "${GITHUB_WORKSPACE}"
-          golangci-lint run --config "${GITHUB_WORKSPACE}/.golangci.yml" --out-format=colored-line-number --timeout=5m ./common/...
+          # common 为独立 module：须在 common 目录下 lint（./common/... 从仓库根跑会因 main module 不含 common 而失败）
+          cd "${GITHUB_WORKSPACE}/common"
+          go mod tidy
+          go mod verify
+          golangci-lint run --config "${GITHUB_WORKSPACE}/.golangci.yml" --out-format=colored-line-number --timeout=5m ./...
 
       - name: Lint microservices
         env:
@@ -112,7 +117,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: '1.25'
           cache: true
           cache-dependency-path: |
             go.sum
@@ -131,7 +136,7 @@ jobs:
           go mod verify
           for svc in services/user services/device services/content services/media-processing; do
             echo "=== Downloading deps for $svc ==="
-            (cd "$svc" && go mod download && go mod verify)
+            (cd "$svc" && go mod tidy && go mod download && go mod verify)
           done
 
       - name: Run tests with merged coverage
@@ -148,6 +153,8 @@ jobs:
             echo "=== Testing $svc ==="
             (
               cd "${ROOT}/${svc}"
+              go mod tidy
+              go mod verify
               go test -v -race -covermode=atomic -count=1 -coverprofile=cov.out ./...
               tail -n +2 cov.out >> "${ROOT}/coverage.out"
               rm -f cov.out
@@ -171,7 +178,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: '1.25'
           cache: true
           cache-dependency-path: |
             go.sum
@@ -203,7 +210,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: '1.25'
           cache: true
           cache-dependency-path: |
             go.sum
@@ -269,7 +276,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: '1.25'
           cache: true
           cache-dependency-path: |
             go.sum

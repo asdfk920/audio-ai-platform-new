@@ -9,22 +9,23 @@ import (
 // Device 设备数据模型结构体
 // 对应数据库中的 device 表，存储设备的基本信息、状态、版本等
 type Device struct {
-	ID              int64      `db:"id"`
-	Sn              string     `db:"sn"`
-	Model           string     `db:"model"`
-	ProductKey      string     `db:"product_key"`
-	DeviceSecret    string     `db:"device_secret"`
-	FirmwareVersion string     `db:"firmware_version"`
-	HardwareVersion string     `db:"hardware_version"`
-	Mac             string     `db:"mac"`
-	Ip              string     `db:"ip"`
-	OnlineStatus    int16      `db:"online_status"`
-	Status          int16      `db:"status"`
-	CreateBy        int64      `db:"create_by"`
-	LastActiveAt    time.Time  `db:"last_active_at"`
-	CreatedAt       time.Time  `db:"created_at"`
-	UpdatedAt       time.Time  `db:"updated_at"`
-	DeletedAt       *time.Time `db:"deleted_at"`
+	ID                int64      `db:"id"`
+	Sn                string     `db:"sn"`
+	Model             string     `db:"model"`
+	ProductKey        string     `db:"product_key"`
+	DeviceSecret      string     `db:"device_secret"`
+	RegisterSignature *string    `db:"register_signature"` // 设备注册签名：HMAC-SHA256(device_secret, sn + timestamp)，可为NULL
+	FirmwareVersion   string     `db:"firmware_version"`
+	HardwareVersion   string     `db:"hardware_version"`
+	Mac               string     `db:"mac"`
+	Ip                string     `db:"ip"`
+	OnlineStatus      int16      `db:"online_status"`
+	Status            int16      `db:"status"`
+	CreateBy          int64      `db:"create_by"`
+	LastActiveAt      time.Time  `db:"last_active_at"`
+	CreatedAt         time.Time  `db:"created_at"`
+	UpdatedAt         time.Time  `db:"updated_at"`
+	DeletedAt         *time.Time `db:"deleted_at"`
 }
 
 // DeviceStatus 设备状态常量定义

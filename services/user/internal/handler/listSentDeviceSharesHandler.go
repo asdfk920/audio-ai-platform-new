@@ -4,8 +4,10 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,9 +19,13 @@ func listSentDeviceSharesHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewListSentDeviceSharesLogic(r.Context(), svcCtx)
 		resp, err := l.ListSentDeviceShares()
 		if err != nil {
+			var ce *errorx.CodeError
+			if !errors.As(err, &ce) {
+				err = errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
+			}
 			httpx.ErrorCtx(r.Context(), w, err)
-		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			return
 		}
+		httpx.OkJsonCtx(r.Context(), w, resp)
 	}
 }

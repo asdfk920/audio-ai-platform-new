@@ -13,7 +13,7 @@ func HTTPStatusForCode(code int) int {
 		CodeDeviceAuthLocked,
 		CodeDeviceDisabled, CodeDeviceInactive, CodeDeviceScrapped:
 		return http.StatusForbidden
-	case CodeUserNotFound, CodeDeviceNotFound, CodeContentNotFound, CodeRealNameRecordNotFound, CodeAccountCancelled, CodeMemberOrderNotFound, CodeMemberPackageNotFound:
+	case CodeUserNotFound, CodeDeviceNotFound, CodeDeviceShareNotFound, CodeContentNotFound, CodeRealNameRecordNotFound, CodeAccountCancelled, CodeMemberOrderNotFound, CodeMemberPackageNotFound:
 		return http.StatusNotFound
 	case CodeUserExists, CodeNicknameTaken, CodeDeviceExists, CodeRebindContactConflict, CodeCancellationAlreadyPending, CodeDeviceAlreadyRegistered, CodeDeviceBoundByOther,
 		CodeFamilyAlreadyExists, CodeFamilyMemberExists, CodeDeviceShareExists:

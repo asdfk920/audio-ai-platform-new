@@ -2,6 +2,8 @@ Name: ai-worker
 Host: 0.0.0.0
 Port: 8004
 
+CORS: {}
+
 # 认证配置（必须与 User 服务一致）
 Auth:
   AccessSecret: audio-ai-platform-user-secret

@@ -2,11 +2,13 @@ package logic
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"strconv"
 	"time"
 
 	"github.com/jacklau/audio-ai-platform/common/errorx"
+	"github.com/jacklau/audio-ai-platform/services/user/internal/repo/dao"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/types"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -34,7 +36,7 @@ func (l *ListSentDeviceSharesLogic) ListSentDeviceShares() (resp *types.DeviceSh
 	}
 
 	rows, err := l.svcCtx.DB.QueryContext(l.ctx, `
-		SELECT s.id, s.device_sn, s.shared_user_id, s.target_account, s.status, s.created_at, s.end_at
+		SELECT s.id, s.device_sn, s.target_account, s.status, s.created_at, s.end_at
 		FROM public.user_device_share s
 		WHERE s.owner_user_id = $1
 		ORDER BY s.created_at DESC
@@ -48,17 +50,21 @@ func (l *ListSentDeviceSharesLogic) ListSentDeviceShares() (resp *types.DeviceSh
 	var list []types.DeviceShareItem
 	for rows.Next() {
 		var item types.DeviceShareItem
-		var endAt *time.Time
 		var createdAt time.Time
-		if err := rows.Scan(&item.ShareId, &item.Sn, &item.ToUserId, &item.ToAccount, &item.Status, &createdAt, &endAt); err != nil {
+		var endAt sql.NullTime
+		var st dao.DeviceShareStatus
+		if err := rows.Scan(&item.ShareId, &item.Sn, &item.ShareTo, &st, &createdAt, &endAt); err != nil {
 			l.Logger.Errorf("ListSentDeviceShares: 扫描行数据失败, err=%v", err)
 			continue
 		}
+		item.Status = dao.DeviceShareStatusToLegacyInt(st)
 		item.CreatedAt = createdAt.Format("2006-01-02 15:04:05")
-		if endAt != nil {
-			item.EndAt = endAt.Format("2006-01-02 15:04:05")
-		}
+		item.EndAt = formatNullTime(endAt)
 		list = append(list, item)
+	}
+	if err := rows.Err(); err != nil {
+		l.Logger.Errorf("ListSentDeviceShares: 遍历结果失败, userId=%d, err=%v", userId, err)
+		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "查询失败")
 	}
 
 	return &types.DeviceShareListResp{List: list}, nil

@@ -53,7 +53,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			// 用户上传音频文件到对象存储，返回 URL 用于音轨分离
 			Method:  http.MethodPost,
 			Path:    "/audio/upload",
-			Handler: CORSMiddleware(AudioUploadHandler(serverCtx)),
+			Handler: AudioUploadHandler(serverCtx),
 		},
 		{
 			// 发起音频分离任务（HTTP 版本）

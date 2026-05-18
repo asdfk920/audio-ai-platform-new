@@ -18,11 +18,14 @@ func createDeviceShareHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		l := logic.NewCreateDeviceShareLogic(r.Context(), svcCtx)
-		resp, err := l.CreateDeviceShare(&req)
+		err := l.CreateDeviceShare(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			httpx.OkJsonCtx(r.Context(), w, map[string]interface{}{
+				"code": 0,
+				"msg":  "共享设备分享成功",
+			})
 		}
 	}
 }

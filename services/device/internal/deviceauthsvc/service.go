@@ -6,10 +6,8 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -20,24 +18,21 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/jacklau/audio-ai-platform/common/errorx"
-	"github.com/jacklau/audio-ai-platform/services/device/internal/repo"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 )
 
-// contextKey 上下文键类型定义
+// contextKey
 type contextKey string
 
 const bearerTokenContextKey contextKey = "device-bearer-token"
 const clientIPContextKey contextKey = "device-client-ip"
 
 // Service 设备认证服务结构体
-// 提供设备认证的核心方法，包括 Token 签发、验证、设备身份校验等
 type Service struct {
 	svcCtx *svc.ServiceContext
 }
 
 // Principal 设备认证主体信息结构体
-// 包含认证通过后的设备基本信息，用于后续业务逻辑
 type Principal struct {
 	DeviceID        int64
 	DeviceSN        string
@@ -48,8 +43,27 @@ type Principal struct {
 	Status          int16
 }
 
+// DeviceAuthRow 设备认证查询结果行
+type DeviceAuthRow struct {
+	ID              int64
+	SN              string
+	ProductKey      string
+	Mac             string
+	FirmwareVersion string
+	IP              string
+	DeviceSecret    string
+	Status          int16
+}
+
+// ErrIfNotQueryable 检查设备状态是否可查询
+func ErrIfNotQueryable(status int16) error {
+	if status == 2 || status == 4 {
+		return errorx.NewDefaultError(errorx.CodeDeviceNotFound)
+	}
+	return nil
+}
+
 // TokenClaims JWT Token 声明结构体
-// 用于生成和解析设备认证 Token，包含设备 ID、SN 等信息
 type TokenClaims struct {
 	DeviceID int64  `json:"device_id"`
 	SN       string `json:"sn"`
@@ -57,16 +71,11 @@ type TokenClaims struct {
 }
 
 // New 创建设备认证服务实例
-// 参数 svcCtx *svc.ServiceContext: 服务上下文
-// 返回 *Service: 设备认证服务实例
 func New(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
 }
 
 // WithBearerToken 将 Bearer Token 添加到请求上下文
-// 参数 ctx context.Context: 原始上下文
-// 参数 token string: Bearer Token
-// 返回 context.Context: 添加了 Token 的上下文
 func WithBearerToken(ctx context.Context, token string) context.Context {
 	token = strings.TrimSpace(token)
 	if ctx == nil || token == "" {
@@ -76,8 +85,6 @@ func WithBearerToken(ctx context.Context, token string) context.Context {
 }
 
 // BearerTokenFromContext 从上下文中提取 Bearer Token
-// 参数 ctx context.Context: 请求上下文
-// 返回 string: Bearer Token，如果不存在则返回空字符串
 func BearerTokenFromContext(ctx context.Context) string {
 	if ctx == nil {
 		return ""
@@ -87,9 +94,6 @@ func BearerTokenFromContext(ctx context.Context) string {
 }
 
 // WithClientIP 将客户端 IP 添加到请求上下文
-// 参数 ctx context.Context: 原始上下文
-// 参数 clientIP string: 客户端 IP 地址
-// 返回 context.Context: 添加了 IP 的上下文
 func WithClientIP(ctx context.Context, clientIP string) context.Context {
 	clientIP = strings.TrimSpace(clientIP)
 	if ctx == nil || clientIP == "" {
@@ -99,8 +103,6 @@ func WithClientIP(ctx context.Context, clientIP string) context.Context {
 }
 
 // ClientIPFromContext 从上下文中提取客户端 IP
-// 参数 ctx context.Context: 请求上下文
-// 返回 string: 客户端 IP 地址，如果不存在则返回空字符串
 func ClientIPFromContext(ctx context.Context) string {
 	if ctx == nil {
 		return ""
@@ -141,7 +143,7 @@ func (s *Service) AuthenticateBySecret(ctx context.Context, sn, secret, clientIP
 		return nil, err
 	}
 	if requireActive {
-		if err := repo.ErrIfNotQueryable(row.Status); err != nil {
+		if err := ErrIfNotQueryable(row.Status); err != nil {
 			s.recordFailure(ctx, row.SN, authType, clientIP, "device_status_invalid", errorx.CodeOf(err))
 			return nil, err
 		}
@@ -166,12 +168,12 @@ func (s *Service) VerifyBootstrapSignature(ctx context.Context, sn, secret strin
 		return nil, err
 	}
 	if !allowInactive {
-		if err := repo.ErrIfNotQueryable(row.Status); err != nil {
+		if err := ErrIfNotQueryable(row.Status); err != nil {
 			s.recordFailure(ctx, row.SN, authType, clientIP, "device_status_invalid", errorx.CodeOf(err))
 			return nil, err
 		}
 	} else if row.Status == 2 || row.Status == 4 {
-		statusErr := repo.ErrIfNotQueryable(row.Status)
+		statusErr := ErrIfNotQueryable(row.Status)
 		s.recordFailure(ctx, row.SN, authType, clientIP, "device_status_invalid", errorx.CodeOf(statusErr))
 		return nil, statusErr
 	}
@@ -240,7 +242,7 @@ func (s *Service) VerifyDeviceToken(ctx context.Context, tokenString string) (*P
 	if row.ID != claims.DeviceID {
 		return nil, errorx.NewDefaultError(errorx.CodeTokenInvalid)
 	}
-	if err := repo.ErrIfNotQueryable(row.Status); err != nil {
+	if err := ErrIfNotQueryable(row.Status); err != nil {
 		return nil, err
 	}
 	return principalFromRow(row), nil
@@ -328,15 +330,24 @@ func (s *Service) validateTimestamp(ts int64) error {
 	return nil
 }
 
-func (s *Service) getDevice(ctx context.Context, sn string) (*repo.DeviceAuthRow, error) {
-	row, err := repo.GetDeviceForMQTTAuth(ctx, s.svcCtx.DB, sn)
+func (s *Service) getDevice(ctx context.Context, sn string) (*DeviceAuthRow, error) {
+	device, err := s.svcCtx.DeviceRepo.FindBySn(ctx, sn)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errorx.NewDefaultError(errorx.CodeDeviceNotFound)
-		}
 		return nil, errorx.NewDefaultError(errorx.CodeDatabaseError)
 	}
-	return row, nil
+	if device == nil {
+		return nil, errorx.NewDefaultError(errorx.CodeDeviceNotFound)
+	}
+	return &DeviceAuthRow{
+		ID:              device.ID,
+		SN:              device.Sn,
+		ProductKey:      device.ProductKey,
+		Mac:             device.Mac,
+		FirmwareVersion: device.FirmwareVersion,
+		IP:              device.Ip,
+		DeviceSecret:    device.DeviceSecret,
+		Status:          device.Status,
+	}, nil
 }
 
 func (s *Service) ensureNotLocked(ctx context.Context, sn string) error {
@@ -389,7 +400,7 @@ VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
 		normalizeSN(sn), truncate(authType, 32), truncate(clientIP, 64), truncate(outcome, 32), code, string(payload))
 }
 
-func principalFromRow(row *repo.DeviceAuthRow) *Principal {
+func principalFromRow(row *DeviceAuthRow) *Principal {
 	if row == nil {
 		return nil
 	}

@@ -6,11 +6,13 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"runtime/debug"
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/repo/dao"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
@@ -33,141 +35,145 @@ func NewCreateDeviceShareLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 	}
 }
 
-func (l *CreateDeviceShareLogic) CreateDeviceShare(req *types.DeviceShareCreateReq) (resp *types.DeviceShareItem, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			l.Logger.Errorf("CreateDeviceShare: 发生异常, panic=%v, stack=\n%s", r, debug.Stack())
-			err = errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
-		}
-	}()
-
-	userId := l.getUserIdFromCtx()
-	if userId == 0 {
-		l.Logger.Errorf("CreateDeviceShare: 获取用户ID失败 - 用户未登录或Token已过期")
-		return nil, errorx.NewCodeError(errorx.CodeTokenInvalid, "用户未登录")
-	}
+func (l *CreateDeviceShareLogic) CreateDeviceShare(req *types.DeviceShareCreateReq) error {
 
 	sn := strings.TrimSpace(req.Sn)
-	if sn == "" {
-		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "设备SN不能为空")
-	}
-
-	if len(sn) < 6 || len(sn) > 64 {
-		return nil, errorx.NewCodeError(errorx.CodeDeviceSnInvalid, "设备SN格式错误")
-	}
-
-	targetAccount := strings.TrimSpace(req.ShareTo)
-	if targetAccount == "" {
-		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "请输入被共享人的手机号或邮箱")
-	}
-
+	shareTo := strings.TrimSpace(req.ShareTo)
 	expireDays := req.ExpireDays
-	if expireDays <= 0 {
-		expireDays = 7
+
+	fmt.Println("========== [设备共享创建] 开始 ==========")
+	fmt.Printf("请求参数: sn=%s, shareTo=%s, expireDays=%d\n", sn, shareTo, expireDays)
+
+	userId := l.getUserIdFromCtx()
+	fmt.Printf("从Context获取userId: %d\n", userId)
+	if userId == 0 {
+		fmt.Println("❌ 错误: 用户未登录 (userId=0)")
+		return errorx.NewCodeError(errorx.CodeTokenInvalid, "用户未登录")
 	}
-	if expireDays > 365 {
-		expireDays = 365
+	fmt.Println("✅ 步骤1: 鉴权通过")
+
+	if sn == "" {
+		fmt.Println("❌ 错误: 设备SN为空")
+		return errorx.NewCodeError(errorx.CodeInvalidParam, "设备SN不能为空")
 	}
+
+	if shareTo == "" {
+		fmt.Println("❌ 错误: 被分享人账号为空")
+		return errorx.NewCodeError(errorx.CodeInvalidParam, "请输入被分享人的邮箱")
+	}
+	fmt.Println("✅ 步骤2: 参数校验通过")
 
 	tx, err := l.svcCtx.DB.BeginTx(l.ctx, nil)
 	if err != nil {
-		l.Logger.Errorf("CreateDeviceShare: 开启事务失败, err=%v", err)
-		return nil, errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
+		fmt.Printf("❌ 错误: 开启事务失败 - %v\n", err)
+		return errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
 	}
 	defer func() { _ = tx.Rollback() }()
+	fmt.Println("✅ 步骤3: 事务开启成功")
 
 	bind, err := dao.FindActiveBindByUserAndSN(l.ctx, tx, userId, sn)
 	if err != nil {
-		l.Logger.Errorf("CreateDeviceShare: 查询绑定关系失败, userId=%d, sn=%s, err=%v", userId, sn, err)
-		return nil, errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
+		fmt.Printf("❌ 错误: 查询设备绑定失败 - %v\n", err)
+		return errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
 	}
 	if bind == nil {
-		l.Logger.Errorf("CreateDeviceShare: 用户未绑定该设备, userId=%d, sn=%s", userId, sn)
-		return nil, errorx.NewCodeError(errorx.CodeDeviceNotBound, "您未绑定此设备，无法共享")
+		fmt.Println("❌ 错误: 设备不存在或无权限操作")
+		return errorx.NewCodeError(errorx.CodeDeviceNotBound, "设备不存在或无权限操作")
 	}
+	fmt.Printf("✅ 步骤4: 设备检查通过 (deviceID=%d, deviceName=%s)\n", bind.DeviceID, bind.DeviceName)
 
-	targetUser, findErr := dao.FindUserByAccount(l.ctx, tx, targetAccount, 0)
-	if findErr != nil {
-		l.Logger.Errorf("CreateDeviceShare: 查找目标用户失败, account=%s, err=%v", targetAccount, findErr)
-		return nil, errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
+	targetUser, err := dao.FindUserByAccount(l.ctx, tx, shareTo, 0)
+	if err != nil {
+		fmt.Printf("❌ 错误: 查询目标用户失败 - %v\n", err)
+		return errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
 	}
 	if targetUser == nil {
-		l.Logger.Errorf("CreateDeviceShare: 目标用户不存在, account=%s", targetAccount)
-		return nil, errorx.NewCodeError(errorx.CodeUserNotFound, "目标用户不存在，请检查账号是否正确")
+		fmt.Printf("❌ 错误: 目标用户不存在 (%s)\n", shareTo)
+		return errorx.NewCodeError(errorx.CodeUserNotFound, "目标用户不存在")
 	}
+	fmt.Printf("✅ 步骤5: 目标用户存在 (targetUserID=%d)\n", targetUser.ID)
 
 	if targetUser.ID == userId {
-		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "不能将设备共享给自己")
+		fmt.Println("❌ 错误: 不能共享给自己")
+		return errorx.NewCodeError(errorx.CodeInvalidParam, "不能将设备共享给自己")
 	}
 
 	existing, err := dao.FindActiveShareForDeviceUser(l.ctx, tx, bind.DeviceID, targetUser.ID)
 	if err != nil {
-		l.Logger.Errorf("CreateDeviceShare: 检查重复共享失败, err=%v", err)
-		return nil, errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
+		fmt.Printf("❌ 错误: 查询重复共享失败 - %v\n", err)
+		return errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
 	}
 	if existing != nil {
-		l.Logger.Infof("CreateDeviceShare: 已存在共享记录, shareId=%d", existing.ID)
-		return nil, errorx.NewCodeError(errorx.CodeDeviceShareExists, "已向该用户发起过设备共享，无需重复操作")
+		fmt.Println("❌ 错误: 已经共享过该用户")
+		return errorx.NewCodeError(errorx.CodeDeviceShareExists, "不能重复分享")
+	}
+	fmt.Println("✅ 步骤6: 重复共享检查通过")
+
+	var endAt sql.NullTime
+	if expireDays > 0 {
+		endAt = sql.NullTime{Time: time.Now().AddDate(0, 0, expireDays), Valid: true}
 	}
 
-	endAt := time.Now().AddDate(0, 0, expireDays)
+	targetAccount := firstNonEmpty(targetUser.Email.String, targetUser.Mobile.String)
+	inviteCode := generateInviteCode()
 
-	inviteCode, codeErr := generateInviteCode()
-	if codeErr != nil {
-		l.Logger.Errorf("CreateDeviceShare: 生成邀请码失败, err=%v", codeErr)
-		return nil, errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
-	}
+	fmt.Printf("准备插入共享记录:\n")
+	fmt.Printf("  - FamilyID: 1\n")
+	fmt.Printf("  - DeviceID: %d\n", bind.DeviceID)
+	fmt.Printf("  - DeviceSN: %s\n", sn)
+	fmt.Printf("  - DeviceName: %s\n", bind.DeviceName)
+	fmt.Printf("  - OwnerUserID: %d\n", userId)
+	fmt.Printf("  - SharerUserID: %d (发起共享的用户)\n", userId)
+	fmt.Printf("  - SharedUserID: %d\n", targetUser.ID)
+	fmt.Printf("  - TargetAccount: %s\n", targetAccount)
+	fmt.Printf("  - InviteCode: %s\n", inviteCode)
+	fmt.Printf("  - ShareType: 0 (永久)\n")
+	fmt.Printf("  - PermissionLevel: view_only\n")
+	fmt.Printf("  - EndAt: %+v\n", endAt)
+	fmt.Printf("  - Status: %s (待接收)\n", dao.DeviceShareStatusPending)
 
-	shareRow, insertErr := dao.InsertDeviceShare(l.ctx, tx, dao.DeviceShareRow{
+	shareRow, err := dao.InsertDeviceShare(l.ctx, tx, dao.DeviceShareRow{
 		FamilyID:        1,
 		DeviceID:        bind.DeviceID,
 		DeviceSN:        sn,
 		DeviceName:      bind.DeviceName,
 		OwnerUserID:     userId,
+		SharerUserID:    userId,
 		SharedUserID:    targetUser.ID,
-		TargetAccount:   firstNonEmpty(targetUser.Email.String, targetUser.Mobile.String),
+		TargetAccount:   targetAccount,
 		InviteCode:      inviteCode,
-		ShareType:       "permanent",
+		ShareType:       "0",
 		PermissionLevel: "view_only",
 		PermissionRaw:   []byte(`{}`),
-		EndAt:           sql.NullTime{Time: endAt, Valid: true},
+		EndAt:           endAt,
 		Status:          dao.DeviceShareStatusPending,
 		CreatedBy:       userId,
 	})
-	if insertErr != nil {
-		l.Logger.Errorf("CreateDeviceShare: 创建共享记录失败, err=%v", insertErr)
-		return nil, errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
+	if err != nil {
+		fmt.Printf("❌ 错误: 插入共享记录失败 - %v\n", err)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return errorx.NewCodeError(errorx.CodeDeviceShareExists, "不能重复分享")
+		}
+		return errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
 	}
+	fmt.Printf("✅ 步骤7: 共享记录插入成功 (shareID=%d)\n", shareRow.ID)
 
-	if commitErr := tx.Commit(); commitErr != nil {
-		l.Logger.Errorf("CreateDeviceShare: 提交事务失败, err=%v", commitErr)
-		return nil, errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
+	if err := tx.Commit(); err != nil {
+		fmt.Printf("❌ 错误: 提交事务失败 - %v\n", err)
+		return errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
 	}
+	fmt.Println("✅ 步骤8: 事务提交成功")
 
-	l.Logger.Infof("CreateDeviceShare: 共享邀请创建成功, userId=%d, sn=%s, targetUserId=%d, shareId=%d, expireDays=%d",
-		userId, sn, targetUser.ID, shareRow.ID, expireDays)
-
-	return &types.DeviceShareItem{
-		ShareId:    shareRow.ID,
-		Sn:         shareRow.DeviceSN,
-		FromUserId: shareRow.OwnerUserID,
-		ToUserId:   shareRow.SharedUserID,
-		ToAccount:  shareRow.TargetAccount,
-		Status:     statusToInt(shareRow.Status),
-		CreatedAt:  shareRow.CreatedAt.Format("2006-01-02 15:04:05"),
-		EndAt:      formatNullTime(shareRow.EndAt),
-	}, nil
+	fmt.Println("========== [设备共享创建] 成功 ==========")
+	return nil
 }
 
 func (l *CreateDeviceShareLogic) getUserIdFromCtx() int64 {
 	v := l.ctx.Value("userId")
 	if v == nil {
-		l.Logger.Errorf("CreateDeviceShare: Context中未找到userId, ctx keys: 检查中间件是否正确设置")
 		return 0
 	}
-
-	l.Logger.Infof("CreateDeviceShare: 从Context获取到userId, type=%T, value=%v", v, v)
-
 	switch id := v.(type) {
 	case int64:
 		return id
@@ -176,29 +182,20 @@ func (l *CreateDeviceShareLogic) getUserIdFromCtx() int64 {
 	case float64:
 		return int64(id)
 	case json.Number:
-		n, err := id.Int64()
-		if err != nil {
-			l.Logger.Errorf("CreateDeviceShare: json.Number转换失败, value=%s, err=%v", string(id), err)
-			return 0
-		}
+		n, _ := id.Int64()
 		return n
 	case string:
-		n, err := strconv.ParseInt(id, 10, 64)
-		if err != nil {
-			l.Logger.Errorf("CreateDeviceShare: string转换失败, value=%s, err=%v", id, err)
-			return 0
-		}
+		n, _ := strconv.ParseInt(id, 10, 64)
 		return n
 	default:
-		l.Logger.Errorf("CreateDeviceShare: userId类型不支持, type=%T, value=%v", v, v)
 		return 0
 	}
 }
 
-func generateInviteCode() (string, error) {
+func generateInviteCode() string {
 	buf := make([]byte, 6)
 	if _, err := rand.Read(buf); err != nil {
-		return "", err
+		return "SHR" + strconv.FormatInt(time.Now().UnixNano(), 36)
 	}
-	return "SHR" + strings.ToUpper(hex.EncodeToString(buf)), nil
+	return "SHR" + strings.ToUpper(hex.EncodeToString(buf))
 }

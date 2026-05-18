@@ -12,7 +12,8 @@ $env:GOTOOLCHAIN = "local"
 $golangci = Join-Path (go env GOPATH) "bin\golangci-lint.exe"
 if (-not (Test-Path $golangci)) {
     Write-Host "未找到 golangci-lint: $golangci" -ForegroundColor Red
-    Write-Host "请安装与 CI 相同版本: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8" -ForegroundColor Yellow
+    Write-Host "请使用当前 Go 工具链源码安装（与 CI 一致，避免预编译包 go 版本过低）：" -ForegroundColor Yellow
+    Write-Host "  go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8" -ForegroundColor Yellow
     exit 1
 }
 
@@ -46,8 +47,12 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ''
 Write-Host '=== Lint common ===' -ForegroundColor Cyan
-Push-Location $root
-& $golangci run --config $golangciYml --out-format=line-number --timeout=5m ./common/...
+Push-Location (Join-Path $root 'common')
+go mod tidy
+if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
+go mod verify
+if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
+& $golangci run --config $golangciYml --out-format=line-number --timeout=5m ./...
 if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
 Pop-Location
 
@@ -75,6 +80,10 @@ foreach ($svc in $services) {
     Write-Host ''
     Write-Host "=== Test $svc ===" -ForegroundColor Cyan
     Push-Location (Join-Path $root $svc)
+    go mod tidy
+    if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
+    go mod verify
+    if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
     go test -v -race -covermode=atomic -count=1 "-coverprofile=coverage.tmp" ./...
     if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
     if (Test-Path "coverage.tmp") {

@@ -2,7 +2,10 @@
 // 用于定义服务启动时从 YAML 配置文件加载的各项配置参数
 package config
 
-import "github.com/zeromicro/go-zero/rest"
+import (
+	apicors "github.com/jacklau/audio-ai-platform/common/cors"
+	"github.com/zeromicro/go-zero/rest"
+)
 
 // Config 设备服务的主配置结构体
 // 包含 REST 服务配置、认证配置、数据库配置、Redis 配置等所有核心配置项
@@ -21,8 +24,6 @@ type Config struct {
 	DeviceStatusQuery DeviceStatusQuery `json:",optional"`
 	// DeviceRegister MQTT/HTTP 基址与签名校验信任代理等（本服务已不提供 POST /register）。
 	DeviceRegister DeviceRegister `json:",optional"`
-	// MqttIngest 订阅 device/{sn}/report，device_secret + SN 鉴权后写影子（与 HTTP 上报一致）。
-	MqttIngest MqttIngest `json:",optional"`
 	// RedisKeyspace 监听 device:online:* 过期 → 影子离线 + Pub/Sub + 异步落库（需 Redis notify-keyspace-events 含 E）。
 	RedisKeyspace RedisKeyspace `json:",optional"`
 	// StatusPersist 异步写 device_status 与更新 device 主表（通道 + worker）。
@@ -33,10 +34,12 @@ type Config struct {
 	DeviceCommand DeviceCommand `json:",optional"`
 	// StatusReport POST /report/status 响应 next_interval：正常/中间档/节能/紧急及阈值（秒）。
 	StatusReport StatusReport `json:",optional"`
-	// ShadowMQTT 影子下发 MQTT 主题：兼容 legacy device/{sn}/desired 与 device/shadow/{sn|id}/… 双写。
-	ShadowMQTT ShadowMQTT `json:",optional"`
 	// StatusReportHTTP POST /api/device/status/report：按设备 SN 限流窗口内最大次数。
 	StatusReportHTTP StatusReportHTTP `json:",optional"`
+	// CORS 浏览器跨域；省略 AllowOrigins 时等价允许 *。
+	CORS apicors.Config `json:",optional"`
+	// WebSocket 设备长连接配置
+	WebSocket WebSocketConfig `json:",optional"`
 }
 
 // StatusReportHTTP 设备 HTTP 状态上报限流配置结构体
@@ -44,29 +47,6 @@ type Config struct {
 type StatusReportHTTP struct {
 	// RateLimitPerMinute 单设备每自然分钟最大请求数；<=0 时默认 60
 	RateLimitPerMinute int `json:",optional"`
-}
-
-// ShadowMQTT 设备影子 MQTT 发布配置结构体
-// 用于配置设备影子通过 MQTT 下发到设备时的主题模板和发布策略
-type ShadowMQTT struct {
-	EnableLegacyTopics bool `json:",optional"`
-	// LegacyDesiredTopic 默认 device/{sn}/desired，兼容旧版设备订阅
-	LegacyDesiredTopic string `json:",optional"`
-	// PublishShadowBySN / PublishShadowByID 是否向新层级各发一份（与 legacy 并行）
-	PublishShadowBySN    bool   `json:",optional"`
-	ShadowDesiredTopicSN string `json:",optional"` // 默认 device/shadow/{sn}/desired
-	PublishShadowByID    bool   `json:",optional"`
-	ShadowDesiredTopicID string `json:",optional"` // 默认 device/shadow/{id}/desired
-	// 可选：与 desired 同载荷再发到 command 主题（空模板则跳过）
-	ShadowCommandTopicSN string `json:",optional"`
-	ShadowCommandTopicID string `json:",optional"`
-	// PublishJSONDelta 为 true 时向 desired/delta 主题发纯 JSON delta（无 shadow_delta 信封）
-	PublishJSONDelta   bool   `json:",optional"`
-	ShadowDeltaTopicSN string `json:",optional"` // 默认 device/shadow/{sn}/desired/delta
-	ShadowDeltaTopicID string `json:",optional"` // 默认 device/shadow/{id}/desired/delta
-	// DesiredPublishQOS / DeltaPublishQOS：0–2，未配置时由代码默认 1
-	DesiredPublishQOS int `json:",optional"`
-	DeltaPublishQOS   int `json:",optional"`
 }
 
 // StatusReport 设备状态上报间隔策略配置
@@ -116,7 +96,6 @@ type DeviceStatusQuery struct {
 
 // DeviceRegister 设备接入侧配置（已移除本服务的 POST /register；字段仍用于 /auth 响应中的接入地址、签名校验信任代理等）
 type DeviceRegister struct {
-	MqttBroker                 string            `json:",optional"`
 	HttpBaseUrl                string            `json:",optional"`
 	AllowedProductKeys         []string          `json:",optional"` // 保留字段；自助注册接口已下线
 	BlacklistSNs               []string          `json:",optional"`
@@ -141,18 +120,6 @@ type DeviceAuth struct {
 	LockSeconds              int64  `json:",optional"`
 }
 
-// MqttIngest MQTT 消息消费端配置结构体（后端订阅）
-// 用于配置 MQTT Broker 连接、订阅主题、QoS 等参数
-type MqttIngest struct {
-	Enabled        bool   `json:",optional"`
-	Broker         string `json:",optional"`
-	ClientID       string `json:",optional"`
-	Username       string `json:",optional"`
-	Password       string `json:",optional"`
-	SubscribeTopic string `json:",optional"` // 默认 device/+/report；EMQX 共享订阅示例 $share/device-api/device/+/report
-	QOS            int    `json:",optional"` // 0–2，默认 1
-}
-
 // RedisKeyspace Redis Keyspace 通知配置结构体
 // 用于配置是否启用在线键过期监听功能
 type RedisKeyspace struct {
@@ -174,4 +141,17 @@ type DeviceCommand struct {
 	DefaultMaxRetry       int `json:",optional"`
 	DispatchBatchSize     int `json:",optional"`
 	WorkerIntervalSeconds int `json:",optional"`
+}
+
+// WebSocketConfig WebSocket 设备长连接配置结构体
+// 用于配置设备通过 WebSocket 建立长连接的参数（保活、缓冲区、跨域等）
+type WebSocketConfig struct {
+	Enable          bool   `json:",optional"` // 是否启用 WebSocket 服务
+	Path            string `json:",optional"` // WebSocket 连接路径，默认 /ws/device
+	ReadBufferSize  int    `json:",optional"` // 读缓冲区大小（字节），默认 10240
+	WriteBufferSize int    `json:",optional"` // 写缓冲区大小（字节），默认 10240
+	PingInterval    string `json:",optional"` // 心跳间隔（Go duration 格式），默认 "54s"
+	PongTimeout     string `json:",optional"` // Pong 超时时间（Go duration 格式），默认 "60s"
+	MaxMessageSize  int64  `json:",optional"` // 最大消息大小（字节），默认 65536 (64KB)
+	EnableCors      bool   `json:",optional"` // 是否允许跨域，默认 true
 }

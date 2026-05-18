@@ -93,20 +93,20 @@ func TestCanControlDeviceSharedMember(t *testing.T) {
 			"id", "user_id", "device_id", "sn", "alias", "status", "bound_at", "unbound_at",
 		}))
 	mock.ExpectQuery(regexp.QuoteMeta(`
-		SELECT id, family_id, device_id, device_sn, device_name, owner_user_id, shared_user_id, target_account, invite_code,
+		SELECT id, family_id, device_id, device_sn, device_name, owner_user_id, sharer_user_id, shared_user_id, target_account, invite_code,
 		       share_type, permission_level, permission_payload, start_at, end_at, status, confirmed_at, revoked_at, created_by, remark, created_at, updated_at
 		FROM public.user_device_share
 		WHERE device_id = $1 AND shared_user_id = $2
-		  AND status IN ($3, $4)
+		  AND LOWER(TRIM(COALESCE(status::text, ''))) IN ('pending', 'active', '0', '1')
 		ORDER BY id DESC
 		LIMIT 1
 	`)).
-		WithArgs(int64(88), int64(2002), dao.DeviceShareStatusPending, dao.DeviceShareStatusActive).
+		WithArgs(int64(88), int64(2002)).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "family_id", "device_id", "device_sn", "device_name", "owner_user_id", "shared_user_id", "target_account", "invite_code",
+			"id", "family_id", "device_id", "device_sn", "device_name", "owner_user_id", "sharer_user_id", "shared_user_id", "target_account", "invite_code",
 			"share_type", "permission_level", "permission_payload", "start_at", "end_at", "status", "confirmed_at", "revoked_at", "created_by", "remark", "created_at", "updated_at",
 		}).AddRow(
-			int64(10), int64(9), int64(88), "SN-002", "shared-device", int64(1001), int64(2002), "13800138000", "SHR001",
+			int64(10), int64(9), int64(88), "SN-002", "shared-device", int64(1001), int64(1001), int64(2002), "13800138000", "SHR001",
 			dao.ShareTypeTemporary, dao.PermissionLevelPartial, []byte(`{"allowed_actions":["power"]}`), nil, nil, dao.DeviceShareStatusActive, now, nil, int64(1001), "", now, now,
 		))
 	mock.ExpectQuery(regexp.QuoteMeta(`

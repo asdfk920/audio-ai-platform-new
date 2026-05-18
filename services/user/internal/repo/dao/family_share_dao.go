@@ -33,13 +33,6 @@ const (
 	PermissionLevelFullControl = "full_control"
 	PermissionLevelPartial     = "partial_control"
 	PermissionLevelViewOnly    = "view_only"
-
-	DeviceShareStatusPending  = "pending"
-	DeviceShareStatusActive   = "active"
-	DeviceShareStatusRejected = "rejected"
-	DeviceShareStatusRevoked  = "revoked"
-	DeviceShareStatusExpired  = "expired"
-	DeviceShareStatusQuit     = "quit"
 )
 
 type FamilyRow struct {
@@ -85,6 +78,7 @@ type DeviceShareRow struct {
 	DeviceSN        string
 	DeviceName      string
 	OwnerUserID     int64
+	SharerUserID    int64
 	SharedUserID    int64
 	TargetAccount   string
 	InviteCode      string
@@ -93,7 +87,7 @@ type DeviceShareRow struct {
 	PermissionRaw   []byte
 	StartAt         sql.NullTime
 	EndAt           sql.NullTime
-	Status          string
+	Status          DeviceShareStatus
 	ConfirmedAt     sql.NullTime
 	RevokedAt       sql.NullTime
 	CreatedBy       int64
@@ -406,15 +400,15 @@ func InsertDeviceShare(ctx context.Context, tx *sql.Tx, in DeviceShareRow) (*Dev
 	}
 	err := tx.QueryRowContext(ctx, `
 		INSERT INTO public.user_device_share
-		  (family_id, device_id, device_sn, device_name, owner_user_id, shared_user_id, target_account, invite_code, share_type,
+		  (family_id, device_id, device_sn, device_name, owner_user_id, sharer_user_id, shared_user_id, receiver_user_id, target_account, invite_code, share_type,
 		   permission_level, permission_payload, start_at, end_at, status, created_by, remark)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
-		        $10, $11, $12, $13, $14, $15, $16)
-		RETURNING id, family_id, device_id, device_sn, device_name, owner_user_id, shared_user_id, target_account, invite_code,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+		        $12, $13, $14, $15, $16, $17, $18)
+		RETURNING id, family_id, device_id, device_sn, device_name, owner_user_id, sharer_user_id, shared_user_id, target_account, invite_code,
 		          share_type, permission_level, permission_payload, start_at, end_at, status, confirmed_at, revoked_at, created_by, remark, created_at, updated_at
-	`, in.FamilyID, in.DeviceID, in.DeviceSN, in.DeviceName, in.OwnerUserID, in.SharedUserID, in.TargetAccount, in.InviteCode,
+	`, in.FamilyID, in.DeviceID, in.DeviceSN, in.DeviceName, in.OwnerUserID, in.SharerUserID, in.SharedUserID, in.SharedUserID, in.TargetAccount, in.InviteCode,
 		in.ShareType, in.PermissionLevel, json.RawMessage(in.PermissionRaw), startAt, endAt, in.Status, in.CreatedBy, in.Remark).Scan(
-		&row.ID, &row.FamilyID, &row.DeviceID, &row.DeviceSN, &row.DeviceName, &row.OwnerUserID, &row.SharedUserID,
+		&row.ID, &row.FamilyID, &row.DeviceID, &row.DeviceSN, &row.DeviceName, &row.OwnerUserID, &row.SharerUserID, &row.SharedUserID,
 		&row.TargetAccount, &row.InviteCode, &row.ShareType, &row.PermissionLevel, &row.PermissionRaw,
 		&row.StartAt, &row.EndAt, &row.Status, &row.ConfirmedAt, &row.RevokedAt, &row.CreatedBy, &row.Remark, &row.CreatedAt, &row.UpdatedAt,
 	)
@@ -426,7 +420,7 @@ func InsertDeviceShare(ctx context.Context, tx *sql.Tx, in DeviceShareRow) (*Dev
 
 func FindDeviceShareByInviteCode(ctx context.Context, tx *sql.Tx, inviteCode string, forUpdate bool) (*DeviceShareRow, error) {
 	query := `
-		SELECT id, family_id, device_id, device_sn, device_name, owner_user_id, shared_user_id, target_account, invite_code,
+		SELECT id, family_id, device_id, device_sn, device_name, owner_user_id, sharer_user_id, shared_user_id, target_account, invite_code,
 		       share_type, permission_level, permission_payload, start_at, end_at, status, confirmed_at, revoked_at, created_by, remark, created_at, updated_at
 		FROM public.user_device_share
 		WHERE invite_code = $1
@@ -436,7 +430,7 @@ func FindDeviceShareByInviteCode(ctx context.Context, tx *sql.Tx, inviteCode str
 	}
 	row := &DeviceShareRow{}
 	err := tx.QueryRowContext(ctx, query, strings.TrimSpace(inviteCode)).Scan(
-		&row.ID, &row.FamilyID, &row.DeviceID, &row.DeviceSN, &row.DeviceName, &row.OwnerUserID, &row.SharedUserID,
+		&row.ID, &row.FamilyID, &row.DeviceID, &row.DeviceSN, &row.DeviceName, &row.OwnerUserID, &row.SharerUserID, &row.SharedUserID,
 		&row.TargetAccount, &row.InviteCode, &row.ShareType, &row.PermissionLevel, &row.PermissionRaw,
 		&row.StartAt, &row.EndAt, &row.Status, &row.ConfirmedAt, &row.RevokedAt, &row.CreatedBy, &row.Remark, &row.CreatedAt, &row.UpdatedAt,
 	)
@@ -449,20 +443,31 @@ func FindDeviceShareByInviteCode(ctx context.Context, tx *sql.Tx, inviteCode str
 	return row, nil
 }
 
+// FindDeviceShareQuitSnapshot 只查退出接口需要的字段，避免 FindDeviceShareByID 依赖 confirmed_at / family 等多列导致旧库报错。
+func FindDeviceShareQuitSnapshot(ctx context.Context, tx *sql.Tx, shareID int64) (receiverUserID int64, st DeviceShareStatus, err error) {
+	err = tx.QueryRowContext(ctx, `
+		SELECT COALESCE(NULLIF(shared_user_id, 0), receiver_user_id, 0), status
+		FROM public.user_device_share
+		WHERE id = $1
+		LIMIT 1
+	`, shareID).Scan(&receiverUserID, &st)
+	return receiverUserID, st, err
+}
+
 func FindDeviceShareByID(ctx context.Context, tx *sql.Tx, shareID int64) (*DeviceShareViewRow, error) {
 	row := &DeviceShareViewRow{}
 	err := tx.QueryRowContext(ctx, `
-		SELECT s.id, s.family_id, s.device_id, s.device_sn, s.device_name, s.owner_user_id, s.shared_user_id, s.target_account, s.invite_code,
+		SELECT s.id, s.family_id, s.device_id, s.device_sn, s.device_name, s.owner_user_id, s.sharer_user_id, COALESCE(NULLIF(s.shared_user_id, 0), s.receiver_user_id, 0), s.target_account, s.invite_code,
 		       s.share_type, s.permission_level, s.permission_payload, s.start_at, s.end_at, s.status, s.confirmed_at, s.revoked_at, s.created_by, s.remark, s.created_at, s.updated_at,
 		       COALESCE(ou.nickname, ''), COALESCE(su.nickname, ''), COALESCE(f.name, '')
 		FROM public.user_device_share s
-		JOIN public.user_family f ON f.id = s.family_id
+		LEFT JOIN public.user_family f ON f.id = s.family_id
 		LEFT JOIN public.users ou ON ou.id = s.owner_user_id
-		LEFT JOIN public.users su ON su.id = s.shared_user_id
+		LEFT JOIN public.users su ON su.id = COALESCE(NULLIF(s.shared_user_id, 0), s.receiver_user_id, 0)
 		WHERE s.id = $1
 		LIMIT 1
 	`, shareID).Scan(
-		&row.ID, &row.FamilyID, &row.DeviceID, &row.DeviceSN, &row.DeviceName, &row.OwnerUserID, &row.SharedUserID, &row.TargetAccount, &row.InviteCode,
+		&row.ID, &row.FamilyID, &row.DeviceID, &row.DeviceSN, &row.DeviceName, &row.OwnerUserID, &row.SharerUserID, &row.SharedUserID, &row.TargetAccount, &row.InviteCode,
 		&row.ShareType, &row.PermissionLevel, &row.PermissionRaw, &row.StartAt, &row.EndAt, &row.Status, &row.ConfirmedAt, &row.RevokedAt, &row.CreatedBy, &row.Remark, &row.CreatedAt, &row.UpdatedAt,
 		&row.OwnerNickname, &row.SharedNickname, &row.FamilyName,
 	)
@@ -478,15 +483,15 @@ func FindDeviceShareByID(ctx context.Context, tx *sql.Tx, shareID int64) (*Devic
 func FindActiveShareForDeviceUser(ctx context.Context, tx *sql.Tx, deviceID, sharedUserID int64) (*DeviceShareRow, error) {
 	row := &DeviceShareRow{}
 	err := tx.QueryRowContext(ctx, `
-		SELECT id, family_id, device_id, device_sn, device_name, owner_user_id, shared_user_id, target_account, invite_code,
+		SELECT id, family_id, device_id, device_sn, device_name, owner_user_id, sharer_user_id, shared_user_id, target_account, invite_code,
 		       share_type, permission_level, permission_payload, start_at, end_at, status, confirmed_at, revoked_at, created_by, remark, created_at, updated_at
 		FROM public.user_device_share
 		WHERE device_id = $1 AND shared_user_id = $2
-		  AND status IN ($3, $4)
+		  AND LOWER(TRIM(COALESCE(status::text, ''))) IN ('pending', 'active', '0', '1')
 		ORDER BY id DESC
 		LIMIT 1
-	`, deviceID, sharedUserID, DeviceShareStatusPending, DeviceShareStatusActive).Scan(
-		&row.ID, &row.FamilyID, &row.DeviceID, &row.DeviceSN, &row.DeviceName, &row.OwnerUserID, &row.SharedUserID,
+	`, deviceID, sharedUserID).Scan(
+		&row.ID, &row.FamilyID, &row.DeviceID, &row.DeviceSN, &row.DeviceName, &row.OwnerUserID, &row.SharerUserID, &row.SharedUserID,
 		&row.TargetAccount, &row.InviteCode, &row.ShareType, &row.PermissionLevel, &row.PermissionRaw,
 		&row.StartAt, &row.EndAt, &row.Status, &row.ConfirmedAt, &row.RevokedAt, &row.CreatedBy, &row.Remark, &row.CreatedAt, &row.UpdatedAt,
 	)
@@ -500,6 +505,10 @@ func FindActiveShareForDeviceUser(ctx context.Context, tx *sql.Tx, deviceID, sha
 }
 
 func UpdateDeviceShareAccepted(ctx context.Context, tx *sql.Tx, shareID int64) error {
+	const sp = "sp_upd_share_accepted"
+	if _, err := tx.ExecContext(ctx, "SAVEPOINT "+sp); err != nil {
+		return err
+	}
 	_, err := tx.ExecContext(ctx, `
 		UPDATE public.user_device_share
 		SET status = $1,
@@ -507,18 +516,229 @@ func UpdateDeviceShareAccepted(ctx context.Context, tx *sql.Tx, shareID int64) e
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $2
 	`, DeviceShareStatusActive, shareID)
-	return err
-}
+	if err == nil {
+		_, relErr := tx.ExecContext(ctx, "RELEASE SAVEPOINT "+sp)
+		return relErr
+	}
+	_, _ = tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT "+sp)
+	_, _ = tx.ExecContext(ctx, "RELEASE SAVEPOINT "+sp)
 
-func UpdateDeviceShareStatus(ctx context.Context, tx *sql.Tx, shareID int64, status string) error {
-	_, err := tx.ExecContext(ctx, `
+	// 旧版表仅有 accepted_at，无 confirmed_at
+	if _, err := tx.ExecContext(ctx, "SAVEPOINT "+sp); err != nil {
+		return err
+	}
+	_, errLegacy := tx.ExecContext(ctx, `
 		UPDATE public.user_device_share
 		SET status = $1,
-		    revoked_at = CASE WHEN $1 IN ('revoked', 'expired', 'quit') THEN CURRENT_TIMESTAMP ELSE revoked_at END,
+		    accepted_at = CURRENT_TIMESTAMP,
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = $2
-	`, status, shareID)
-	return err
+	`, DeviceShareStatusActive, shareID)
+	if errLegacy != nil {
+		_, _ = tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT "+sp)
+		_, _ = tx.ExecContext(ctx, "RELEASE SAVEPOINT "+sp)
+		return errLegacy
+	}
+	_, relErr := tx.ExecContext(ctx, "RELEASE SAVEPOINT "+sp)
+	return relErr
+}
+
+func UpdateDeviceShareStatus(ctx context.Context, tx *sql.Tx, shareID int64, status DeviceShareStatus) error {
+	const sp = "sp_upd_share_status"
+	stStr := normalizeDeviceShareStatusString(string(status))
+
+	if _, err := tx.ExecContext(ctx, "SAVEPOINT "+sp); err != nil {
+		return err
+	}
+	// 优先按文本枚举写入（status 列为 VARCHAR / TEXT 的库）
+	// $1 / $2 分开工况判断，避免同一占位符既写入列又 ::text 导致 42P08
+	_, errStr := tx.ExecContext(ctx, `
+		UPDATE public.user_device_share
+		SET status = $1,
+		    revoked_at = CASE WHEN LOWER(TRIM($2::text)) IN ('rejected', 'revoked', 'expired', 'quit') THEN CURRENT_TIMESTAMP ELSE revoked_at END,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $3
+	`, stStr, stStr, shareID)
+	if errStr == nil {
+		_, relErr := tx.ExecContext(ctx, "RELEASE SAVEPOINT "+sp)
+		return relErr
+	}
+	_, _ = tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT "+sp)
+	_, _ = tx.ExecContext(ctx, "RELEASE SAVEPOINT "+sp)
+
+	code := DeviceShareStatusToLegacyInt(status)
+	if _, err := tx.ExecContext(ctx, "SAVEPOINT "+sp); err != nil {
+		return err
+	}
+	// SMALLINT 等数值状态列（绑定值为 0–5）；$1/$2 分离避免 42P08
+	_, errInt := tx.ExecContext(ctx, `
+		UPDATE public.user_device_share
+		SET status = $1,
+		    revoked_at = CASE WHEN $2::integer IN (2, 3, 4, 5) THEN CURRENT_TIMESTAMP ELSE revoked_at END,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $3
+	`, code, code, shareID)
+	if errInt != nil {
+		_, _ = tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT "+sp)
+		_, _ = tx.ExecContext(ctx, "RELEASE SAVEPOINT "+sp)
+		return errInt
+	}
+	_, relErr := tx.ExecContext(ctx, "RELEASE SAVEPOINT "+sp)
+	return relErr
+}
+
+// RevokeActiveSharesByOwnerAndSN 按设备 SN 撤销：当前用户作为所有者时，结束该设备下仍有效的共享。
+// 兼容多套历史表结构（device_sn+owner+varchar/smallint status，或 sn+sharer+smallint）。
+func RevokeActiveSharesByOwnerAndSN(ctx context.Context, tx *sql.Tx, ownerUserID int64, deviceSN string) (int64, error) {
+	sn := strings.TrimSpace(deviceSN)
+	if sn == "" {
+		return 0, nil
+	}
+	attempts := []struct {
+		sql  string
+		args []any
+	}{
+		{
+			sql: `
+UPDATE public.user_device_share
+SET status = $1,
+    revoked_at = CURRENT_TIMESTAMP,
+    updated_at = CURRENT_TIMESTAMP
+WHERE owner_user_id = $2
+  AND TRIM(device_sn) = $3
+  AND LOWER(TRIM(COALESCE(status::text, ''))) IN ('pending', 'active', '0', '1')`,
+			args: []any{DeviceShareStatusRevoked.String(), ownerUserID, sn},
+		},
+		{
+			sql: `
+UPDATE public.user_device_share
+SET status = 3,
+    revoked_at = CURRENT_TIMESTAMP,
+    updated_at = CURRENT_TIMESTAMP
+WHERE owner_user_id = $1
+  AND TRIM(device_sn) = $2
+  AND status IN (0, 1)`,
+			args: []any{ownerUserID, sn},
+		},
+		{
+			sql: `
+UPDATE public.user_device_share
+SET status = 3,
+    revoked_at = CURRENT_TIMESTAMP,
+    updated_at = CURRENT_TIMESTAMP
+WHERE sharer_user_id = $1
+  AND TRIM(device_sn) = $2
+  AND status IN (0, 1)`,
+			args: []any{ownerUserID, sn},
+		},
+	}
+	var lastErr error
+	anyExecOK := false
+	for i, a := range attempts {
+		sp := fmt.Sprintf("sp_revoke_%d", i)
+		if _, err := tx.ExecContext(ctx, "SAVEPOINT "+sp); err != nil {
+			return 0, fmt.Errorf("savepoint: %w", err)
+		}
+
+		res, err := tx.ExecContext(ctx, a.sql, a.args...)
+		if err != nil {
+			lastErr = err
+			_, _ = tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT "+sp)
+			_, _ = tx.ExecContext(ctx, "RELEASE SAVEPOINT "+sp)
+			continue
+		}
+		anyExecOK = true
+		n, rerr := res.RowsAffected()
+		if rerr != nil {
+			lastErr = rerr
+			_, _ = tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT "+sp)
+			_, _ = tx.ExecContext(ctx, "RELEASE SAVEPOINT "+sp)
+			continue
+		}
+		if _, relErr := tx.ExecContext(ctx, "RELEASE SAVEPOINT "+sp); relErr != nil {
+			return 0, fmt.Errorf("release savepoint: %w", relErr)
+		}
+		if n > 0 {
+			return n, nil
+		}
+	}
+	if !anyExecOK {
+		return 0, lastErr
+	}
+	return 0, nil
+}
+
+// FindLatestShareIDForReceiverAndDeviceSN 被共享人 + 设备 SN 查找最近一条待接受或已生效的共享 ID。
+// 独立查询、不经外层事务，避免与 modern/legacy 两套列混用时的连接状态问题。
+func FindLatestShareIDForReceiverAndDeviceSN(ctx context.Context, db *sql.DB, sharedUserID int64, deviceSN string) (int64, error) {
+	sn := strings.TrimSpace(deviceSN)
+	if sn == "" {
+		return 0, sql.ErrNoRows
+	}
+	var id int64
+	errModern := db.QueryRowContext(ctx, `
+SELECT id FROM public.user_device_share
+WHERE shared_user_id = $1 AND TRIM(device_sn) = $2
+  AND LOWER(TRIM(COALESCE(status::text, ''))) IN ('pending', 'active', '0', '1')
+ORDER BY id DESC
+LIMIT 1
+`, sharedUserID, sn).Scan(&id)
+	if errModern == nil {
+		return id, nil
+	}
+	errLegacy := db.QueryRowContext(ctx, `
+SELECT id FROM public.user_device_share
+WHERE receiver_user_id = $1 AND TRIM(device_sn) = $2
+  AND status IN (0, 1)
+ORDER BY id DESC
+LIMIT 1
+`, sharedUserID, sn).Scan(&id)
+	if errLegacy == nil {
+		return id, nil
+	}
+	if errors.Is(errModern, sql.ErrNoRows) && errors.Is(errLegacy, sql.ErrNoRows) {
+		return 0, sql.ErrNoRows
+	}
+	if errors.Is(errLegacy, sql.ErrNoRows) {
+		return 0, errModern
+	}
+	return 0, errLegacy
+}
+
+// FindLatestPendingShareIDForReceiverAndDeviceSN 被共享人 + SN，仅「待接受」的共享（拒绝邀请场景）。
+func FindLatestPendingShareIDForReceiverAndDeviceSN(ctx context.Context, db *sql.DB, sharedUserID int64, deviceSN string) (int64, error) {
+	sn := strings.TrimSpace(deviceSN)
+	if sn == "" {
+		return 0, sql.ErrNoRows
+	}
+	var id int64
+	errModern := db.QueryRowContext(ctx, `
+SELECT id FROM public.user_device_share
+WHERE shared_user_id = $1 AND TRIM(device_sn) = $2
+  AND LOWER(TRIM(COALESCE(status::text, ''))) IN ('pending', '0')
+ORDER BY id DESC
+LIMIT 1
+`, sharedUserID, sn).Scan(&id)
+	if errModern == nil {
+		return id, nil
+	}
+	errLegacy := db.QueryRowContext(ctx, `
+SELECT id FROM public.user_device_share
+WHERE receiver_user_id = $1 AND TRIM(device_sn) = $2
+  AND status IN (0)
+ORDER BY id DESC
+LIMIT 1
+`, sharedUserID, sn).Scan(&id)
+	if errLegacy == nil {
+		return id, nil
+	}
+	if errors.Is(errModern, sql.ErrNoRows) && errors.Is(errLegacy, sql.ErrNoRows) {
+		return 0, sql.ErrNoRows
+	}
+	if errors.Is(errLegacy, sql.ErrNoRows) {
+		return 0, errModern
+	}
+	return 0, errLegacy
 }
 
 func InsertDeviceShareLog(ctx context.Context, tx *sql.Tx, shareID, familyID, deviceID int64, deviceSN, opType, opContent string, operatorUserID int64, operatorRole string) error {

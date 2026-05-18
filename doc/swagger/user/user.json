@@ -348,6 +348,60 @@
         }
       }
     },
+    "/api/v1/user/device/detail": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询设备详情（返回设备全字段，需校验用户权限；查询参数 sn）",
+        "operationId": "getDeviceDetail",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "sn",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "create_time": {
+                  "type": "string"
+                },
+                "device_type": {
+                  "type": "string"
+                },
+                "firmware_version": {
+                  "type": "string"
+                },
+                "hardware_version": {
+                  "type": "string"
+                },
+                "manufacturer": {
+                  "type": "string"
+                },
+                "online_status": {
+                  "type": "integer"
+                },
+                "sn": {
+                  "type": "string"
+                },
+                "update_time": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/user/device/list": {
       "get": {
         "produces": [
@@ -555,6 +609,49 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/share/cancel": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "撤销设备共享（仅共享者可操作）",
+        "operationId": "cancelDeviceShare",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "share_id",
+                "sn"
+              ],
+              "properties": {
+                "share_id": {
+                  "type": "integer"
+                },
+                "sn": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {}
           }
         }
       }
@@ -776,46 +873,7 @@
         }
       }
     },
-    "/api/v1/user/device/share/quit": {
-      "post": {
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "schemes": [
-          "https"
-        ],
-        "summary": "退出设备共享",
-        "operationId": "quitDeviceShare",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "required": [
-                "share_id"
-              ],
-              "properties": {
-                "share_id": {
-                  "type": "integer"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {}
-          }
-        }
-      }
-    },
-    "/api/v1/user/device/share/received": {
+    "/api/v1/user/device/share/my/receive/list": {
       "get": {
         "produces": [
           "application/json"
@@ -823,7 +881,7 @@
         "schemes": [
           "https"
         ],
-        "summary": "查询我收到的共享",
+        "summary": "查询我收到的设备共享列表",
         "operationId": "listReceivedDeviceShares",
         "responses": {
           "200": {
@@ -918,7 +976,110 @@
         }
       }
     },
-    "/api/v1/user/device/share/revoke": {
+    "/api/v1/user/device/share/my/send/list": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询我发出的设备共享列表（兼容旧路径 device/share/my/send/list）",
+        "operationId": "listSentDeviceShares",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "list": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "share_id",
+                      "family_id",
+                      "device_id",
+                      "device_sn",
+                      "device_name",
+                      "owner_user_id",
+                      "shared_user_id",
+                      "share_type",
+                      "permission_level",
+                      "status",
+                      "created_at"
+                    ],
+                    "properties": {
+                      "confirmed_at": {
+                        "type": "integer"
+                      },
+                      "created_at": {
+                        "type": "integer"
+                      },
+                      "device_id": {
+                        "type": "integer"
+                      },
+                      "device_name": {
+                        "type": "string"
+                      },
+                      "device_sn": {
+                        "type": "string"
+                      },
+                      "end_at": {
+                        "type": "integer"
+                      },
+                      "family_id": {
+                        "type": "integer"
+                      },
+                      "family_name": {
+                        "type": "string"
+                      },
+                      "invite_code": {
+                        "type": "string"
+                      },
+                      "owner_nickname": {
+                        "type": "string"
+                      },
+                      "owner_user_id": {
+                        "type": "integer"
+                      },
+                      "permission": {
+                        "type": "string"
+                      },
+                      "permission_level": {
+                        "type": "string"
+                      },
+                      "share_id": {
+                        "type": "integer"
+                      },
+                      "share_type": {
+                        "type": "string"
+                      },
+                      "shared_user_id": {
+                        "type": "integer"
+                      },
+                      "shared_user_nickname": {
+                        "type": "string"
+                      },
+                      "start_at": {
+                        "type": "integer"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "target_account": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/share/quit": {
       "post": {
         "consumes": [
           "application/json"
@@ -929,8 +1090,8 @@
         "schemes": [
           "https"
         ],
-        "summary": "撤销设备共享",
-        "operationId": "revokeDeviceShare",
+        "summary": "退出设备共享（被共享者主动退出）",
+        "operationId": "quitDeviceShare",
         "parameters": [
           {
             "name": "body",
@@ -957,7 +1118,46 @@
         }
       }
     },
-    "/api/v1/user/device/share/sent": {
+    "/api/v1/user/device/share/reject": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "拒绝设备共享邀请",
+        "operationId": "rejectDeviceShare",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "share_id": {
+                  "type": "integer"
+                },
+                "sn": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {}
+          }
+        }
+      }
+    },
+    "/api/v1/user/device/share/send/list": {
       "get": {
         "produces": [
           "application/json"
@@ -965,8 +1165,8 @@
         "schemes": [
           "https"
         ],
-        "summary": "查询我发出的共享",
-        "operationId": "listSentDeviceShares",
+        "summary": "查询我发出的设备共享列表（文档/客户端常用路径 device/share/send/list）",
+        "operationId": "listSentDeviceSharesSendList",
         "responses": {
           "200": {
             "description": "",
@@ -1533,6 +1733,83 @@
       }
     },
     "/api/v1/user/info": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询当前用户信息",
+        "operationId": "getUserInfo",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "age": {
+                  "type": "integer"
+                },
+                "avatar": {
+                  "type": "string"
+                },
+                "bio": {
+                  "type": "string"
+                },
+                "birthday_visibility": {
+                  "type": "integer"
+                },
+                "constellation": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "gender_visibility": {
+                  "type": "integer"
+                },
+                "hobbies": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "mobile": {
+                  "type": "string"
+                },
+                "nickname": {
+                  "type": "string"
+                },
+                "profile_complete": {
+                  "type": "integer"
+                },
+                "profile_complete_score": {
+                  "type": "integer"
+                },
+                "real_name_at": {
+                  "type": "integer"
+                },
+                "real_name_cert_type": {
+                  "type": "integer"
+                },
+                "real_name_status": {
+                  "type": "integer"
+                },
+                "signature": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                },
+                "user_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
       "put": {
         "consumes": [
           "application/json"
@@ -1729,6 +2006,124 @@
         }
       }
     },
+    "/api/v1/user/logout": {
+      "post": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "退出登录（将当前 token 加入黑名单，同时清理 refresh_token）",
+        "operationId": "logout",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user/member/auto_renew": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "查询自动续费意向（占位字段，非真实代扣）",
+        "operationId": "getMemberAutoRenew",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auto_renew": {
+                  "type": "boolean"
+                },
+                "auto_renew_package_code": {
+                  "type": "string"
+                },
+                "auto_renew_pay_type": {
+                  "type": "integer"
+                },
+                "auto_renew_updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "设置自动续费开关与意向套餐/支付方式（需已有 user_member 行；不真实扣款）",
+        "operationId": "setMemberAutoRenew",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "enabled"
+              ],
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "package_code": {
+                  "type": "string"
+                },
+                "pay_type": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "auto_renew": {
+                  "type": "boolean"
+                },
+                "auto_renew_package_code": {
+                  "type": "string"
+                },
+                "auto_renew_pay_type": {
+                  "type": "integer"
+                },
+                "auto_renew_updated_at": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/user/member/benefits": {
       "get": {
         "produces": [
@@ -1864,7 +2259,6 @@
                   "type": "string"
                 },
                 "biz_scene": {
-                  "description": "new | renew_active | renew_expired",
                   "type": "string"
                 },
                 "discount_cent": {
@@ -2031,99 +2425,6 @@
         }
       }
     },
-    "/api/v1/user/member/auto_renew": {
-      "get": {
-        "produces": [
-          "application/json"
-        ],
-        "schemes": [
-          "https"
-        ],
-        "summary": "查询自动续费意向（占位字段，非真实代扣）",
-        "operationId": "getMemberAutoRenew",
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "auto_renew": {
-                  "type": "boolean"
-                },
-                "auto_renew_package_code": {
-                  "type": "string"
-                },
-                "auto_renew_pay_type": {
-                  "type": "integer"
-                },
-                "auto_renew_updated_at": {
-                  "type": "integer"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "schemes": [
-          "https"
-        ],
-        "summary": "设置自动续费开关与意向套餐/支付方式（需已有 user_member；不真实扣款）",
-        "operationId": "setMemberAutoRenew",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "required": [
-                "enabled"
-              ],
-              "properties": {
-                "enabled": {
-                  "type": "boolean"
-                },
-                "package_code": {
-                  "type": "string"
-                },
-                "pay_type": {
-                  "type": "integer"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "auto_renew": {
-                  "type": "boolean"
-                },
-                "auto_renew_package_code": {
-                  "type": "string"
-                },
-                "auto_renew_pay_type": {
-                  "type": "integer"
-                },
-                "auto_renew_updated_at": {
-                  "type": "integer"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/user/member/unsubscribe": {
       "post": {
         "consumes": [
@@ -2148,11 +2449,11 @@
                 "reason_code"
               ],
               "properties": {
-                "reason_code": {
-                  "description": "price|features|low_usage|switch_platform|service|other",
+                "feedback": {
                   "type": "string"
                 },
-                "feedback": {
+                "reason_code": {
+                  "description": "price|features|low_usage|switch_platform|service|other",
                   "type": "string"
                 }
               }
@@ -2177,7 +2478,7 @@
     "/api/v1/user/member/unsubscribe/revoke": {
       "post": {
         "consumes": [
-          "application/json"
+          "application/x-www-form-urlencoded"
         ],
         "produces": [
           "application/json"
@@ -2187,16 +2488,6 @@
         ],
         "summary": "撤销会员退订标记（不自动恢复自动续费）",
         "operationId": "revokeMemberUnsubscribe",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": false,
-            "schema": {
-              "type": "object"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "",
@@ -3106,7 +3397,7 @@
       }
     }
   },
-  "x-date": "2026-04-17 15:34:55",
+  "x-date": "2026-05-18 10:20:05",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",

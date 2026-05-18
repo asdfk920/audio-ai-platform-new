@@ -2,6 +2,8 @@ Name: media-processing-api
 Host: 0.0.0.0
 Port: 8004
 
+CORS: {}
+
 Postgres:
   DataSource: admin:admin123@tcp(14.103.202.69:5432)/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai
 

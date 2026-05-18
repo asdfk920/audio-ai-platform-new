@@ -23,19 +23,17 @@ import (
 
 	"github.com/joho/godotenv"
 
+	apicors "github.com/jacklau/audio-ai-platform/common/cors"
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/common/validate"
-	"github.com/jacklau/audio-ai-platform/pkg/mqttx"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/commandsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/handler"
-	"github.com/jacklau/audio-ai-platform/services/device/internal/mqttingest"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/redisexpire"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/shadowsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/statuspersist"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/conf"
@@ -134,87 +132,34 @@ func main() {
 		defer func() { _ = rdb.Close() }()
 	}
 
+	server.Use(apicors.Middleware(c.CORS))
+
 	ctx := svc.NewServiceContext(c, db, rdb)
 	handler.RegisterHandlers(server, ctx)
+
+	// 注册 WebSocket 设备长连接路由
+	if c.WebSocket.Enable {
+		wsPath := c.WebSocket.Path
+		if wsPath == "" {
+			wsPath = "/ws/device"
+		}
+		server.AddRoute(rest.Route{
+			Method:  http.MethodGet,
+			Path:    wsPath,
+			Handler: handler.DeviceWsHandler(ctx),
+		})
+		logx.Infof("WebSocket 服务已启用: %s", wsPath)
+	}
 
 	bgCtx, bgStop := context.WithCancel(context.Background())
 	defer bgStop()
 	startCommandWorker(bgCtx, ctx)
 
 	var persist *statuspersist.Pool
-	if db != nil && (c.MqttIngest.Enabled || c.RedisKeyspace.Enabled) {
+	if db != nil && c.RedisKeyspace.Enabled {
 		sp := c.StatusPersist
 		persist = statuspersist.NewPool(db, sp.QueueSize, sp.Workers)
 		persist.Start(bgCtx)
-	}
-
-	var mqttClient *mqttx.Client
-	defer func() {
-		if mqttClient != nil {
-			mqttClient.Disconnect()
-		}
-	}()
-
-	if c.MqttIngest.Enabled {
-		if rdb == nil || db == nil {
-			logx.Error("MqttIngest enabled but Redis or DB nil; skip MQTT consumer")
-		} else {
-			broker := strings.TrimSpace(c.MqttIngest.Broker)
-			if broker == "" {
-				broker = strings.TrimSpace(c.DeviceRegister.MqttBroker)
-			}
-			if broker == "" {
-				logx.Error("MqttIngest enabled but Broker empty (set MqttIngest.Broker or DeviceRegister.MqttBroker)")
-			} else {
-				cid := strings.TrimSpace(c.MqttIngest.ClientID)
-				if cid == "" {
-					cid = "device-api-mqtt"
-				}
-				mc, err := mqttx.NewClient(mqttx.Config{
-					Broker:   broker,
-					ClientID: cid,
-					Username: c.MqttIngest.Username,
-					Password: c.MqttIngest.Password,
-				})
-				if err != nil {
-					logx.Errorf("mqtt consumer connect: %v", err)
-				} else if mc != nil {
-					mqttClient = mc
-					ctx.SetMQTTClient(mc)
-					topic := strings.TrimSpace(c.MqttIngest.SubscribeTopic)
-					if topic == "" {
-						topic = "device/+/report"
-					}
-					qos := c.MqttIngest.QOS
-					if qos < 0 || qos > 2 {
-						qos = 1
-					}
-					h := mqttingest.NewHandler(db, rdb, c, persist, mc)
-					if err := mc.Subscribe(topic, byte(qos), h.OnMessage); err != nil {
-						logx.Errorf("mqtt subscribe %s: %v", topic, err)
-					} else {
-						logx.Infof("mqtt consumer subscribed topic=%s qos=%d", topic, qos)
-					}
-
-					// 订阅 MQTT 连接/断开事件（EMQX 系统主题）
-					connHandler := mqttingest.NewConnectionEventHandler(db, rdb, c)
-					eventTopics := []struct {
-						topic   string
-						handler mqtt.MessageHandler
-					}{
-						{"$SYS/brokers/+/clients/+/connected", connHandler.OnConnect},
-						{"$SYS/brokers/+/clients/+/disconnected", connHandler.OnDisconnect},
-					}
-					for _, et := range eventTopics {
-						if err := mc.Subscribe(et.topic, 0, et.handler); err != nil {
-							logx.Errorf("mqtt subscribe event %s: %v", et.topic, err)
-						} else {
-							logx.Infof("mqtt event subscribed topic=%s", et.topic)
-						}
-					}
-				}
-			}
-		}
 	}
 
 	if c.RedisKeyspace.Enabled && rdb != nil && strings.TrimSpace(c.Redis.Addr) != "" {
@@ -224,7 +169,7 @@ func main() {
 			DB:       c.Redis.DB,
 		})
 		defer func() { _ = subRdb.Close() }()
-		redisexpire.StartOnlineKeyExpiryListener(bgCtx, subRdb, db, rdb, persist, c)
+		redisexpire.StartOnlineKeyExpiryListener(bgCtx, subRdb, db, rdb, persist, c, ctx.DeviceRepo)
 	}
 
 	// 添加 Swagger UI 路由
@@ -347,34 +292,54 @@ func startCommandWorker(ctx context.Context, svcCtx *svc.ServiceContext) {
 
 func loadConfigFromEnv(c *config.Config) {
 	if v := os.Getenv("POSTGRES_HOST"); v != "" {
-		if user := os.Getenv("POSTGRES_USER"); user != "" {
-			pass := os.Getenv("POSTGRES_PASS")
-			db := os.Getenv("POSTGRES_DB")
-			port := os.Getenv("POSTGRES_PORT")
-			if port == "" {
-				port = "5432"
+		// 检查YAML配置是否已经是线上地址
+		yamlDSN := strings.TrimSpace(c.Postgres.DataSource)
+		isLocalDSN := strings.Contains(yamlDSN, "localhost") ||
+			strings.Contains(yamlDSN, "127.0.0.1") ||
+			yamlDSN == ""
+
+		if isLocalDSN {
+			if user := os.Getenv("POSTGRES_USER"); user != "" {
+				pass := os.Getenv("POSTGRES_PASS")
+				db := os.Getenv("POSTGRES_DB")
+				port := os.Getenv("POSTGRES_PORT")
+				if port == "" {
+					port = "5432"
+				}
+				sslmode := os.Getenv("POSTGRES_SSLMODE")
+				if sslmode == "" {
+					sslmode = "disable"
+				}
+				tz := os.Getenv("POSTGRES_TIMEZONE")
+				if tz == "" {
+					tz = "Asia/Shanghai"
+				}
+				c.Postgres.DataSource = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s&TimeZone=%s",
+					user, pass, v, port, db, sslmode, tz)
+				logx.Infof("从环境变量加载 PostgreSQL 配置（YAML为本地地址，已覆盖）: host=%s", v)
 			}
-			sslmode := os.Getenv("POSTGRES_SSLMODE")
-			if sslmode == "" {
-				sslmode = "disable"
+		} else {
+			displayDSN := yamlDSN
+			if len(displayDSN) > 50 {
+				displayDSN = displayDSN[:50] + "..."
 			}
-			tz := os.Getenv("POSTGRES_TIMEZONE")
-			if tz == "" {
-				tz = "Asia/Shanghai"
-			}
-			c.Postgres.DataSource = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s&TimeZone=%s",
-				user, pass, v, port, db, sslmode, tz)
-			logx.Infof("从环境变量加载 PostgreSQL 配置: host=%s", v)
+			logx.Infof("保留 YAML 配置的 PostgreSQL 地址（忽略环境变量）: %s", displayDSN)
 		}
 	}
 
 	if v := os.Getenv("REDIS_ADDR"); v != "" {
-		c.Redis.Addr = v
-		c.Redis.Password = os.Getenv("REDIS_PASS")
-		if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
-			_, _ = fmt.Sscanf(dbStr, "%d", &c.Redis.DB)
+		// 只有当YAML配置是默认本地地址或空时，才允许环境变量覆盖
+		yamlAddr := strings.TrimSpace(c.Redis.Addr)
+		if yamlAddr == "" || yamlAddr == "127.0.0.1:6379" || yamlAddr == "localhost:6379" {
+			c.Redis.Addr = v
+			c.Redis.Password = os.Getenv("REDIS_PASS")
+			if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
+				_, _ = fmt.Sscanf(dbStr, "%d", &c.Redis.DB)
+			}
+			logx.Infof("从环境变量加载 Redis 配置（YAML为本地地址，已覆盖）: addr=%s", v)
+		} else {
+			logx.Infof("保留 YAML 配置的 Redis 地址（忽略环境变量）: addr=%s", yamlAddr)
 		}
-		logx.Infof("从环境变量加载 Redis 配置: addr=%s", v)
 	}
 
 	if v := os.Getenv("AUTH_ACCESS_SECRET"); v != "" {
@@ -385,16 +350,6 @@ func loadConfigFromEnv(c *config.Config) {
 	if v := os.Getenv("DEVICE_AUTH_TOKEN_SECRET"); v != "" {
 		c.DeviceAuth.TokenSecret = v
 		logx.Infof("从环境变量加载 DeviceAuth TokenSecret（已设置）")
-	}
-
-	if v := os.Getenv("MQTT_BROKER"); v != "" {
-		c.DeviceRegister.MqttBroker = v
-		if clientID := os.Getenv("MQTT_CLIENT_ID"); clientID != "" {
-			c.MqttIngest.ClientID = clientID
-		}
-		c.MqttIngest.Username = os.Getenv("MQTT_USERNAME")
-		c.MqttIngest.Password = os.Getenv("MQTT_PASSWORD")
-		logx.Infof("从环境变量加载 MQTT Broker 配置: %s", v)
 	}
 
 	if v := os.Getenv("HTTP_BASE_URL"); v != "" {

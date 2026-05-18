@@ -4,6 +4,8 @@ Port: 8003
 # 大文件上传：略大于单音频上限（字节）
 MaxBytes: 134217728
 
+CORS: {}
+
 Database:
   # PostgreSQL（与 docker-compose / go-admin 一致）；执行过 045_content_service_catalog 迁移
   DataSource: host=14.103.202.69 port=5432 user=admin password=admin123 dbname=audio_platform sslmode=disable TimeZone=Asia/Shanghai

@@ -23,7 +23,7 @@ if (-not (Test-Path $index)) {
 
 $base = "http://127.0.0.1:$Port"
 Write-Host ""
-Write-Host "Swagger UI: $base/?spec=user   (device | content)"
+Write-Host "Swagger UI: $base/?spec=user   (device | content | admin)"
 Write-Host "Press Ctrl+C to stop."
 Write-Host ""
 

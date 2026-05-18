@@ -61,6 +61,9 @@ const (
 	CodeDeviceShareExpired            = 1051 // 设备共享已过期
 	CodeDeviceShareNoPermission       = 1052 // 无权限操作设备共享
 	CodeDeviceShareForbiddenReshare   = 1053 // 当前角色不允许继续分享
+	CodeDeviceShareNotFound           = 1054 // 共享记录不存在
+	CodeDeviceShareNoCancelPermission = 1055 // 无权限撤销此共享
+	CodeDeviceShareAlreadyCanceled     = 1056 // 该共享已取消/已过期
 
 	// 设备相关错误 2xxx
 	CodeDeviceNotFound = 2001
@@ -151,7 +154,7 @@ var codeMsg = map[int]string{
 	CodeFamilyMemberExists:            "该用户已是家庭成员",
 	CodeFamilyNoPermission:            "无权限操作当前家庭",
 	CodeDeviceShareInvalid:            "设备共享邀请码无效或已失效",
-	CodeDeviceShareExists:             "设备共享关系已存在",
+	CodeDeviceShareExists:             "不能重复分享",
 	CodeDeviceShareExpired:            "设备共享已过期",
 	CodeDeviceShareNoPermission:       "无权限操作该设备共享",
 	CodeDeviceShareForbiddenReshare:   "当前角色不允许继续分享设备",

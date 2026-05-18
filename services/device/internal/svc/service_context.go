@@ -6,20 +6,18 @@ package svc
 import (
 	"database/sql"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx"
 
-	"github.com/jacklau/audio-ai-platform/pkg/mqttx"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/heartbeat"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/pkg/ip"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/repository"
 )
 
-// ServiceContext 设备进程上下文：配置、DB、Redis、仓储与 MQTT 客户端等。
+// ServiceContext 设备进程上下文：配置、DB、Redis、仓储等。
 type ServiceContext struct {
 	Config config.Config
 	DB     *sql.DB
@@ -32,17 +30,13 @@ type ServiceContext struct {
 	AudioResourceRepo  *repository.AudioResourceRepo
 	ContentFileRepo    *repository.ContentFileRepo
 	DeviceRegister     *repository.DeviceRegisterRepo
-	DeviceTopicACLRepo *repository.DeviceTopicACLRepo
 	DeviceShadowRepo   *repository.DeviceShadowRepo
 
 	// HeartbeatMonitor 心跳超时检测定时任务（双重保障机制）
 	HeartbeatMonitor *heartbeat.HeartbeatMonitor
 
-	// RegisterTrustedNets MQTT/HTTP 路径下线后仍可用于将来接入层解析 XFF（与 DeviceRegister.TrustedProxies 一致）。
+	// RegisterTrustedNets HTTP 路径下线后仍可用于将来接入层解析 XFF（与 DeviceRegister.TrustedProxies 一致）。
 	RegisterTrustedNets []*net.IPNet
-
-	mqttMu     sync.RWMutex
-	mqttClient *mqttx.Client
 }
 
 // NewServiceContext 创建并初始化服务上下文实例
@@ -62,7 +56,7 @@ func NewServiceContext(c config.Config, db *sql.DB, rdb *redis.Client) *ServiceC
 		heartbeatTimeoutMinutes, // 超过5分钟未活跃则标记离线
 	)
 
-	return &ServiceContext{
+	svcCtx := &ServiceContext{
 		Config:              c,
 		DB:                  db,
 		Redis:               rdb,
@@ -73,27 +67,10 @@ func NewServiceContext(c config.Config, db *sql.DB, rdb *redis.Client) *ServiceC
 		AudioResourceRepo:   repository.NewAudioResourceRepo(db),
 		ContentFileRepo:     repository.NewContentFileRepo(db),
 		DeviceRegister:      repository.NewDeviceRegisterRepo(db),
-		DeviceTopicACLRepo:  repository.NewDeviceTopicACLRepo(db),
 		DeviceShadowRepo:    repository.NewDeviceShadowRepo(db),
 		HeartbeatMonitor:    heartbeatMonitor,
 		RegisterTrustedNets: trusted,
 	}
-}
 
-func (s *ServiceContext) SetMQTTClient(client *mqttx.Client) {
-	if s == nil {
-		return
-	}
-	s.mqttMu.Lock()
-	defer s.mqttMu.Unlock()
-	s.mqttClient = client
-}
-
-func (s *ServiceContext) MQTTClient() *mqttx.Client {
-	if s == nil {
-		return nil
-	}
-	s.mqttMu.RLock()
-	defer s.mqttMu.RUnlock()
-	return s.mqttClient
+	return svcCtx
 }

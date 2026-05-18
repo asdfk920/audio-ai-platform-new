@@ -1,0 +1,644 @@
+openapi: 3.0.3
+info:
+  title: 用户微服务 API
+  description: |
+    用户微服务后端完整接口文档（对齐routes.go）
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:8001
+    description: 本地开发环境
+
+tags:
+  - name: 认证与授权
+    description: 登录、注册、Token、验证码等
+  - name: 账号绑定
+    description: 邮箱/手机号绑定与换绑
+  - name: 设备管理
+    description: 设备绑定、列表、详情
+  - name: 设备共享
+    description: 发起/接受/拒绝/撤销/退出共享及列表查询
+  - name: 用户信息
+    description: 查询/修改个人信息、密码修改
+
+paths:
+  # ========== 认证与授权 ==========
+  /api/v1/user/login:
+    post:
+      tags: [认证与授权]
+      summary: 用户登录
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [account, password]
+              properties:
+                account:
+                  type: string
+                  description: 邮箱或手机号
+                password:
+                  type: string
+                  description: 密码
+                verify_code:
+                  type: string
+                  description: 验证码（可选）
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /api/v1/user/register:
+    post:
+      tags: [认证与授权]
+      summary: 用户注册
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, verify_code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                mobile:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                verify_code:
+                  type: string
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /api/v1/user/token/refresh:
+    post:
+      tags: [认证与授权]
+      summary: 刷新Token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /api/v1/user/verify/send:
+    post:
+      tags: [认证与授权]
+      summary: 发送验证码
+      operationId: sendVerifyCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              oneOf:
+                - required: [email]
+                - required: [mobile]
+              properties:
+                email:
+                  type: string
+                  format: email
+                mobile:
+                  type: string
+                scene:
+                  type: string
+                  enum: [register, login, bind, rebind, reset_password]
+                  default: register
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /api/v1/user/password/reset:
+    post:
+      tags: [认证与授权]
+      summary: 重置密码
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [account, new_password, verify_code]
+              properties:
+                account:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
+                verify_code:
+                  type: string
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /api/v1/user/logout:
+    post:
+      tags: [认证与授权]
+      summary: 退出登录
+      operationId: logout
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ========== 账号绑定 ==========
+  /api/v1/user/bind:
+    put:
+      tags: [账号绑定]
+      summary: 绑定邮箱或手机号
+      operationId: bindContact
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              oneOf:
+                - required: [email, verify_code]
+                - required: [mobile, verify_code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                mobile:
+                  type: string
+                verify_code:
+                  type: string
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /api/v1/user/rebind:
+    put:
+      tags: [账号绑定]
+      summary: 换绑邮箱或手机号
+      operationId: rebindContact
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                old_account:
+                  type: string
+                old_verify_code:
+                  type: string
+                new_account:
+                  type: string
+                new_verify_code:
+                  type: string
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ========== 设备管理 ==========
+  /api/v1/user/device/bind:
+    post:
+      tags: [设备管理]
+      summary: 绑定设备
+      operationId: bindDevice
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sn]
+              properties:
+                sn:
+                  type: string
+                  description: 设备序列号
+                remark:
+                  type: string
+                  description: 备注名称
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /api/v1/user/device/list:
+    get:
+      tags: [设备管理]
+      summary: 查询设备列表
+      operationId: listDevice
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /api/v1/user/device/detail:
+    get:
+      tags: [设备管理]
+      summary: 查询设备详情
+      operationId: deviceDetail
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: sn
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ========== 设备共享 ==========
+  /api/v1/user/device/share/create:
+    post:
+      tags: [设备共享]
+      summary: 发起设备共享
+      operationId: createDeviceShare
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShareRequest"
+      responses:
+        "200":
+          description: 共享设备分享成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/v1/user/device/share/accept:
+    post:
+      tags: [设备共享]
+      summary: 接受设备共享
+      operationId: acceptDeviceShare
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [share_id]
+              properties:
+                share_id:
+                  type: integer
+                  format: int64
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/v1/user/device/share/reject:
+    post:
+      tags: [设备共享]
+      summary: 拒绝设备共享
+      operationId: rejectDeviceShare
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [share_id]
+              properties:
+                share_id:
+                  type: integer
+                  format: int64
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/v1/user/device/share/cancel:
+    post:
+      tags: [设备共享]
+      summary: 撤销设备共享
+      operationId: cancelDeviceShare
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [share_id]
+              properties:
+                share_id:
+                  type: integer
+                  format: int64
+      responses:
+        "200":
+          description: 撤销共享成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/v1/user/device/share/quit:
+    post:
+      tags: [设备共享]
+      summary: 退出设备共享
+      operationId: quitDeviceShare
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [share_id]
+              properties:
+                share_id:
+                  type: integer
+                  format: int64
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/v1/user/device/share/my/receive/list:
+    get:
+      tags: [设备共享]
+      summary: 查询收到的设备共享列表
+      operationId: listReceivedShares
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, active, expired, rejected, revoked]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /api/v1/user/device/share/send/list:
+    get:
+      tags: [设备共享]
+      summary: 查询发出的设备共享列表
+      operationId: listSentShares
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, active, expired, rejected, revoked]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /api/v1/user/device/share/detail:
+    get:
+      tags: [设备共享]
+      summary: 查询共享详情
+      operationId: shareDetail
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: share_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ========== 用户信息 ==========
+  /api/v1/user/info:
+    get:
+      tags: [用户信息]
+      summary: 查询当前用户信息
+      operationId: getUserInfo
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+    put:
+      tags: [用户信息]
+      summary: 修改用户信息
+      operationId: updateUserInfo
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  type: string
+                  maxLength: 30
+                avatar:
+                  type: string
+                  format: uri
+                gender:
+                  type: integer
+                  enum: [0, 1, 2]
+                  description: 0-未知 1-男 2-女
+                birthday:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/v1/user/password/change:
+    put:
+      tags: [用户信息]
+      summary: 修改密码
+      operationId: changePassword
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [old_password, new_password]
+              properties:
+                old_password:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Token (Access Token)
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        msg:
+          type: string
+          example: success
+        data:
+          type: object
+          nullable: true
+
+    SuccessResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        msg:
+          type: string
+          example: 操作成功
+
+    CreateShareRequest:
+      type: object
+      required: [sn, share_to]
+      properties:
+        sn:
+          type: string
+          description: 设备序列号
+          example: "AUDIO-SN-2605000002G2"
+        share_to:
+          type: string
+          description: 被分享人邮箱或手机号
+          example: user@example.com
+        expire_days:
+          type: integer
+          minimum: 0
+          description: 共享有效期（天），0表示永久
+          example: 30

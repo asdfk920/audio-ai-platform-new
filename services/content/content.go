@@ -30,6 +30,7 @@ import (
 
 	_ "github.com/jacklau/audio-ai-platform/services/content/docs"
 
+	apicors "github.com/jacklau/audio-ai-platform/common/cors"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/handler"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/svc"
@@ -49,6 +50,8 @@ func main() {
 
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
+
+	server.Use(apicors.Middleware(c.CORS))
 
 	ctx := svc.NewServiceContext(c)
 

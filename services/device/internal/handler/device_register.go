@@ -12,7 +12,11 @@ import (
 
 // deviceRegisterHandler 设备注册处理器
 // POST /api/device/register
-// 用途：设备首次联网时完成设备注册，获取认证 token
+// 安全设计：
+// - 设备携带SN + 时间戳 + 签名发起注册
+// - 签名由设备密钥对SN+时间戳进行HMAC-SHA256计算
+// - 全程不传输密钥明文，防止泄露
+// - 时间戳校验防止重放攻击
 func deviceRegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -26,29 +30,17 @@ func deviceRegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		var req types.DeviceRegisterReq
 		if err := httpx.Parse(r, &req); err != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code": 400,
-				"msg":  "参数错误: " + err.Error(),
-				"data": nil,
-			})
+			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
 		l := logic.NewDeviceRegisterLogic(r.Context(), svcCtx)
 		resp, err := l.DeviceRegister(&req)
 		if err != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code": 400,
-				"msg":  err.Error(),
-				"data": nil,
-			})
+			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"msg":  "成功",
-			"data": resp,
-		})
+		httpx.OkJsonCtx(r.Context(), w, resp)
 	}
 }

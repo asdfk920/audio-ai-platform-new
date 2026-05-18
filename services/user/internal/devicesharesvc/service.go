@@ -48,7 +48,7 @@ type ShareView struct {
 	ShareType       string
 	PermissionLevel string
 	Permission      map[string]any
-	Status          string
+	Status          int
 	FamilyName      string
 	StartAt         *time.Time
 	EndAt           *time.Time
@@ -166,6 +166,7 @@ func (s *Service) CreateShareInvite(ctx context.Context, in CreateShareInviteInp
 		DeviceSN:        strings.TrimSpace(in.DeviceSN),
 		DeviceName:      deviceName,
 		OwnerUserID:     ownerUserID,
+		SharerUserID:    ownerUserID,
 		SharedUserID:    target.ID,
 		TargetAccount:   firstNonEmpty(in.TargetAccount, target.Mobile.String, target.Email.String),
 		InviteCode:      code,
@@ -475,7 +476,7 @@ func toShareView(row *dao.DeviceShareViewRow) ShareView {
 		ShareType:       row.ShareType,
 		PermissionLevel: row.PermissionLevel,
 		Permission:      decodePermission(row.PermissionRaw),
-		Status:          row.Status,
+		Status:          int(dao.DeviceShareStatusToLegacyInt(row.Status)),
 		FamilyName:      row.FamilyName,
 		CreatedAt:       row.CreatedAt,
 	}

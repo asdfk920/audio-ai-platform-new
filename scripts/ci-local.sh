@@ -16,7 +16,8 @@ elif [[ -x "$GOPATH_BIN/golangci-lint.exe" ]]; then
 	GOLANGCI="$GOPATH_BIN/golangci-lint.exe"
 else
 	echo "golangci-lint not found in $GOPATH_BIN" >&2
-	echo "Install CI version: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8" >&2
+	echo "Install CI version (compiled with your Go toolchain):" >&2
+	echo "  go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8" >&2
 	exit 1
 fi
 
@@ -39,8 +40,10 @@ bash "$ROOT/scripts/check-migrations.sh"
 echo ""
 echo "=== Lint common ==="
 (
-	cd "$ROOT"
-	"$GOLANGCI" run --config "$ROOT/.golangci.yml" --out-format=line-number --timeout=5m ./common/...
+	cd "$ROOT/common"
+	go mod tidy
+	go mod verify
+	"$GOLANGCI" run --config "$ROOT/.golangci.yml" --out-format=line-number --timeout=5m ./...
 )
 
 for svc in "${SERVICES[@]}"; do
@@ -63,6 +66,8 @@ for svc in "${SERVICES[@]}"; do
 	echo "=== Test $svc ==="
 	(
 		cd "$ROOT/$svc"
+		go mod tidy
+		go mod verify
 		go test -v -race -covermode=atomic -count=1 -coverprofile=coverage.tmp ./...
 		tail -n +2 coverage.tmp >>"$COV"
 		rm -f coverage.tmp

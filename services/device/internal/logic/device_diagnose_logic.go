@@ -10,7 +10,6 @@ import (
 
 	"github.com/zeromicro/go-zero/core/logx"
 
-	"github.com/jacklau/audio-ai-platform/services/device/internal/shadowmqtt"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
 )
@@ -100,19 +99,11 @@ func (l *DeviceDiagnoseLogic) DeviceDiagnose(req *types.DeviceDiagnoseReq, userI
 		"timestamp": now.Unix(),
 	}
 
-	payload, err := json.Marshal(diagCmd)
-	if err != nil {
+	if _, err := json.Marshal(diagCmd); err != nil {
 		return nil, fmt.Errorf("构造诊断指令失败: %v", err)
 	}
 
-	// 7. 发布诊断指令到 MQTT Topic
-	if l.svcCtx.MQTTClient() != nil {
-		if err := shadowmqtt.PublishDesiredCommand(l.svcCtx.Config, l.svcCtx.MQTTClient(), sn, deviceInfo.ID, payload); err != nil {
-			logx.Errorf("发布诊断指令到 MQTT 失败: sn=%s, err=%v", sn, err)
-		} else {
-			logx.Infof("诊断指令已发布到 MQTT: sn=%s, diag_id=%s", sn, diagID)
-		}
-	}
+	logx.Infof("诊断指令已生成（MQTT已移除）: sn=%s, diag_id=%s", sn, diagID)
 
 	// 8. 记录诊断任务到数据库
 	if err := l.insertDiagnosisRecord(sn, deviceInfo.ID, diagID, req.DiagType, timeoutSec, userID); err != nil {

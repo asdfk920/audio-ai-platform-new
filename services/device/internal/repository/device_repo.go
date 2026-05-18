@@ -33,19 +33,20 @@ func NewDeviceRepo(db *sql.DB) *DeviceRepo {
 // 返回 error: 查询失败时的错误信息
 func (r *DeviceRepo) FindBySn(ctx context.Context, sn string) (*model.Device, error) {
 	query := `
-		SELECT 
-			id, sn, model, product_key, device_secret,
+		SELECT
+			id, sn, model, product_key, device_secret, register_signature,
 			firmware_version, hardware_version, mac, ip,
 			online_status, status, create_by, last_active_at,
 			created_at, updated_at, deleted_at
-		FROM device 
+		FROM device
 		WHERE sn = $1 AND deleted_at IS NULL
 	`
 
 	var device model.Device
 	err := r.db.QueryRowContext(ctx, query, sn).Scan(
 		&device.ID, &device.Sn, &device.Model, &device.ProductKey,
-		&device.DeviceSecret, &device.FirmwareVersion, &device.HardwareVersion,
+		&device.DeviceSecret, &device.RegisterSignature,
+		&device.FirmwareVersion, &device.HardwareVersion,
 		&device.Mac, &device.Ip, &device.OnlineStatus, &device.Status,
 		&device.CreateBy, &device.LastActiveAt,
 		&device.CreatedAt, &device.UpdatedAt, &device.DeletedAt,
@@ -103,6 +104,36 @@ func (r *DeviceRepo) UpdateLastActive(ctx context.Context, deviceId int64, onlin
 	result, err := r.db.ExecContext(ctx, query, onlineStatus, lastActive, deviceId)
 	if err != nil {
 		return fmt.Errorf("更新设备活跃时间失败: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("获取影响行数失败: %v", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("设备不存在或已被删除")
+	}
+
+	return nil
+}
+
+// UpdateRegisterSignature 更新设备注册签名
+// 参数 ctx context.Context: 请求上下文
+// 参数 deviceId int64: 设备ID
+// 参数 signature string: 注册签名（HMAC-SHA256签名）
+// 返回 error: 更新失败时的错误信息
+func (r *DeviceRepo) UpdateRegisterSignature(ctx context.Context, deviceId int64, signature string) error {
+	query := `
+		UPDATE device
+		SET register_signature = $1,
+		    updated_at = $2
+		WHERE id = $3 AND deleted_at IS NULL
+	`
+
+	result, err := r.db.ExecContext(ctx, query, signature, time.Now(), deviceId)
+	if err != nil {
+		return fmt.Errorf("更新设备注册签名失败: %v", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -304,4 +335,33 @@ func (r *DeviceRepo) CountTodayActive(ctx context.Context, start time.Time) (int
 	}
 
 	return count, nil
+}
+
+// UpdateStatusAfterRegister 更新设备注册后的状态
+// 参数 ctx context.Context: 请求上下文
+// 参数 deviceId int64: 设备ID
+// 参数 status int16: 新状态（1=已注册）
+// 返回 error: 更新失败时的错误信息
+func (r *DeviceRepo) UpdateStatusAfterRegister(ctx context.Context, deviceId int64, status int16) error {
+	query := `
+		UPDATE device
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL
+	`
+
+	result, err := r.db.ExecContext(ctx, query, status, deviceId)
+	if err != nil {
+		return fmt.Errorf("更新设备注册状态失败: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("获取影响行数失败: %v", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("设备不存在或已被删除")
+	}
+
+	return nil
 }

@@ -28,6 +28,7 @@ import (
 
 	_ "github.com/jacklau/audio-ai-platform/services/ai-worker/docs"
 
+	apicors "github.com/jacklau/audio-ai-platform/common/cors"
 	"github.com/jacklau/audio-ai-platform/common/validate"
 	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/ai-worker/internal/handler"
@@ -55,6 +56,8 @@ func main() {
 
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
+
+	server.Use(apicors.Middleware(c.CORS))
 
 	httpx.SetValidator(validate.NewHTTPValidator())
 

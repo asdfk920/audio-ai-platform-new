@@ -8,16 +8,23 @@ type EnumItem struct {
 }
 
 // DeviceRegisterReq 设备注册请求
-// 设备首次上线时向云端注册身份（设备端携带预烧录的SN）
+// 设备首次上线时向云端注册身份（简化版：只需SN + 设备密钥）
+// 安全设计：服务端自动生成时间戳并使用密钥计算签名，防止重放攻击
 type DeviceRegisterReq struct {
-	Sn string `json:"sn" validate:"required"` // 设备序列号（16位，从Flash/OTP读取）
+	Sn           string `json:"sn" validate:"required"`            // 设备序列号（16位，从Flash/OTP读取）
+	DeviceSecret string `json:"device_secret" validate:"required"` // 设备密钥（生产阶段预烧录，用于身份验证）
 }
 
 // DeviceRegisterResp 设备注册响应
-// 返回设备密钥（设备端保存到本地Flash用于后续认证）
+// 返回设备访问凭证（JWT Token），设备端保存用于后续认证
 type DeviceRegisterResp struct {
-	Sn           string `json:"sn"`            // 设备序列号
-	DeviceSecret string `json:"device_secret"` // 设备密钥（32位随机字符串）
+	Sn                string `json:"sn"`                 // 设备序列号
+	Token             string `json:"token"`              // 访问凭证（JWT Token，用于后续API调用和WebSocket连接）
+	ExpiresIn         int64  `json:"expires_in"`         // 凭证有效期（秒），默认86400秒（24小时）
+	DeviceID          int64  `json:"device_id"`          // 设备ID
+	RegisterTime      string `json:"register_time"`      // 注册时间（ISO8601格式）
+	RegisterTimestamp int64  `json:"register_timestamp"` // 注册时间戳（毫秒级Unix时间戳，用于签名验证）
+	Signature         string `json:"signature"`          // 注册签名（HMAC-SHA256(device_secret, sn + timestamp)，用于WebSocket认证）
 }
 
 // DeviceAuthReq 设备认证请求
@@ -36,6 +43,27 @@ type DeviceAuthResp struct {
 	Model           string `json:"model"`            // 设备型号
 	FirmwareVersion string `json:"firmware_version"` // 固件版本号
 	Message         string `json:"message"`          // 提示信息
+}
+
+// WsAuthMessage WebSocket认证消息
+// 设备建立WebSocket连接后立即发送的第一条消息，用于身份认证
+// 安全设计：包含时间戳和签名，防止重放攻击
+type WsAuthMessage struct {
+	Type      string `json:"type"`      // 消息类型，固定为 "auth"
+	Sn        string `json:"sn"`        // 设备序列号（16位）
+	Token     string `json:"token"`     // 注册时获取的JWT访问凭证
+	Timestamp int64  `json:"timestamp"` // 当前时间戳（毫秒级Unix时间戳）
+	Signature string `json:"signature"` // 签名（HMAC-SHA256(device_secret, sn + token + timestamp)）
+}
+
+// WsAuthResponse WebSocket认证响应
+// 云端返回给设备的认证结果
+type WsAuthResponse struct {
+	Type      string `json:"type"`       // 响应类型："auth_response"
+	Success   bool   `json:"success"`    // 是否认证成功
+	Message   string `json:"message"`    // 提示信息
+	DeviceID  int64  `json:"device_id"`  // 设备ID（认证成功时返回）
+	ExpiresIn int64  `json:"expires_in"` // Token剩余有效时间（秒）
 }
 
 // DeviceBindReq 设备绑定请求

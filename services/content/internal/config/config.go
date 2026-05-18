@@ -3,6 +3,7 @@
 package config
 
 import (
+	apicors "github.com/jacklau/audio-ai-platform/common/cors"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
 )
@@ -75,4 +76,6 @@ type Config struct {
 		CallbackBaseURL string `json:",optional"`
 		MockMode        bool   `json:",default=false"` // 开发测试模式，使用模拟数据
 	}
+	// CORS 浏览器跨域；省略 AllowOrigins 时等价允许 *。
+	CORS apicors.Config `json:",optional"`
 }

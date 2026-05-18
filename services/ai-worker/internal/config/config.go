@@ -1,6 +1,7 @@
 package config
 
 import (
+	apicors "github.com/jacklau/audio-ai-platform/common/cors"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
 )
@@ -83,4 +84,5 @@ type Config struct {
 		TimeoutSec int `json:",default=30"`
 		RetryCount int `json:",default=3"`
 	}
+	CORS apicors.Config `json:",optional"`
 }

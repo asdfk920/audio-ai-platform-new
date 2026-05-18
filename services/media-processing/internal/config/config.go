@@ -1,6 +1,9 @@
 package config
 
-import "github.com/zeromicro/go-zero/rest"
+import (
+	apicors "github.com/jacklau/audio-ai-platform/common/cors"
+	"github.com/zeromicro/go-zero/rest"
+)
 
 type Config struct {
 	rest.RestConf
@@ -17,17 +20,17 @@ type Config struct {
 		AccessSecret string
 	}
 	Stream struct {
-		RTMPBaseURL        string
-		FLVBaseURL         string
-		DefaultSecretKey   string
-		DefaultConfigID    string
-		DefaultExpiresSec  int64
+		RTMPBaseURL       string
+		FLVBaseURL        string
+		DefaultSecretKey  string
+		DefaultConfigID   string
+		DefaultExpiresSec int64
 	}
 	SQS struct {
 		Enabled  bool
 		Endpoint string
-		QueueURL  string
+		QueueURL string
 		Region   string
 	}
+	CORS apicors.Config `json:",optional"`
 }
-

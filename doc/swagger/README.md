@@ -36,11 +36,18 @@ make swagger-content
 make swagger-admin
 ```
 
-或手动：
+或手动（示例：user）：
 
 ```bash
 go run github.com/zeromicro/go-zero/tools/goctl@latest api swagger ^
   --api services/user/user.api --dir doc/swagger/user --filename user
+```
+
+另可参考 device：
+
+```bash
+go run github.com/zeromicro/go-zero/tools/goctl@latest api swagger ^
+  --api services/device/device.api --dir doc/swagger/device --filename device
 ```
 
 （Linux/macOS 将 `^` 换为行末 `\`。）
@@ -93,15 +100,15 @@ go run github.com/zeromicro/go-zero/tools/goctl@latest api swagger ^
 3. **本机 Swagger UI（Docker 示例）**
 
    ```bash
-   docker run --rm -p 8080:8080 -e SWAGGER_JSON=/spec/user.json \
-     -v "$(pwd)/doc/swagger/user/user.json:/spec/user.json" \
+   docker run --rm -p 8080:8080 -e SWAGGER_JSON=/spec/device.json \
+     -v "$(pwd)/doc/swagger/device/device.json:/spec/device.json" \
      swaggerapi/swagger-ui
    ```
 
    浏览器访问 `http://localhost:8080`。
 
 4. **VS Code**  
-   安装 OpenAPI / Swagger 类扩展，直接打开 `user.json` 预览。
+   安装 OpenAPI / Swagger 类扩展，直接打开 `doc/swagger/device/device.json` 等预览。
 
 5. **本机 Swagger UI（本仓库内置静态页）**
 
@@ -138,6 +145,13 @@ npx --yes redoc-cli bundle doc/swagger/user/user.json -o doc/swagger/export/user
 npx --yes redoc-cli bundle doc/swagger/user/user.json -o doc/swagger/export/user-api.pdf
 ```
 
+另可参考 device：
+
+```bash
+npx --yes redoc-cli bundle doc/swagger/device/device.json -o doc/swagger/export/device-api.html
+npx --yes redoc-cli bundle doc/swagger/device/device.json -o doc/swagger/export/device-api.pdf
+```
+
 **输出目录**：`doc/swagger/export/`
 
 | 文件 | 说明 |
@@ -160,5 +174,6 @@ make swagger-export
 ## 维护说明
 
 - 新增或修改 HTTP 接口时，优先改 **`services/*/xxx.api`**，再执行 **`make swagger`** 或 **`scripts/gen-swagger.ps1`** 更新文档。
+- 用户服务的 **`user.api`** 应与 **`internal/handler/routes.go`** 中实际挂载的路径保持一致；若有手写路由别名（如多条路径共用处理器），请在 `.api` 中同步声明后再执行 **`make swagger-user`**。
 - 修改 go-admin 接口注解后，执行 `make swagger-admin`（或 Windows 直接跑 `scripts/gen-swagger.ps1`）更新 `doc/swagger/admin/admin.json`。
 - `@doc` 注释会进入生成的 `summary`/`description`，建议在 `.api` 里写清楚。

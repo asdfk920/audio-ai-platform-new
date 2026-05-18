@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jacklau/audio-ai-platform/common/errorx"
+	"github.com/jacklau/audio-ai-platform/services/user/internal/repo/dao"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/types"
 
@@ -35,9 +36,9 @@ func (l *ListReceivedDeviceSharesLogic) ListReceivedDeviceShares() (resp *types.
 	}
 
 	rows, err := l.svcCtx.DB.QueryContext(l.ctx, `
-		SELECT s.id, s.device_sn, s.owner_user_id, s.shared_user_id, s.target_account, s.status, s.created_at, s.end_at
+		SELECT s.id, s.device_sn, s.target_account, s.status, s.created_at, s.end_at
 		FROM public.user_device_share s
-		WHERE s.shared_user_id = $1
+		WHERE COALESCE(NULLIF(s.shared_user_id, 0), s.receiver_user_id, 0) = $1
 		ORDER BY s.created_at DESC
 	`, userId)
 	if err != nil {
@@ -51,10 +52,12 @@ func (l *ListReceivedDeviceSharesLogic) ListReceivedDeviceShares() (resp *types.
 		var item types.DeviceShareItem
 		var endAt *time.Time
 		var createdAt time.Time
-		if err := rows.Scan(&item.ShareId, &item.Sn, &item.FromUserId, &item.ToUserId, &item.ToAccount, &item.Status, &createdAt, &endAt); err != nil {
+		var st dao.DeviceShareStatus
+		if err := rows.Scan(&item.ShareId, &item.Sn, &item.ShareTo, &st, &createdAt, &endAt); err != nil {
 			l.Logger.Errorf("ListReceivedDeviceShares: 扫描行数据失败, err=%v", err)
 			continue
 		}
+		item.Status = dao.DeviceShareStatusToLegacyInt(st)
 		item.CreatedAt = createdAt.Format("2006-01-02 15:04:05")
 		if endAt != nil {
 			item.EndAt = endAt.Format("2006-01-02 15:04:05")

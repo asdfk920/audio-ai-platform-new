@@ -8,6 +8,7 @@ import (
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	apicors "github.com/jacklau/audio-ai-platform/common/cors"
 	internalconfig "github.com/jacklau/audio-ai-platform/services/media-processing/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/media-processing/internal/handler"
 	"github.com/jacklau/audio-ai-platform/services/media-processing/internal/svc"
@@ -45,6 +46,8 @@ func main() {
 
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
+
+	server.Use(apicors.Middleware(c.CORS))
 
 	handler.RegisterHandlers(server, ctx)
 

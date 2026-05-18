@@ -54,6 +54,9 @@ type (
 		RefreshToken string `json:"refresh_token"`
 		ExpiresIn    int64  `json:"expires_in"`
 	}
+	LogoutResp {
+		Message string `json:"message"`
+	}
 	// 用户信息
 	UserInfo {
 		UserId           int64  `json:"user_id"`
@@ -333,6 +336,19 @@ type (
 		Total int `json:"total"`
 		List []UserDeviceItem `json:"list"`
 	}
+	DeviceDetailReq {
+		Sn string `form:"sn"`
+	}
+	DeviceDetailResp {
+		Sn              string `json:"sn"`
+		DeviceType      string `json:"device_type"`
+		OnlineStatus    int16  `json:"online_status"`
+		FirmwareVersion string `json:"firmware_version"`
+		HardwareVersion string `json:"hardware_version"`
+		Manufacturer    string `json:"manufacturer"`
+		CreateTime      string `json:"create_time"`
+		UpdateTime      string `json:"update_time"`
+	}
 	FamilyCreateReq {
 		Name string `json:"name,optional"`
 	}
@@ -399,8 +415,13 @@ type (
 	DeviceShareAcceptReq {
 		InviteCode string `json:"invite_code"`
 	}
-	DeviceShareRevokeReq {
-		ShareId int64 `json:"share_id"`
+	DeviceShareRejectReq {
+		ShareId int64  `json:"share_id,optional"`
+		Sn      string `json:"sn,optional"`
+	}
+	DeviceShareCancelReq {
+		ShareId int64  `json:"share_id"`
+		Sn      string `json:"sn"`
 	}
 	DeviceShareQuitReq {
 		ShareId int64 `json:"share_id"`
@@ -470,6 +491,10 @@ service user-api {
 	prefix: /api/v1/user
 )
 service user-api {
+	@doc "查询当前用户信息"
+	@handler GetUserInfo
+	get /info returns (UserInfo)
+
 	@doc "更新用户基本信息（Header 携带 token，从 JWT 解析用户；body 传 nickname/avatar 等可选字段，勿传 user_id）"
 	@handler updateUserInfo
 	put /info (UpdateUserInfoReq) returns (UserInfo)
@@ -526,6 +551,10 @@ service user-api {
 	@handler listUserDevices
 	get /device/list (ListUserDevicesReq) returns (ListUserDevicesResp)
 
+	@doc "查询设备详情（返回设备全字段，需校验用户权限；查询参数 sn）"
+	@handler GetDeviceDetail
+	get /device/detail (DeviceDetailReq) returns (DeviceDetailResp)
+
 	@doc "显式创建家庭"
 	@handler createFamily
 	post /family/create (FamilyCreateReq) returns (FamilyInfoResp)
@@ -562,21 +591,29 @@ service user-api {
 	@handler acceptDeviceShare
 	post /device/share/accept (DeviceShareAcceptReq) returns (DeviceShareItem)
 
-	@doc "撤销设备共享"
-	@handler revokeDeviceShare
-	post /device/share/revoke (DeviceShareRevokeReq)
+	@doc "拒绝设备共享邀请"
+	@handler rejectDeviceShare
+	post /device/share/reject (DeviceShareRejectReq)
 
-	@doc "退出设备共享"
+	@doc "撤销设备共享（仅共享者可操作）"
+	@handler cancelDeviceShare
+	post /device/share/cancel (DeviceShareCancelReq)
+
+	@doc "退出设备共享（被共享者主动退出）"
 	@handler quitDeviceShare
 	post /device/share/quit (DeviceShareQuitReq)
 
-	@doc "查询我发出的共享"
+	@doc "查询我发出的设备共享列表（兼容旧路径 device/share/my/send/list）"
 	@handler listSentDeviceShares
-	get /device/share/sent returns (DeviceShareListResp)
+	get /device/share/my/send/list returns (DeviceShareListResp)
 
-	@doc "查询我收到的共享"
+	@doc "查询我发出的设备共享列表（文档/客户端常用路径 device/share/send/list）"
+	@handler listSentDeviceSharesSendList
+	get /device/share/send/list returns (DeviceShareListResp)
+
+	@doc "查询我收到的设备共享列表"
 	@handler listReceivedDeviceShares
-	get /device/share/received returns (DeviceShareListResp)
+	get /device/share/my/receive/list returns (DeviceShareListResp)
 
 	@doc "查询共享详情"
 	@handler getDeviceShareDetail
@@ -617,5 +654,9 @@ service user-api {
 	@doc "注销二次确认页说明文案"
 	@handler getAccountCancellationConfirm
 	get /cancellation/confirm returns (GetAccountCancellationConfirmResp)
+
+	@doc "退出登录（将当前 token 加入黑名单，同时清理 refresh_token）"
+	@handler Logout
+	post /logout returns (LogoutResp)
 }
 

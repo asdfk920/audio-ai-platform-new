@@ -84,27 +84,50 @@ type UnbindDeviceResp struct {
 type DeviceShareCreateReq struct {
 	Sn         string `json:"sn"`
 	ShareTo    string `json:"share_to"`
-	ExpireDays int    `json:"expire_days,optional"`
+	ExpireDays int    `json:"expire_days"`
+}
+
+// DeviceShareAcceptDeviceRef 批量同意共享时的单条引用（与「收到的共享列表」字段对齐，至少填 share_id 或 sn 之一）。
+type DeviceShareAcceptDeviceRef struct {
+	ShareId int64  `json:"share_id,omitempty"`
+	Sn      string `json:"sn,omitempty"`
 }
 
 type DeviceShareAcceptReq struct {
-	ShareId int64 `json:"share_id"`
+	ShareId int64                         `json:"share_id,omitempty"`
+	Sn      string                        `json:"sn,omitempty"`
+	Devices []DeviceShareAcceptDeviceRef `json:"devices,omitempty"`
+	List    []DeviceShareAcceptDeviceRef `json:"list,omitempty"` // 与 devices 等价，兼容前端命名
+}
+
+// DeviceShareAcceptBatchResp 批量同意的结果：成功的条目 + 失败条目（逐条独立事务，互不影响）。
+type DeviceShareAcceptBatchResp struct {
+	Accepted []DeviceShareItem             `json:"accepted"`
+	Failed   []DeviceShareAcceptFailItem `json:"failed,omitempty"`
+}
+
+type DeviceShareAcceptFailItem struct {
+	ShareId int64  `json:"share_id,omitempty"`
+	Sn      string `json:"sn,omitempty"`
+	Code    int    `json:"code"`
+	Msg     string `json:"msg"`
 }
 
 type DeviceShareRejectReq struct {
-	ShareId int64 `json:"share_id"`
+	ShareId int64  `json:"share_id,omitempty"`
+	Sn      string `json:"sn,omitempty"`
 }
 
 type DeviceShareCancelReq struct {
-	ShareId int64 `json:"share_id"`
+	ShareId int64  `json:"share_id"`
+	Sn      string `json:"sn"`
 }
 
 type DeviceShareItem struct {
-	ShareId    int64  `json:"id"`
+	ShareId    int64  `json:"share_id"`
 	Sn         string `json:"sn"`
-	FromUserId int64  `json:"from_user_id"`
-	ToUserId   int64  `json:"to_user_id"`
-	ToAccount  string `json:"to_account"`
+	ShareTo    string `json:"share_to"`
+	ExpireDays int    `json:"expire_days"`
 	Status     int16  `json:"status"`
 	CreatedAt  string `json:"create_time"`
 	EndAt      string `json:"expire_time"`
@@ -119,7 +142,8 @@ type DeviceShareDetailReq struct {
 }
 
 type DeviceShareQuitReq struct {
-	ShareId int64 `json:"share_id"`
+	ShareId int64  `json:"share_id,omitempty"`
+	Sn      string `json:"sn,omitempty"`
 }
 
 type DeviceShareRevokeReq struct {

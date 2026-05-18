@@ -14,13 +14,13 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/device/reg"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/device/shadow"
-	"github.com/jacklau/audio-ai-platform/services/device/internal/repo"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/repository"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/statuspersist"
 )
 
 // StartOnlineKeyExpiryListener 使用独立 Redis 连接订阅 __keyevent@db__:expired。
 // 需在 redis.conf 中启用 notify-keyspace-events 包含 E（或 Ex），否则收不到事件。
-func StartOnlineKeyExpiryListener(ctx context.Context, sub *redis.Client, db *sql.DB, rdb *redis.Client, persist *statuspersist.Pool, c config.Config) {
+func StartOnlineKeyExpiryListener(ctx context.Context, sub *redis.Client, db *sql.DB, rdb *redis.Client, persist *statuspersist.Pool, c config.Config, deviceRepo *repository.DeviceRepo) {
 	if sub == nil || rdb == nil || !c.RedisKeyspace.Enabled {
 		return
 	}
@@ -53,14 +53,14 @@ func StartOnlineKeyExpiryListener(ctx context.Context, sub *redis.Client, db *sq
 				if len(snNorm) < 8 {
 					continue
 				}
-				handleOnlineExpired(context.Background(), log, db, rdb, persist, c, snNorm)
+				handleOnlineExpired(context.Background(), log, db, rdb, persist, c, snNorm, deviceRepo)
 			}
 		}
 	}()
 	log.Infof("redis keyspace listener subscribed: %s (device:online:* expiry → shadow offline)", channel)
 }
 
-func handleOnlineExpired(ctx context.Context, log logx.Logger, db *sql.DB, rdb *redis.Client, persist *statuspersist.Pool, c config.Config, snNorm string) {
+func handleOnlineExpired(ctx context.Context, log logx.Logger, db *sql.DB, rdb *redis.Client, persist *statuspersist.Pool, c config.Config, snNorm string, deviceRepo *repository.DeviceRepo) {
 	cfg := c.DeviceShadow
 	ttlSec := cfg.HeartbeatTTLSeconds
 	if ttlSec <= 0 {
@@ -80,12 +80,12 @@ func handleOnlineExpired(ctx context.Context, log logx.Logger, db *sql.DB, rdb *
 	}
 	qctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	row, err := repo.GetDeviceForMQTTAuth(qctx, db, snNorm)
-	if err != nil || row == nil {
+	device, err := deviceRepo.FindBySn(qctx, snNorm)
+	if err != nil || device == nil {
 		return
 	}
 	persist.Offer(statuspersist.Job{
-		DeviceID:     row.ID,
+		DeviceID:     device.ID,
 		SN:           snNorm,
 		RunState:     "",
 		OnlineStatus: 0,

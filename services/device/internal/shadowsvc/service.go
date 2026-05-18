@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
 
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/commandsvc"
 	redisshadow "github.com/jacklau/audio-ai-platform/services/device/internal/device/shadow"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/deviceauthsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/repo"
-	"github.com/jacklau/audio-ai-platform/services/device/internal/shadowmqtt"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 )
 
@@ -58,7 +58,7 @@ type PendingCommand struct {
 	CreatedAt       time.Time
 }
 
-// ShadowSyncResult 设备鉴权下一键拉取影子 + 待执行命令（断网重连同步）。
+// ShadowSyncResult 设备鉴权下一键拉取影子 + 待执行命令（断网重连同步）
 type ShadowSyncResult struct {
 	View           *View
 	Pending        []PendingCommand
@@ -128,7 +128,7 @@ func (s *Service) GetShadowForUser(ctx context.Context, userID int64, sn string)
 		}
 		return nil, errorx.NewDefaultError(errorx.CodeDatabaseError)
 	}
-	if err := repo.ErrIfNotQueryable(device.Status); err != nil {
+	if err := deviceauthsvc.ErrIfNotQueryable(device.Status); err != nil {
 		return nil, err
 	}
 	return s.buildView(ctx, device.DeviceID, device.SN, device.OnlineStatus == 1)
@@ -146,13 +146,13 @@ func (s *Service) UpdateDesiredByUserWithOptions(ctx context.Context, userID int
 		}
 		return nil, errorx.NewDefaultError(errorx.CodeDatabaseError)
 	}
-	if err := repo.ErrIfNotQueryable(device.Status); err != nil {
+	if err := deviceauthsvc.ErrIfNotQueryable(device.Status); err != nil {
 		return nil, err
 	}
 
 	desiredMap, err := decodeJSONObject(desiredRaw)
 	if err != nil {
-		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "desired 必须是合法 JSON 对象")
+		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "desired 必须是合�?JSON 对象")
 	}
 
 	row, redisMap, err := s.loadShadowState(ctx, device.DeviceID, device.SN)
@@ -200,7 +200,7 @@ func (s *Service) UpdateDesiredByUserWithOptions(ctx context.Context, userID int
 		return nil, err
 	}
 	if len(deltaMap) > 0 {
-		_ = shadowmqtt.PublishJSONDelta(s.svcCtx.Config, s.svcCtx.MQTTClient(), strings.ToUpper(strings.TrimSpace(device.SN)), device.DeviceID, deltaMap)
+		logx.Infof("shadowsvc: delta已生成（MQTT已移除）: sn=%s", strings.ToUpper(strings.TrimSpace(device.SN)))
 	}
 	view, err := s.buildView(ctx, device.DeviceID, device.SN, device.OnlineStatus == 1)
 	if err != nil {
@@ -227,7 +227,7 @@ func (s *Service) UpdateReportedForUser(ctx context.Context, userID int64, sn st
 		}
 		return nil, errorx.NewDefaultError(errorx.CodeDatabaseError)
 	}
-	if err := repo.ErrIfNotQueryable(device.Status); err != nil {
+	if err := deviceauthsvc.ErrIfNotQueryable(device.Status); err != nil {
 		return nil, err
 	}
 	return s.updateReportedByDeviceID(ctx, device.DeviceID, device.SN, reportedRaw, "app", "")
@@ -294,7 +294,7 @@ func (s *Service) GetPendingCommandsForDevice(ctx context.Context, sn, deviceSec
 	return commands, nil
 }
 
-func (s *Service) GetPendingCommandsForAuthenticatedDevice(ctx context.Context, deviceID int64, sn string, limit int) ([]PendingCommand, error) {
+func (s *Service) GetPendingCommandsForAuthenticatedDevice(ctx context.Context, deviceID int64, _ string, limit int) ([]PendingCommand, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
@@ -364,17 +364,17 @@ func (s *Service) ReportCommandResultForAuthenticatedDevice(ctx context.Context,
 }
 
 func (s *Service) PushPendingForDevice(ctx context.Context, sn string) {
-	row, err := repo.GetDeviceForMQTTAuth(ctx, s.svcCtx.DB, sn)
-	if err != nil {
+	device, err := s.svcCtx.DeviceRepo.FindBySn(ctx, sn)
+	if err != nil || device == nil {
 		return
 	}
-	_, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, row.ID, row.SN)
+	_, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, device.ID, device.Sn)
 }
 
 func (s *Service) updateReportedByDeviceID(ctx context.Context, deviceID int64, sn string, reportedRaw json.RawMessage, source string, clientIP string) (*View, error) {
 	reportedPatch, err := decodeJSONObject(reportedRaw)
 	if err != nil {
-		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "reported 必须是合法 JSON 对象")
+		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "reported 必须是合�?JSON 对象")
 	}
 
 	row, redisMap, err := s.loadShadowState(ctx, deviceID, sn)
@@ -660,9 +660,6 @@ VALUES ($1, $2, $3, $4, $5)`, instructionID, fromVal, to, note, operator)
 
 //nolint:unused // 保留供将来指令管理功能使用
 func (s *Service) pushPendingCommandsIfOnline(ctx context.Context, deviceID int64, sn string) (int, error) {
-	if s.svcCtx.MQTTClient() == nil {
-		return 0, nil
-	}
 	if !s.isDeviceOnline(ctx, sn) {
 		return 0, nil
 	}
@@ -683,16 +680,7 @@ LIMIT 20`, deviceID)
 		if err := rows.Scan(&item.ID, &item.DeviceID, &item.SN, &item.UserID, &item.Cmd, &item.Params, &item.Status, &item.CreatedAt); err != nil {
 			return pushed, errorx.NewDefaultError(errorx.CodeDatabaseError)
 		}
-		payload, _ := json.Marshal(map[string]interface{}{
-			"type":           "shadow_delta",
-			"instruction_id": item.ID,
-			"sn":             item.SN,
-			"cmd":            item.Cmd,
-			"params":         decodeMapOrEmpty(item.Params),
-		})
-		if err := shadowmqtt.PublishDesiredCommand(s.svcCtx.Config, s.svcCtx.MQTTClient(), item.SN, item.DeviceID, payload); err != nil {
-			return pushed, nil
-		}
+		logx.Infof("shadowsvc: 指令已生成（MQTT已移除）: sn=%s, instruction_id=%d", item.SN, item.ID)
 		now := time.Now()
 		if _, err := s.svcCtx.DB.ExecContext(ctx, `
 UPDATE public.device_instruction
@@ -774,12 +762,12 @@ func computeJSONDelta(desired, reported map[string]interface{}) map[string]inter
 	return delta
 }
 
-// ComputeJSONDelta 计算 desired 相对 reported 的差分。
+// ComputeJSONDelta 计算 desired 相对 reported 的差分
 func ComputeJSONDelta(desired, reported map[string]interface{}) map[string]interface{} {
 	return computeJSONDelta(desired, reported)
 }
 
-// GetShadowSyncForDevice 设备凭 SN+Secret 聚合影子视图与待处理指令（HTTP 重连同步）。
+// GetShadowSyncForDevice 设备通过 SN+Secret 聚合影子视图与待处理指令（HTTP 重连同步）
 func (s *Service) GetShadowSyncForDevice(ctx context.Context, sn, deviceSecret string, clientVersion int64, limit int) (*ShadowSyncResult, error) {
 	principal, err := deviceauthsvc.New(s.svcCtx).AuthenticateRequest(ctx, sn, deviceSecret, "")
 	if err != nil {

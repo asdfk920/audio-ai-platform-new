@@ -1,4 +1,4 @@
-.PHONY: help start stop clean build test lint ci-local docker-up docker-down migrate-up migrate-down goctl-install start-admin start-services swagger swagger-user swagger-device swagger-content swagger-export
+.PHONY: help start stop clean build test lint ci-local docker-up docker-down migrate-up migrate-down goctl-install start-admin start-services swagger swagger-user swagger-device swagger-content swagger-export swagger-admin
 
 # 默认目标
 help:
@@ -17,7 +17,7 @@ help:
 	@echo "  make migrate-up    - Run database migrations"
 	@echo "  make migrate-down  - Rollback database migrations"
 	@echo "  make goctl-install - Install goctl tool"
-	@echo "  make swagger       - Generate Swagger docs (all APIs)"
+	@echo "  make swagger       - Generate Swagger docs (user + device + content APIs)"
 	@echo "  make swagger-user  - Generate Swagger for user service"
 	@echo "  make swagger-device - Generate Swagger for device service"
 	@echo "  make swagger-content - Generate Swagger for content service"

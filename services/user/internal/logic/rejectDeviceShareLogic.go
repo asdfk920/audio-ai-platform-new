@@ -2,6 +2,11 @@ package logic
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/user/internal/repo/dao"
@@ -32,43 +37,56 @@ func (l *RejectDeviceShareLogic) RejectDeviceShare(req *types.DeviceShareRejectR
 		return errorx.NewCodeError(errorx.CodeTokenInvalid, "请重新登录")
 	}
 
-	if req.ShareId == 0 {
-		return errorx.NewCodeError(errorx.CodeInvalidParam, "共享记录ID不能为空")
+	sn := strings.TrimSpace(req.Sn)
+	if req.ShareId == 0 && sn == "" {
+		return errorx.NewCodeError(errorx.CodeInvalidParam, "请提供 share_id 或设备 sn")
+	}
+
+	shareID := req.ShareId
+	if shareID == 0 {
+		id, lookupErr := dao.FindLatestPendingShareIDForReceiverAndDeviceSN(l.ctx, l.svcCtx.DB, userId, sn)
+		if errors.Is(lookupErr, sql.ErrNoRows) {
+			return errorx.NewCodeError(errorx.CodeDeviceShareNotFound, "未找到待处理的共享邀请")
+		}
+		if lookupErr != nil {
+			l.Logger.Errorf("RejectDeviceShare: 按 SN 查找待接受共享失败, sn=%s, err=%v", sn, lookupErr)
+			return errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
+		}
+		shareID = id
 	}
 
 	tx, err := l.svcCtx.DB.BeginTx(l.ctx, nil)
 	if err != nil {
 		l.Logger.Errorf("RejectDeviceShare: 开启事务失败, err=%v", err)
-		return err
+		return errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	share, findErr := dao.FindDeviceShareByID(l.ctx, tx, req.ShareId)
+	receiverID, shareStatus, findErr := dao.FindDeviceShareQuitSnapshot(l.ctx, tx, shareID)
 	if findErr != nil {
-		l.Logger.Errorf("RejectDeviceShare: 查询共享记录失败, shareId=%d, err=%v", req.ShareId, findErr)
-		return findErr
-	}
-	if share == nil {
-		return errorx.NewCodeError(errorx.CodeInvalidParam, "共享记录不存在")
-	}
-
-	if share.Status != dao.DeviceShareStatusPending {
-		return errorx.NewCodeError(errorx.CodeInvalidParam, "该共享记录不是待确认状态")
+		if errors.Is(findErr, sql.ErrNoRows) {
+			return errorx.NewCodeError(errorx.CodeDeviceShareNotFound, "共享记录不存在")
+		}
+		l.Logger.Errorf("RejectDeviceShare: 查询共享记录失败, shareId=%d, err=%v", shareID, findErr)
+		return errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
 	}
 
-	if share.SharedUserID != userId {
+	if receiverID != userId {
 		return errorx.NewCodeError(errorx.CodeNoPermission, "无权操作该共享记录")
 	}
 
-	updateErr := dao.UpdateDeviceShareStatus(l.ctx, tx, req.ShareId, dao.DeviceShareStatusRejected)
-	if updateErr != nil {
+	if shareStatus != dao.DeviceShareStatusPending {
+		return errorx.NewCodeError(errorx.CodeInvalidParam, "仅待接受的邀请可拒绝")
+	}
+
+	if updateErr := dao.UpdateDeviceShareStatus(l.ctx, tx, shareID, dao.DeviceShareStatusRejected); updateErr != nil {
 		l.Logger.Errorf("RejectDeviceShare: 更新状态失败, err=%v", updateErr)
-		return updateErr
+		return errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
 	}
 
 	if commitErr := tx.Commit(); commitErr != nil {
 		l.Logger.Errorf("RejectDeviceShare: 提交事务失败, err=%v", commitErr)
-		return commitErr
+		return errorx.NewCodeError(errorx.CodeInternalError, "系统繁忙，请稍后重试")
 	}
 
 	return nil
@@ -86,6 +104,12 @@ func (l *RejectDeviceShareLogic) getUserIdFromCtx() int64 {
 		return int64(id)
 	case float64:
 		return int64(id)
+	case json.Number:
+		n, _ := id.Int64()
+		return n
+	case string:
+		n, _ := strconv.ParseInt(id, 10, 64)
+		return n
 	default:
 		return 0
 	}

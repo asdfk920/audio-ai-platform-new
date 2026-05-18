@@ -1,6 +1,9 @@
 package config
 
-import "github.com/zeromicro/go-zero/rest"
+import (
+	apicors "github.com/jacklau/audio-ai-platform/common/cors"
+	"github.com/zeromicro/go-zero/rest"
+)
 
 type Config struct {
 	rest.RestConf
@@ -43,6 +46,8 @@ type Config struct {
 	MaxDeviceBinds int `json:",default=10"` // 用户最大绑定设备数
 	// 文件上传配置
 	Upload UploadConfig `json:",optional"`
+	// CORS 浏览器跨域；省略 AllowOrigins 时等价允许 *（本地前后端联调）。
+	CORS apicors.Config `json:",optional"`
 }
 
 // UploadConfig 文件上传配置。

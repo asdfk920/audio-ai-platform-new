@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	apicors "github.com/jacklau/audio-ai-platform/common/cors"
 	"github.com/jacklau/audio-ai-platform/services/ota/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/ota/internal/handler"
 	"github.com/jacklau/audio-ai-platform/services/ota/internal/svc"
@@ -37,6 +38,8 @@ func main() {
 
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
+
+	server.Use(apicors.Middleware(c.CORS))
 
 	svcCtx := svc.NewServiceContext(c, db)
 

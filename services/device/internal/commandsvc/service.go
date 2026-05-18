@@ -15,7 +15,6 @@ import (
 
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	redisshadow "github.com/jacklau/audio-ai-platform/services/device/internal/device/shadow"
-	"github.com/jacklau/audio-ai-platform/services/device/internal/shadowmqtt"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 )
 
@@ -234,7 +233,7 @@ RETURNING id`,
 	}
 
 	var cachedNote string
-	if s.isDeviceOnline(ctx, in.DeviceSN) && s.svcCtx.MQTTClient() != nil {
+	if s.isDeviceOnline(ctx, in.DeviceSN) {
 		cachedNote = "ready_for_dispatch"
 	} else {
 		cachedNote = "cached_offline"
@@ -256,10 +255,8 @@ RETURNING id`,
 	}
 	if s.isDeviceOnline(ctx, in.DeviceSN) {
 		result.Status = "delivered"
-		if s.svcCtx.MQTTClient() != nil {
-			if pushed, _ := s.DispatchPendingInstructions(ctx, in.DeviceID, in.DeviceSN); pushed > 0 {
-				result.Status = "dispatched"
-			}
+		if pushed, _ := s.DispatchPendingInstructions(ctx, in.DeviceID, in.DeviceSN); pushed > 0 {
+			result.Status = "dispatched"
 		}
 	}
 	return result, nil
@@ -269,7 +266,7 @@ func (s *Service) DispatchPendingInstructions(ctx context.Context, deviceID int6
 	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil {
 		return 0, errorx.NewDefaultError(errorx.CodeSystemError)
 	}
-	if s.svcCtx.MQTTClient() == nil || !s.isDeviceOnline(ctx, sn) {
+	if !s.isDeviceOnline(ctx, sn) {
 		return 0, nil
 	}
 	limit := s.dispatchBatchSize()
@@ -311,26 +308,7 @@ LIMIT $3`, deviceID, StatusPending, limit)
 			_ = s.markInstructionStatus(ctx, item.InstructionID, deviceID, StatusExpired(), "expired_before_dispatch", "system")
 			continue
 		}
-		payload, _ := json.Marshal(map[string]interface{}{
-			"type":             "shadow_delta",
-			"instruction_id":   item.InstructionID,
-			"sn":               strings.ToUpper(strings.TrimSpace(sn)),
-			"cmd":              item.Cmd,
-			"command_code":     item.CommandCode,
-			"instruction_type": item.InstructionType,
-			"priority":         item.Priority,
-			"retry_count":      item.RetryCount,
-			"expires_at":       toUnix(item.ExpiresAt),
-			"params":           decodeMap(item.Params),
-		})
-		if err := shadowmqtt.PublishDesiredCommand(s.svcCtx.Config, s.svcCtx.MQTTClient(), strings.ToUpper(strings.TrimSpace(sn)), deviceID, payload); err != nil {
-			if item.RetryCount+1 >= item.MaxRetry {
-				_ = s.markInstructionStatus(ctx, item.InstructionID, deviceID, StatusFailed, "dispatch_retry_exhausted:"+err.Error(), "system")
-			} else {
-				_ = s.bumpRetry(ctx, item.InstructionID, deviceID, err.Error())
-			}
-			break
-		}
+		logx.Infof("commandsvc dispatch instruction %d to device %s (MQTT已移除，仅更新数据库状态)", item.InstructionID, deviceID)
 		now := time.Now()
 		if _, err := s.svcCtx.DB.ExecContext(ctx, `
 UPDATE public.device_instruction
