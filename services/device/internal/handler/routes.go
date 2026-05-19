@@ -24,17 +24,11 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 			Path:    "/api/device/status/report",
 			Handler: statusReportHandler(svcCtx),
 		})
-		// 设备注册接口（设备首次联网注册，获取认证 token）
+		// 设备注册接口（设备首次联网时向云端注册身份）
 		routes = append(routes, rest.Route{
 			Method:  http.MethodPost,
 			Path:    "/api/device/register",
 			Handler: deviceRegisterHandler(svcCtx),
-		})
-		// 设备认证接口（设备使用 token 向云端认证身份）
-		routes = append(routes, rest.Route{
-			Method:  http.MethodPost,
-			Path:    "/api/device/auth",
-			Handler: deviceAuthHandler(svcCtx),
 		})
 		// 设备重启指令接口（用户通过 App 下发重启指令）
 		routes = append(routes, rest.Route{

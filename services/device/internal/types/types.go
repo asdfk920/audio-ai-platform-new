@@ -46,18 +46,26 @@ type DeviceAuthResp struct {
 }
 
 // WsAuthMessage WebSocket认证消息
-// 设备建立WebSocket连接后立即发送的第一条消息，用于身份认证
-// 安全设计：包含时间戳和签名，防止重放攻击
+// 设备建立 WebSocket 连接后须立即发送的首包 JSON，用于身份认证。
+//
+// 握手：JWT 放在请求头 Authorization: Bearer <token>；若客户端无法自定义握手头，可使用 URL ?token= / ?access_token=。
+//
+// 签名算法（与 POST /api/device/register 一致）：signData = sn + register_timestamp（字符串拼接，register_timestamp 为注册时生成的毫秒 Unix 时间戳）；
+// signature = HMAC-SHA256(key=device_secret 明文, data=signData) 的 hex 小写。
+//
+// 安全设计：
+//   - Token通过HTTP请求头传递，避免在消息体中暴露
+//   - 使用客户端发送的时间戳进行签名验证
+//   - 支持设备时间与服务端时间存在一定偏差的情况
 type WsAuthMessage struct {
 	Type      string `json:"type"`      // 消息类型，固定为 "auth"
-	Sn        string `json:"sn"`        // 设备序列号（16位）
-	Token     string `json:"token"`     // 注册时获取的JWT访问凭证
-	Timestamp int64  `json:"timestamp"` // 当前时间戳（毫秒级Unix时间戳）
-	Signature string `json:"signature"` // 签名（HMAC-SHA256(device_secret, sn + token + timestamp)）
+	Sn        string `json:"sn"`        // 设备序列号（16位），须与 JWT 内 sn 一致（忽略大小写）
+	Timestamp int64  `json:"timestamp"` // 客户端时间戳（毫秒级Unix时间戳，用于签名计算）
+	Signature string `json:"signature"` // HMAC-SHA256 hex（signData = sn + timestamp）
 }
 
 // WsAuthResponse WebSocket认证响应
-// 云端返回给设备的认证结果
+// 云端返回给设备的认证结果。失败时若已通过 JWT 校验或已定位设备行，可能携带非零 device_id 便于排查。
 type WsAuthResponse struct {
 	Type      string `json:"type"`       // 响应类型："auth_response"
 	Success   bool   `json:"success"`    // 是否认证成功

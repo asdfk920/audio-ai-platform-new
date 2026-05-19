@@ -1,18 +1,28 @@
-Name: device-api
+Name: device-service
 Host: 0.0.0.0
 Port: 8002
 
+# 日志配置
+Log:
+  Level: info
+  Mode: console
+
+# 认证配置（用户端JWT）
+Auth:
+  AccessSecret: audio-ai-platform-user-secret
+  AccessExpire: 3600
+
+# PostgreSQL 数据库配置
 Postgres:
-  DataSource: "postgres://admin:admin123@14.103.202.69:5432/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai"
+  DataSource: postgres://admin:admin123@localhost:5432/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai
+
+# Redis 配置（可选，不使用时留空）
 Redis:
-  Addr: "14.103.202.69:6379"
-  Password: "cjs110017"
+  Addr: ""
+  Password:
   DB: 0
 
-Auth:
-  AccessSecret: audio-ai-platform-device-secret
-  AccessExpire: 86400
-
+# 设备认证配置
 DeviceAuth:
   TokenSecret: audio-ai-platform-device-secret
   TokenExpireSeconds: 86400
@@ -20,24 +30,26 @@ DeviceAuth:
   FailureThreshold: 5
   LockSeconds: 300
 
-# WebSocket 配置（设备长连接）
+# WebSocket 设备长连接配置
 WebSocket:
   Enable: true
   Path: /ws/device
   ReadBufferSize: 10240
   WriteBufferSize: 10240
-  PingInterval: 54s        # 心跳间隔（54秒，小于60秒超时）
-  PongTimeout: 60s         # Pong超时时间
-  MaxMessageSize: 65536    # 最大消息大小（64KB）
-  EnableCors: true         # 允许跨域
+  PingInterval: "54s"
+  PongTimeout: "60s"
+  MaxMessageSize: 65536
+  EnableCors: true
 
+# 设备影子配置
 DeviceShadow:
-  HeartbeatTTLSeconds: 300
+  HeartbeatTTLSeconds: 90
   EnableOnlineSet: true
   PubSubEnabled: true
-  EventChannelPrefix: "device:shadow:"
-  SeedTTLSeconds: 60
+  EventChannelPrefix: device:shadow:event
+  SeedTTLSeconds: 86400
 
+# 设备状态查询配置
 DeviceStatusQuery:
   OnlineStaleSeconds: 300
   DisableNegCache: false
@@ -46,6 +58,15 @@ DeviceStatusQuery:
   RateLimitMaxPerUser: 30
   DisableRateLimit: false
 
+# 设备指令配置
+DeviceCommand:
+  DefaultExpiresSeconds: 86400
+  DefaultTimeoutSeconds: 30
+  DefaultMaxRetry: 3
+  DispatchBatchSize: 100
+  WorkerIntervalSeconds: 10
+
+# 状态上报策略配置
 StatusReport:
   IntervalNormalSec: 60
   IntervalMidRangeSec: 120
@@ -56,21 +77,37 @@ StatusReport:
   EnergyBatteryPercent: 20
   MidRangeBatteryPercent: 50
 
-RedisKeyspace:
-  Enabled: true
+# HTTP状态上报限流
+StatusReportHTTP:
+  RateLimitPerMinute: 60
 
+# Redis Keyspace通知（可选）
+RedisKeyspace:
+  Enabled: false
+
+# 状态持久化配置
 StatusPersist:
   QueueSize: 1000
-  Workers: 4
+  Workers: 5
 
-DeviceCommand:
-  DefaultExpiresSeconds: 300
-  DefaultTimeoutSeconds: 30
-  DefaultMaxRetry: 3
-  DispatchBatchSize: 100
-  WorkerIntervalSeconds: 10
+# CORS跨域配置
+CORS:
+  AllowOrigins:
+    - "*"
+  AllowMethods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  AllowHeaders:
+    - Content-Type
+    - Authorization
+    - X-Device-Secret
+  ExposeHeaders:
+    - Content-Length
+  MaxAge: 86400
+  AllowCredentials: false
 
-Log:
-  ServiceName: device-api
-  Mode: console
-  Level: info
+# 用户最大绑定设备数
+MaxDeviceBinds: 10

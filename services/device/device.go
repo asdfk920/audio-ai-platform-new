@@ -328,15 +328,18 @@ func loadConfigFromEnv(c *config.Config) {
 	}
 
 	if v := os.Getenv("REDIS_ADDR"); v != "" {
-		// 只有当YAML配置是默认本地地址或空时，才允许环境变量覆盖
+		// 只有当YAML配置是默认本地地址时，才允许环境变量覆盖
+		// 如果YAML明确配置为空字符串或其他非默认值，则保留YAML配置
 		yamlAddr := strings.TrimSpace(c.Redis.Addr)
-		if yamlAddr == "" || yamlAddr == "127.0.0.1:6379" || yamlAddr == "localhost:6379" {
+		if yamlAddr == "127.0.0.1:6379" || yamlAddr == "localhost:6379" {
 			c.Redis.Addr = v
 			c.Redis.Password = os.Getenv("REDIS_PASS")
 			if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
 				_, _ = fmt.Sscanf(dbStr, "%d", &c.Redis.DB)
 			}
 			logx.Infof("从环境变量加载 Redis 配置（YAML为本地地址，已覆盖）: addr=%s", v)
+		} else if yamlAddr == "" {
+			logx.Infof("YAML配置Redis为空，跳过环境变量REDIS_ADDR（禁用Redis）")
 		} else {
 			logx.Infof("保留 YAML 配置的 Redis 地址（忽略环境变量）: addr=%s", yamlAddr)
 		}

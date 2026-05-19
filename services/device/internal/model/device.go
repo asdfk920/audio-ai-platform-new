@@ -15,11 +15,13 @@ type Device struct {
 	ProductKey        string     `db:"product_key"`
 	DeviceSecret      string     `db:"device_secret"`
 	RegisterSignature *string    `db:"register_signature"` // 设备注册签名：HMAC-SHA256(device_secret, sn + timestamp)，可为NULL
+	RegisterTimestamp *int64     `db:"register_timestamp"` // 注册时间戳（毫秒级Unix时间戳），用于WebSocket认证签名验证
 	FirmwareVersion   string     `db:"firmware_version"`
 	HardwareVersion   string     `db:"hardware_version"`
 	Mac               string     `db:"mac"`
 	Ip                string     `db:"ip"`
 	OnlineStatus      int16      `db:"online_status"`
+	UsageStatus       int16      `db:"usage_status"`
 	Status            int16      `db:"status"`
 	CreateBy          int64      `db:"create_by"`
 	LastActiveAt      time.Time  `db:"last_active_at"`
@@ -29,11 +31,15 @@ type Device struct {
 }
 
 // DeviceStatus 设备状态常量定义
-// 用于标识设备的生命周期状态（正常/禁用/报废）
+// 用于标识设备的生命周期状态
+// 状态值：0=Default, 1=Normal, 2=Disabled, 3=Inactive, 4=Unregistered, 5=Unauthenticated
 const (
-	DeviceStatusNormal   int16 = 1 // 正常：设备可正常使用
-	DeviceStatusDisabled int16 = 0 // 禁用：设备被管理员禁用
-	DeviceStatusScrapped int16 = 2 // 报废：设备已报废
+	DeviceStatusDefault         int16 = 0 // 默认：初始状态（兼容旧数据）
+	DeviceStatusNormal          int16 = 1 // 正常：设备已注册且已认证，可正常使用
+	DeviceStatusDisabled        int16 = 2 // 禁用：设备被管理员禁用
+	DeviceStatusInactive        int16 = 3 // 未激活/报废：设备已停用或报废
+	DeviceStatusUnregistered    int16 = 4 // 未注册：设备刚创建，尚未完成注册流程
+	DeviceStatusUnauthenticated int16 = 5 // 未认证：设备已注册但尚未完成WebSocket认证
 )
 
 // DeviceOnlineStatus 设备在线状态常量定义
@@ -41,4 +47,12 @@ const (
 const (
 	DeviceOnlineStatusOffline int16 = 0 // 离线：设备未连接云端
 	DeviceOnlineStatusOnline  int16 = 1 // 在线：设备已连接云端
+)
+
+// DeviceUsageStatus 设备使用状态常量定义
+// 用于标识设备的启用/禁用状态（管理员控制）
+// 状态值：1=启用, 2=禁用
+const (
+	DeviceUsageStatusEnabled  int16 = 1 // 启用：设备可正常使用
+	DeviceUsageStatusDisabled int16 = 2 // 禁用：设备被禁用，无法使用
 )

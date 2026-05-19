@@ -33,25 +33,18 @@ func NewDeviceRepo(db *sql.DB) *DeviceRepo {
 // 返回 error: 查询失败时的错误信息
 func (r *DeviceRepo) FindBySn(ctx context.Context, sn string) (*model.Device, error) {
 	query := `
-		SELECT
-			id, sn, model, product_key, device_secret, register_signature,
-			firmware_version, hardware_version, mac, ip,
-			online_status, status, create_by, last_active_at,
-			created_at, updated_at, deleted_at
-		FROM device
+		SELECT id, sn, product_key, device_secret, status, online_status,
+		       created_at, updated_at, deleted_at
+		FROM public.device
 		WHERE sn = $1 AND deleted_at IS NULL
 	`
 
 	var device model.Device
 	err := r.db.QueryRowContext(ctx, query, sn).Scan(
-		&device.ID, &device.Sn, &device.Model, &device.ProductKey,
-		&device.DeviceSecret, &device.RegisterSignature,
-		&device.FirmwareVersion, &device.HardwareVersion,
-		&device.Mac, &device.Ip, &device.OnlineStatus, &device.Status,
-		&device.CreateBy, &device.LastActiveAt,
+		&device.ID, &device.Sn, &device.ProductKey,
+		&device.DeviceSecret, &device.Status, &device.OnlineStatus,
 		&device.CreatedAt, &device.UpdatedAt, &device.DeletedAt,
 	)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -62,24 +55,64 @@ func (r *DeviceRepo) FindBySn(ctx context.Context, sn string) (*model.Device, er
 	return &device, nil
 }
 
-// FindById 根据ID查询设备
+// FindBySnIncludingDeleted 按 SN 查询设备（不过滤 deleted_at）。
+// 用于注册：软删除行仍会占用 sn 唯一约束，仅靠 FindBySn 会误判为「可 INSERT」导致 23505。
+func (r *DeviceRepo) FindBySnIncludingDeleted(ctx context.Context, sn string) (*model.Device, error) {
+	query := `
+		SELECT id, sn, product_key, device_secret, status, online_status,
+		       created_at, updated_at, deleted_at
+		FROM public.device
+		WHERE sn = $1
+	`
+
+	var device model.Device
+	err := r.db.QueryRowContext(ctx, query, sn).Scan(
+		&device.ID, &device.Sn, &device.ProductKey,
+		&device.DeviceSecret, &device.Status, &device.OnlineStatus,
+		&device.CreatedAt, &device.UpdatedAt, &device.DeletedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("查询设备失败: %v", err)
+	}
+
+	return &device, nil
+}
+
+// ClearDeletedAt 清除软删除标记（设备重新注册恢复）
+func (r *DeviceRepo) ClearDeletedAt(ctx context.Context, deviceID int64) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE public.device
+		SET deleted_at = NULL, updated_at = NOW()
+		WHERE id = $1`, deviceID)
+	if err != nil {
+		return fmt.Errorf("恢复设备失败: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("恢复设备失败: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("恢复设备失败: 未更新任何行")
+	}
+	return nil
+}
+
+// FindById 根据ID查询设备（含 WS 注册用到的 register_signature / register_timestamp）
 func (r *DeviceRepo) FindById(ctx context.Context, id int64) (*model.Device, error) {
 	query := `
-		SELECT 
-			id, sn, model, product_key, device_secret,
-			firmware_version, hardware_version, mac, ip,
-			online_status, status, create_by, last_active_at,
-			created_at, updated_at, deleted_at
-		FROM device 
+		SELECT id, sn, product_key, device_secret, status, online_status,
+		       created_at, updated_at, deleted_at
+		FROM public.device 
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
 	var device model.Device
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&device.ID, &device.Sn, &device.Model, &device.ProductKey,
-		&device.DeviceSecret, &device.FirmwareVersion, &device.HardwareVersion,
-		&device.Mac, &device.Ip, &device.OnlineStatus, &device.Status,
-		&device.CreateBy, &device.LastActiveAt,
+		&device.ID, &device.Sn, &device.ProductKey,
+		&device.DeviceSecret, &device.Status, &device.OnlineStatus,
 		&device.CreatedAt, &device.UpdatedAt, &device.DeletedAt,
 	)
 
@@ -118,20 +151,52 @@ func (r *DeviceRepo) UpdateLastActive(ctx context.Context, deviceId int64, onlin
 	return nil
 }
 
+// CreateWithFullInfo 创建新设备记录（包含完整信息）
+// 用于设备注册时创建完整的设备记录，包括密钥、签名、时间戳等
+//
+// 参数 ctx context.Context: 请求上下文
+// 参数 device *model.Device: 设备对象（包含所有字段信息）
+// 返回 int64: 新创建的设备 ID
+// 返回 error: 创建失败时的错误信息
+func (r *DeviceRepo) CreateWithFullInfo(ctx context.Context, device *model.Device) (int64, error) {
+	query := `
+		INSERT INTO device (sn, product_key, device_secret, status, online_status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		RETURNING id
+	`
+
+	var deviceID int64
+	err := r.db.QueryRowContext(ctx, query,
+		device.Sn,
+		device.ProductKey,
+		device.DeviceSecret,
+		device.Status,
+		device.OnlineStatus,
+	).Scan(&deviceID)
+
+	if err != nil {
+		return 0, fmt.Errorf("创建设备记录失败: %v", err)
+	}
+
+	return deviceID, nil
+}
+
 // UpdateRegisterSignature 更新设备注册签名
 // 参数 ctx context.Context: 请求上下文
 // 参数 deviceId int64: 设备ID
 // 参数 signature string: 注册签名（HMAC-SHA256签名）
+// 参数 registerTimestamp int64: 注册时间戳（毫秒级Unix时间戳）
 // 返回 error: 更新失败时的错误信息
-func (r *DeviceRepo) UpdateRegisterSignature(ctx context.Context, deviceId int64, signature string) error {
+func (r *DeviceRepo) UpdateRegisterSignature(ctx context.Context, deviceId int64, signature string, registerTimestamp int64) error {
 	query := `
-		UPDATE device
+		UPDATE public.device
 		SET register_signature = $1,
-		    updated_at = $2
-		WHERE id = $3 AND deleted_at IS NULL
+		    register_timestamp = $2,
+		    updated_at = $3
+		WHERE id = $4 AND deleted_at IS NULL
 	`
 
-	result, err := r.db.ExecContext(ctx, query, signature, time.Now(), deviceId)
+	result, err := r.db.ExecContext(ctx, query, signature, registerTimestamp, time.Now(), deviceId)
 	if err != nil {
 		return fmt.Errorf("更新设备注册签名失败: %v", err)
 	}

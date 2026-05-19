@@ -1,0 +1,29 @@
+﻿id|Device primary key ID, auto-increment
+sn|Device Serial Number (SN), globally unique identifier
+product_key|Product Key for distinguishing product lines, e.g., audio_platform_default
+device_secret|Device secret key for authentication/HMAC-SHA256 signing
+firmware_version|Current firmware version, e.g., 1.0.0
+hardware_version|Hardware version, e.g., HW_v1.0
+model|Device model/type, e.g., AudioSpeaker, AudioSpeaker_Pro
+mac|MAC address, physical network card address, format: 00:11:22:33:44:55
+ip|Last reported IP address (public or private IP when connecting to cloud)
+online_status|Online status: 0=Offline, 1=Online
+status|Device lifecycle status: 0=Default, 1=Normal, 2=Disabled, 3=Inactive, 4=Unregistered, 5=Unauthenticated
+created_at|Creation timestamp (record insertion time)
+updated_at|Update timestamp (last modification time)
+last_active_at|Last active timestamp (last data report or heartbeat)
+deleted_at|Soft delete timestamp (GORM DeletedAt), NULL means not deleted
+create_by|Creator ID (backend user ID who created this device)
+update_by|Updater ID (backend user ID who last modified this device)
+admin_display_name|Admin display name (custom name set by admin)
+admin_remark|Admin remark/note about this device
+admin_location|Device location info (set by admin)
+admin_group_id|Device group ID for grouping devices
+admin_tags|Device tags in JSONB format for categorization
+admin_config|Device admin configuration in JSONB format
+auth_token|Device authentication token for MQTT/WebSocket connection, JWT format
+bound_user_id|Bound user ID (which user owns this device)
+bound_at|Binding timestamp (when device was bound to user)
+bind_status|Binding status: 0=Unbound, 1=Bound, 2=Pending
+register_signature|Device registration signature: HMAC-SHA256(device_secret, sn + timestamp), used for WebSocket authentication verification
+usage_status|Usage status (admin control): 1=Enabled, 2=Disabled
