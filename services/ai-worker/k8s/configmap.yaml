@@ -8,7 +8,20 @@ data:
     name: ai-worker-api
     host: 0.0.0.0
     port: 8004
-    
+
+    CORS:
+      AllowCredentials: false
+      AllowOrigins:
+        - "*"
+      AllowMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      AllowHeaders:
+        - "*"
+
     # JWT 认证配置
     Auth:
       AccessSecret: audio-ai-platform-user-secret

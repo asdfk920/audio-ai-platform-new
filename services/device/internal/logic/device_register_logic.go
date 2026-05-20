@@ -24,6 +24,9 @@ const (
 	deviceRegisterTokenExpireSeconds = 86400
 )
 
+// ErrDeviceAlreadyRegistered 设备 SN 已在库（未删除）且密钥正确时再调用注册时使用。
+var ErrDeviceAlreadyRegistered = errors.New("该设备已注册，请勿重复注册")
+
 type DeviceRegisterLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
@@ -36,7 +39,8 @@ func NewDeviceRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *De
 	}
 }
 
-// DeviceRegister 设备注册：SN 已存在时刷新 Token 与注册签名；若仅软删除占用唯一键则先恢复再刷新。
+// DeviceRegister 设备首次注册：创建设备并返回 token/签名字段；SN 对已存在活跃设备时报 ErrDeviceAlreadyRegistered。
+// 仅软删除占位时：校验密钥后可恢复档案并签发凭证（等价于该机首次在云侧生效）。
 func (l *DeviceRegisterLogic) DeviceRegister(req *types.DeviceRegisterReq) (*types.DeviceRegisterResp, error) {
 	logx.Infof("====================================")
 	logx.Infof("[Device Register] 📝 开始设备注册流程...")
@@ -47,38 +51,41 @@ func (l *DeviceRegisterLogic) DeviceRegister(req *types.DeviceRegisterReq) (*typ
 		return nil, fmt.Errorf("请求参数校验失败: %v", err)
 	}
 
-	existing, err := l.svcCtx.DeviceRepo.FindBySn(l.ctx, sn)
+	active, err := l.svcCtx.DeviceRepo.FindBySn(l.ctx, sn)
 	if err != nil {
 		return nil, fmt.Errorf("查询设备失败: %w", err)
 	}
-
-	if existing == nil {
-		ghost, err := l.svcCtx.DeviceRepo.FindBySnIncludingDeleted(l.ctx, sn)
-		if err != nil {
-			return nil, fmt.Errorf("查询设备失败: %w", err)
+	if active != nil && active.ID > 0 {
+		if !verifyDeviceSecretAgainstStored(req.DeviceSecret, active.DeviceSecret) {
+			return nil, fmt.Errorf("设备密钥不正确")
 		}
-		if ghost != nil {
-			if !verifyDeviceSecretAgainstStored(req.DeviceSecret, ghost.DeviceSecret) {
-				return nil, fmt.Errorf("设备密钥不正确")
+		return nil, ErrDeviceAlreadyRegistered
+	}
+
+	ghost, err := l.svcCtx.DeviceRepo.FindBySnIncludingDeleted(l.ctx, sn)
+	if err != nil {
+		return nil, fmt.Errorf("查询设备失败: %w", err)
+	}
+	if ghost != nil {
+		if !verifyDeviceSecretAgainstStored(req.DeviceSecret, ghost.DeviceSecret) {
+			return nil, fmt.Errorf("设备密钥不正确")
+		}
+		if ghost.DeletedAt != nil {
+			if err := l.svcCtx.DeviceRepo.ClearDeletedAt(l.ctx, ghost.ID); err != nil {
+				return nil, err
 			}
-			if ghost.DeletedAt != nil {
-				if err := l.svcCtx.DeviceRepo.ClearDeletedAt(l.ctx, ghost.ID); err != nil {
-					return nil, err
-				}
-				logx.Infof("[Device Register] 已恢复软删除设备: id=%d sn=%s", ghost.ID, sn)
-			}
-			existing, err = l.svcCtx.DeviceRepo.FindBySn(l.ctx, sn)
+			logx.Infof("[Device Register] 已恢复软删除设备: id=%d sn=%s", ghost.ID, sn)
+			existing, err := l.svcCtx.DeviceRepo.FindBySn(l.ctx, sn)
 			if err != nil {
 				return nil, fmt.Errorf("查询设备失败: %w", err)
 			}
 			if existing == nil {
 				return nil, fmt.Errorf("恢复设备后仍无法加载记录，请稍后重试")
 			}
+			return l.refreshRegistrationForExistingDevice(existing, sn, req.DeviceSecret)
 		}
-	}
-
-	if existing != nil && existing.ID > 0 {
-		return l.refreshRegistrationForExistingDevice(existing, sn, req.DeviceSecret)
+		logx.Errorf("[Device Register] 数据异常 ghost 活跃但 FindBySn 为空 sn=%s id=%d", sn, ghost.ID)
+		return nil, ErrDeviceAlreadyRegistered
 	}
 
 	logx.Infof("[Device Register] 🔍 新设备，执行首次入库...")
@@ -147,6 +154,16 @@ func (l *DeviceRegisterLogic) DeviceRegister(req *types.DeviceRegisterReq) (*typ
 }
 
 func (l *DeviceRegisterLogic) recoverExistingAfterDuplicateKey(sn, plainSecret string) (*types.DeviceRegisterResp, error) {
+	active, err := l.svcCtx.DeviceRepo.FindBySn(l.ctx, sn)
+	if err != nil {
+		return nil, fmt.Errorf("创建设备后与唯一约束冲突，但加载记录失败: %w", err)
+	}
+	if active != nil && active.ID > 0 {
+		if !verifyDeviceSecretAgainstStored(plainSecret, active.DeviceSecret) {
+			return nil, fmt.Errorf("设备密钥不正确")
+		}
+		return nil, ErrDeviceAlreadyRegistered
+	}
 	row, err := l.svcCtx.DeviceRepo.FindBySnIncludingDeleted(l.ctx, sn)
 	if err != nil {
 		return nil, fmt.Errorf("创建设备后与唯一约束冲突，但无法加载已有记录: %w", err)
@@ -161,18 +178,22 @@ func (l *DeviceRegisterLogic) recoverExistingAfterDuplicateKey(sn, plainSecret s
 		if err := l.svcCtx.DeviceRepo.ClearDeletedAt(l.ctx, row.ID); err != nil {
 			return nil, err
 		}
+		active2, err := l.svcCtx.DeviceRepo.FindBySn(l.ctx, sn)
+		if err != nil {
+			return nil, err
+		}
+		if active2 == nil {
+			return nil, fmt.Errorf("处理唯一约束冲突后仍无法加载设备")
+		}
+		return l.refreshRegistrationForExistingDevice(active2, sn, plainSecret)
 	}
-	active, err := l.svcCtx.DeviceRepo.FindBySn(l.ctx, sn)
-	if err != nil {
-		return nil, err
+	if !verifyDeviceSecretAgainstStored(plainSecret, row.DeviceSecret) {
+		return nil, fmt.Errorf("设备密钥不正确")
 	}
-	if active == nil {
-		return nil, fmt.Errorf("处理唯一约束冲突后仍无法加载设备")
-	}
-	return l.refreshRegistrationForExistingDevice(active, sn, plainSecret)
+	return nil, ErrDeviceAlreadyRegistered
 }
 
-// refreshRegistrationForExistingDevice 校验密钥后签发新 JWT。
+// refreshRegistrationForExistingDevice 在「软删除恢复」或唯一键冲突后恢复档案时，校验密钥并签发 JWT 与当前时间戳签名（响应形状与首次注册一致）。
 func (l *DeviceRegisterLogic) refreshRegistrationForExistingDevice(device *model.Device, sn, plainSecret string) (*types.DeviceRegisterResp, error) {
 	if device == nil || device.ID <= 0 {
 		return nil, fmt.Errorf("内部错误：设备数据无效")

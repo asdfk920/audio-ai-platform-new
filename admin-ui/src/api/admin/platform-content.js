@@ -75,7 +75,8 @@ export function addContent(data) {
   const req = request({
     url: base + '/add',
     method: 'post',
-    data: formData
+    data: formData,
+    timeout: 300000
   })
   return req
     .then((res) => {
@@ -119,13 +120,13 @@ export function addContent(data) {
     })
 }
 
-/** 更新内容（后端仅解析 application/x-www-form-urlencoded / multipart，不用 JSON） */
+/** 更新内容（multipart/form-data，与新增一致：支持附带 cover/audio 明文文件直传） */
 export function updateContent(contentId, data) {
-  const params = new URLSearchParams()
-  params.append('content_id', String(contentId))
+  const formData = new FormData()
+  formData.append('content_id', String(contentId))
   const set = (k, v) => {
     if (v === undefined || v === null || v === '') return
-    params.append(k, String(v))
+    formData.append(k, String(v))
   }
   set('title', data.title)
   set('artist', data.artist)
@@ -134,21 +135,19 @@ export function updateContent(contentId, data) {
   set('cover_url', data.cover_url)
   set('audio_url', data.audio_url)
   if (data.duration_sec != null && data.duration_sec !== '') {
-    params.append('duration', String(data.duration_sec))
+    formData.append('duration', String(data.duration_sec))
   }
-  const spatialKeys = ['pos_x', 'pos_y', 'pos_z', 'yaw', 'pitch', 'roll', 'render_distance', 'render_gain', 'render_filter']
-  for (const k of spatialKeys) {
-    if (data[k] === undefined || data[k] === null || data[k] === '') continue
-    params.append(k, String(data[k]))
-  }
-  params.append('audio_validity_mode', data.audio_validity_mode || 'none')
-  params.append('audio_valid_from', data.audio_valid_from || '')
-  params.append('audio_valid_until', data.audio_valid_until || '')
+  appendSpatialFields(formData, data)
+  formData.append('audio_validity_mode', data.audio_validity_mode || 'none')
+  formData.append('audio_valid_from', data.audio_valid_from || '')
+  formData.append('audio_valid_until', data.audio_valid_until || '')
+  if (data.cover_file instanceof File) formData.append('cover', data.cover_file)
+  if (data.audio_file instanceof File) formData.append('audio', data.audio_file)
   return request({
     url: base + '/update',
     method: 'post',
-    data: params.toString(),
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    data: formData,
+    timeout: 300000
   })
 }
 
@@ -167,19 +166,6 @@ export function offlineContent(contentId) {
     url: base + '/offline',
     method: 'post',
     data: { content_id: contentId }
-  })
-}
-
-/** 上传文件（通用接口，所有文件转为私有格式） */
-export function uploadFile(file) {
-  const formData = new FormData()
-  formData.append('file', file)
-
-  return request({
-    url: '/api/admin/file/upload',
-    method: 'post',
-    data: formData,
-    timeout: 300000
   })
 }
 

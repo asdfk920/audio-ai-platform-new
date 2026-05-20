@@ -3,9 +3,20 @@ Host: 0.0.0.0
 Port: 8001
 MaxBytes: 10485760
 
-# 浏览器跨域（前端直连本服务时使用）。省略整段 CORS 则默认 Allow-Origin: *。
-# 生产建议写明域名并按需 AllowCredentials: true（与 * 不能同时使用）。
-CORS: {}
+# 浏览器跨域（与 Name/Host/Port 同级，对应 common/cors.Config；无 Enabled，默认启用）。
+# 允许 * Origin 时会忽略 AllowCredentials（见 common/cors resolve）。
+CORS:
+  AllowCredentials: false
+  AllowOrigins:
+    - "*"
+  AllowMethods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  AllowHeaders:
+    - "*"
 
 Postgres:
   DataSource: "postgres://admin:admin123@14.103.202.69:5432/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai"

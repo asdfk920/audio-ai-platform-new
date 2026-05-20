@@ -31,6 +31,11 @@ func RegisterPlatformDeviceRouter(v1 *gin.RouterGroup, authMiddleware *jwt.GinJW
 	iot := apis.IotProduct{}
 	// 创建产品短路径：POST /api/v1/product（与 POST /api/v1/platform-device/products 相同）
 	v1.POST("/product", authMiddleware.MiddlewareFunc(), middleware.AuthCheckRole(), iot.CreateProduct)
+
+	// 取消待执行指令：不要求用户 JWT（运维脚本 / 内网调用）；请勿对外网暴露 Admin API。
+	pubPD := v1.Group("/platform-device")
+	pubPD.POST("/instructions/:id/cancel", api.InstructionCancel)
+
 	r := v1.Group("/platform-device").Use(authMiddleware.MiddlewareFunc()).Use(middleware.AuthCheckRole())
 	{
 		r.GET("/list", api.List)

@@ -9,12 +9,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/zeromicro/go-zero/core/logx"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/jacklau/audio-ai-platform/common/errorx"
@@ -122,6 +124,23 @@ func ExtractBearerToken(header string) string {
 	return header
 }
 
+// ExtractDeviceWSBearerToken 设备 WebSocket 握手时提取 JWT：优先 Authorization: Bearer，其次 URL ?token= / ?access_token= / ?accessToken=
+func ExtractDeviceWSBearerToken(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if t := ExtractBearerToken(r.Header.Get("Authorization")); t != "" {
+		return t
+	}
+	q := r.URL.Query()
+	for _, key := range []string{"token", "access_token", "accessToken"} {
+		if v := strings.TrimSpace(q.Get(key)); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 func (s *Service) AuthenticateRequest(ctx context.Context, sn, secret, clientIP string) (*Principal, error) {
 	if strings.TrimSpace(clientIP) == "" {
 		clientIP = ClientIPFromContext(ctx)
@@ -202,6 +221,14 @@ func (s *Service) IssueDeviceToken(principal *Principal) (string, int64, error) 
 	}
 	now := time.Now()
 	expireSeconds := s.tokenExpireSeconds()
+
+	secret := s.tokenSecret()
+	logx.Infof("🔑 [IssueDeviceToken] 生成新Token...")
+	logx.Infof("   DeviceID: %d", principal.DeviceID)
+	logx.Infof("   SN:       %s", principal.DeviceSN)
+	logx.Infof("   Secret:   %s (长度:%d)", truncate(secret, 10), len(secret))
+	logx.Infof("   过期时间: %d 秒", expireSeconds)
+
 	claims := TokenClaims{
 		DeviceID: principal.DeviceID,
 		SN:       principal.DeviceSN,
@@ -213,10 +240,16 @@ func (s *Service) IssueDeviceToken(principal *Principal) (string, int64, error) 
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString([]byte(s.tokenSecret()))
+	signed, err := token.SignedString([]byte(secret))
 	if err != nil {
+		logx.Errorf("❌ [IssueDeviceToken] Token签名失败: %v", err)
 		return "", 0, errorx.NewDefaultError(errorx.CodeSystemError)
 	}
+
+	logx.Infof("✅ [IssueDeviceToken] Token生成成功")
+	logx.Infof("   Token长度: %d", len(signed))
+	logx.Infof("   Token前20字符: %s", truncate(signed, 20))
+
 	return signed, expireSeconds, nil
 }
 
@@ -225,24 +258,51 @@ func (s *Service) VerifyDeviceToken(ctx context.Context, tokenString string) (*P
 	if tokenString == "" {
 		return nil, errorx.NewDefaultError(errorx.CodeTokenInvalid)
 	}
+
+	logx.Infof("🔍 [VerifyDeviceToken] 开始验证Token...")
+	logx.Infof("   Token长度: %d", len(tokenString))
+	logx.Infof("   Token前20字符: %s", truncate(tokenString, 20))
+
+	secret := s.tokenSecret()
+	logx.Infof("   使用的Secret: %s (长度:%d)", truncate(secret, 10), len(secret))
+
 	claims := &TokenClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		if token.Method != jwt.SigningMethodHS256 {
-			return nil, fmt.Errorf("unexpected signing method")
+			logx.Errorf("❌ [VerifyDeviceToken] 签名方法不匹配: 期望 HS256, 实际 %v", token.Method)
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Method)
 		}
-		return []byte(s.tokenSecret()), nil
+		return []byte(secret), nil
 	})
-	if err != nil || token == nil || !token.Valid {
+
+	if err != nil {
+		logx.Errorf("❌ [VerifyDeviceToken] JWT解析失败: %v", err)
+		logx.Errorf("   Token内容: %s", tokenString)
 		return nil, errorx.NewDefaultError(errorx.CodeTokenInvalid)
 	}
+
+	if token == nil || !token.Valid {
+		logx.Errorf("❌ [VerifyDeviceToken] Token无效或为空")
+		return nil, errorx.NewDefaultError(errorx.CodeTokenInvalid)
+	}
+
+	logx.Infof("✅ [VerifyDeviceToken] JWT Token解析成功")
+	logx.Infof("   DeviceID: %d", claims.DeviceID)
+	logx.Infof("   SN:       %s", claims.SN)
+	logx.Infof("   IssuedAt: %v", claims.IssuedAt)
+	logx.Infof("   ExpiresAt: %v", claims.ExpiresAt)
+
 	row, err := s.getDevice(ctx, claims.SN)
 	if err != nil {
+		logx.Errorf("❌ [VerifyDeviceToken] 查询设备失败(SN=%s): %v", claims.SN, err)
 		return nil, err
 	}
 	if row.ID != claims.DeviceID {
+		logx.Errorf("❌ [VerifyDeviceToken] 设备ID不匹配: Token中=%d, 数据库中=%d", claims.DeviceID, row.ID)
 		return nil, errorx.NewDefaultError(errorx.CodeTokenInvalid)
 	}
 	if err := ErrIfNotQueryable(row.Status); err != nil {
+		logx.Errorf("❌ [VerifyDeviceToken] 设备状态异常: status=%d", row.Status)
 		return nil, err
 	}
 	return principalFromRow(row), nil

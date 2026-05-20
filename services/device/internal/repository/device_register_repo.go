@@ -29,6 +29,13 @@ func NewDeviceRegisterRepo(db *sql.DB) *DeviceRegisterRepo {
 	return &DeviceRegisterRepo{db: db}
 }
 
+// operationalDeviceStatusesSQL 生命周期中「可操作」的设备：排除禁用(2)、停用(3)、未注册(4)。
+// 包含 正常(1)、待 WS 认证(5)、遗留默认(0)，与 DeviceRepo.FindBySn 可查到的有效行一致，
+// 避免 HTTP 等业务仍用 FindBySn 时仅认 status=1 导致「WS 已成功但下发指令报设备不存在」。
+const operationalDeviceStatusesSQL = `
+  deleted_at IS NULL AND status NOT IN (2, 3, 4)
+`
+
 // FindBySn 根据设备 SN 查询设备是否已注册
 // 参数 ctx context.Context: 请求上下文
 // 参数 sn string: 设备序列号
@@ -37,8 +44,8 @@ func NewDeviceRegisterRepo(db *sql.DB) *DeviceRegisterRepo {
 func (r *DeviceRegisterRepo) FindBySn(ctx context.Context, sn string) (*DeviceRegisterInfo, error) {
 	query := `
 		SELECT id, sn, device_secret
-		FROM device
-		WHERE sn = $1 AND status = 1
+		FROM public.device
+		WHERE sn = $1 AND ` + operationalDeviceStatusesSQL + `
 	`
 
 	var info DeviceRegisterInfo
@@ -163,8 +170,8 @@ func (r *DeviceRegisterRepo) VerifyToken(ctx context.Context, sn string, token s
 
 	query := `
 		SELECT id, sn, device_secret
-		FROM device
-		WHERE sn = $1 AND status = 1
+		FROM public.device
+		WHERE sn = $1 AND ` + operationalDeviceStatusesSQL + `
 	`
 
 	var info DeviceRegisterInfo
@@ -224,8 +231,8 @@ func (r *DeviceRegisterRepo) UpdateOnlineStatus(ctx context.Context, sn string) 
 func (r *DeviceRegisterRepo) IsOnline(ctx context.Context, sn string) (bool, error) {
 	query := `
 		SELECT online_status
-		FROM device
-		WHERE sn = $1 AND status = 1
+		FROM public.device
+		WHERE sn = $1 AND ` + operationalDeviceStatusesSQL + `
 	`
 
 	var onlineStatus int16

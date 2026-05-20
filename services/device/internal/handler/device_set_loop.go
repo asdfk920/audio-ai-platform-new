@@ -61,7 +61,7 @@ func deviceSetLoopHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		// 返回成功响应
 		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
 			"code": 200,
-			"msg":  "操作成功",
+			"msg":  "指令已接收",
 			"data": resp,
 		})
 	})

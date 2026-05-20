@@ -101,12 +101,7 @@ func (l *DeviceSetLoopLogic) DeviceSetLoop(req *types.DeviceSetLoopReq) (*types.
 	}
 
 	// 7. 组装响应
-	status := "cached"
-	message := "设备离线，指令已缓存，设备上线后将自动执行"
-	if result.Status == "dispatched" || result.Status == "delivered" {
-		status = "delivered"
-		message = "设置循环播放指令已下发"
-	}
+	status, message := MapInstructionDispatchOutcome(result.Status, "设置循环播放", "")
 
 	logx.Infof("设备设置循环播放指令已下发: user_id=%d, sn=%s, action=%s, mode=%s, instruction_id=%d, status=%s",
 		userID, sn, action, mode, result.InstructionID, status)

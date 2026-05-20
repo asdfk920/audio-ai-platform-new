@@ -126,6 +126,12 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 			Path:    "/api/device/cmd/volume_down",
 			Handler: deviceVolumeDownHandler(svcCtx),
 		})
+		// 设备音量调节统一接口（用户通过 App 下发音量调节指令，支持直接设置目标音量0-100，需 JWT 鉴权）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/cmd/volume",
+			Handler: deviceVolumeHandler(svcCtx),
+		})
 		// 设备设置循环播放指令接口（用户通过 App 下发设置循环播放指令，需 JWT 鉴权）
 		routes = append(routes, rest.Route{
 			Method:  http.MethodPost,

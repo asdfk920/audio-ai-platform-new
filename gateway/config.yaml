@@ -49,11 +49,10 @@ Routes:
     Timeout: 20s
     Name: content-service
 
-# CORS 配置
+# CORS 配置（gin-contrib/cors）；与微服务对齐的放行策略，便于浏览器直连网关。
 CORS:
+  AllowCredentials: false
   AllowOrigins:
-    - "http://localhost:9527"
-    - "http://127.0.0.1:9527"
     - "*"
   AllowMethods:
     - GET
@@ -61,18 +60,9 @@ CORS:
     - PUT
     - DELETE
     - OPTIONS
-    - PATCH
   AllowHeaders:
-    - Origin
-    - Content-Type
-    - Accept
-    - Authorization
-    - X-Requested-With
-  ExposeHeaders:
-    - Content-Length
-    - Content-Type
+    - "*"
   MaxAge: 86400
-  AllowCredentials: true
 
 # Redis 配置（用于限流）
 Redis:

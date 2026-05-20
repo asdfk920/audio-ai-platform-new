@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -34,6 +35,14 @@ func deviceRegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewDeviceRegisterLogic(r.Context(), svcCtx)
 		resp, err := l.DeviceRegister(&req)
 		if err != nil {
+			if errors.Is(err, logic.ErrDeviceAlreadyRegistered) {
+				httpx.WriteJson(w, http.StatusConflict, map[string]interface{}{
+					"code": 409,
+					"msg":  logic.ErrDeviceAlreadyRegistered.Error(),
+					"data": nil,
+				})
+				return
+			}
 			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
 				"code": 400,
 				"msg":  "注册失败: " + err.Error(),

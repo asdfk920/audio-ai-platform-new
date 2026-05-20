@@ -317,6 +317,24 @@ type DeviceVolumeDownResp struct {
 	CurrentVolume int    `json:"current_volume"` // 当前音量值
 }
 
+// DeviceVolumeReq 设备音量调节指令请求（统一接口）
+// 用户通过 App 向设备下发音量调节指令，支持直接设置目标音量值（0-100）
+type DeviceVolumeReq struct {
+	Sn           string `json:"sn" validate:"required"`             // 设备序列号，16位字母数字组合
+	Action       string `json:"action" validate:"required"`         // 操作类型：set_volume/volume_up/volume_down
+	TargetVolume int    `json:"target_volume" validate:"required"`  // 目标音量值，范围0-100
+}
+
+// DeviceVolumeResp 设备音量调节指令响应
+// 返回指令下发结果和当前/目标音量值
+type DeviceVolumeResp struct {
+	InstructionID int64  `json:"instruction_id"` // 指令 ID
+	Status        string `json:"status"`         // 指令状态：delivered-已下发, cached-已缓存, failed-失败
+	Message       string `json:"message"`        // 提示信息
+	TargetVolume  int    `json:"target_volume"`  // 目标音量值（0-100）
+	CurrentVolume int    `json:"current_volume"` // 调节前的当前音量值（0-100）
+}
+
 // DevicePlayPlaylistReq 设备播放歌单指令请求
 // 用户通过 App 向设备下发播放歌单指令
 type DevicePlayPlaylistReq struct {

@@ -121,12 +121,7 @@ func (l *DeviceVolumeUpLogic) DeviceVolumeUp(req *types.DeviceVolumeUpReq) (*typ
 	}
 
 	// 9. 组装响应
-	status := "cached"
-	message := "设备离线，指令已缓存，设备上线后将自动执行"
-	if result.Status == "dispatched" || result.Status == "delivered" {
-		status = "delivered"
-		message = "音量加指令已下发"
-	}
+	status, message := MapInstructionDispatchOutcome(result.Status, "音量加", "")
 
 	logx.Infof("设备音量加指令已下发: user_id=%d, sn=%s, action=%s, step=%d, current_volume=%d, target_volume=%d, instruction_id=%d, status=%s",
 		userID, sn, action, step, currentVolume, targetVolume, result.InstructionID, status)

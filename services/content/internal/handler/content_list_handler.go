@@ -2,7 +2,9 @@ package handler
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/jacklau/audio-ai-platform/services/content/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/pkg/util/auth"
@@ -10,6 +12,65 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/content/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
+
+// queryPickFold 按「忽略大小写」的 query key 取第一个非空值（兼容 Title/title、Page_Size/page_size 等）
+func queryPickFold(values url.Values, wantKey string) string {
+	wantKey = strings.TrimSpace(wantKey)
+	if wantKey == "" {
+		return ""
+	}
+	for k, vv := range values {
+		if !strings.EqualFold(strings.TrimSpace(k), wantKey) || len(vv) == 0 {
+			continue
+		}
+		if v := strings.TrimSpace(vv[0]); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// parseContentListQuery 仅解析 QueryString，避免 httpx.Parse 在 GET + application/json body（如 Apifox 默认 {}）时 ParseJsonBody 失败。
+func parseContentListQuery(r *http.Request) *types.ContentListReq {
+	q := r.URL.Query()
+	req := &types.ContentListReq{}
+
+	if s := queryPickFold(q, "page"); s != "" {
+		if page, err := strconv.ParseInt(s, 10, 32); err == nil {
+			req.Page = int32(page)
+		}
+	}
+	if s := queryPickFold(q, "page_size"); s != "" {
+		if pageSize, err := strconv.ParseInt(s, 10, 32); err == nil {
+			req.PageSize = int32(pageSize)
+		}
+	}
+	if s := queryPickFold(q, "category_id"); s != "" {
+		if categoryID, err := strconv.ParseInt(s, 10, 64); err == nil {
+			req.CategoryID = categoryID
+		}
+	}
+	req.TagIDs = queryPickFold(q, "tag_ids")
+	req.Title = queryPickFold(q, "title")
+	req.Keyword = queryPickFold(q, "keyword")
+	if req.Keyword == "" {
+		req.Keyword = queryPickFold(q, "q")
+	}
+	if req.Keyword == "" {
+		req.Keyword = queryPickFold(q, "search")
+	}
+	if s := queryPickFold(q, "sort"); s != "" {
+		if sort, err := strconv.ParseInt(s, 10, 32); err == nil {
+			req.Sort = int32(sort)
+		}
+	}
+	if s := queryPickFold(q, "is_vip"); s != "" {
+		if isVip, err := strconv.ParseInt(s, 10, 32); err == nil {
+			req.IsVip = int32(isVip)
+		}
+	}
+	return req
+}
 
 // contentListHandler 内容列表处理器
 // GET /api/v1/content/list
@@ -26,43 +87,8 @@ func contentListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		// 手动解析查询参数，所有参数均为可选
-		req := &types.ContentListReq{}
+		req := parseContentListQuery(r)
 
-		if pageStr := r.URL.Query().Get("page"); pageStr != "" {
-			if page, err := strconv.ParseInt(pageStr, 10, 32); err == nil {
-				req.Page = int32(page)
-			}
-		}
-
-		if pageSizeStr := r.URL.Query().Get("page_size"); pageSizeStr != "" {
-			if pageSize, err := strconv.ParseInt(pageSizeStr, 10, 32); err == nil {
-				req.PageSize = int32(pageSize)
-			}
-		}
-
-		if categoryIDStr := r.URL.Query().Get("category_id"); categoryIDStr != "" {
-			if categoryID, err := strconv.ParseInt(categoryIDStr, 10, 64); err == nil {
-				req.CategoryID = categoryID
-			}
-		}
-
-		req.TagIDs = r.URL.Query().Get("tag_ids")
-		req.Keyword = r.URL.Query().Get("keyword")
-
-		if sortStr := r.URL.Query().Get("sort"); sortStr != "" {
-			if sort, err := strconv.ParseInt(sortStr, 10, 32); err == nil {
-				req.Sort = int32(sort)
-			}
-		}
-
-		if isVipStr := r.URL.Query().Get("is_vip"); isVipStr != "" {
-			if isVip, err := strconv.ParseInt(isVipStr, 10, 32); err == nil {
-				req.IsVip = int32(isVip)
-			}
-		}
-
-		// 解析 Authorization Header 获取用户信息（可选）
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		userID := bearerCtx.UserID
 

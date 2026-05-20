@@ -3,65 +3,78 @@
 
 package types
 
-// ContentListItem 内容列表单条数据
+// ContentListItem 内容列表单条数据（完整版）
 type ContentListItem struct {
-	ID           int64  `json:"id"`
-	Title        string `json:"title"`
-	CoverURL     string `json:"cover_url"`
-	Artist       string `json:"artist"`
-	Duration     int    `json:"duration"`
-	VipLevel     int16  `json:"vip_level"`
-	IsVipContent bool   `json:"is_vip_content"`
-	CanPlay      bool   `json:"can_play"`
-	PublishedAt  string `json:"published_at"`
-	Format       string `json:"format,omitempty"`
-	Sort         int    `json:"sort,omitempty"`
+	ContentID   int64              `json:"content_id"`   // 内容唯一ID
+	Title       string             `json:"title"`        // 标题
+	CoverURL    string             `json:"cover_url"`    // 封面图
+	Artist      string             `json:"artist"`       // 艺术家
+	Duration    int                `json:"duration"`     // 时长（秒）
+	Format      string             `json:"format"`       // 文件格式
+	FileSize    int64              `json:"file_size"`    // 文件大小（字节）
+	Category    string             `json:"category"`     // 分类名称
+	Tags        []string           `json:"tags"`         // 标签列表
+	ViewCount   int64              `json:"view_count"`   // 播放量
+	LikeCount   int64              `json:"like_count"`   // 点赞数
+	PublishedAt string             `json:"published_at"` // 发布时间
+	Permission  ListItemPermission `json:"permission"`   // 权限信息
 }
 
-// ContentListReq 内容列表请求
+// ListItemPermission 列表项权限信息
+type ListItemPermission struct {
+	NeedVIP       bool  `json:"need_vip"`       // 是否需要VIP
+	RequiredLevel int16 `json:"required_level"` // 所需会员等级
+	CanPlay       bool  `json:"can_play"`       // 是否可播放
+}
+
+// ContentListReq 内容列表请求（完整版）
 type ContentListReq struct {
-	Page       int32  `form:"page"`
-	PageSize   int32  `form:"page_size"`
-	CategoryID int64  `form:"category_id"`
-	TagIDs     string `form:"tag_ids"`
-	Keyword    string `form:"keyword"`
-	Sort       int32  `form:"sort"`
-	IsVip      int32  `form:"is_vip"`
+	Page       int32  `form:"page"`        // 页码（默认1）
+	PageSize   int32  `form:"page_size"`   // 每页数量（默认20，最大100）
+	CategoryID int64  `form:"category_id"` // 分类ID过滤
+	TagIDs     string `form:"tag_ids"`     // 标签ID过滤（逗号分隔：1,2,3）
+	Title      string `form:"title"`       // 标题模糊查询（仅匹配 title）
+	Keyword    string `form:"keyword"`     // 关键词搜索（标题或艺术家）
+	Sort       int32  `form:"sort"`        // 排序方式（0-综合 1-最新 2-最热 3-推荐）
+	IsVip      int32  `form:"is_vip"`      // 仅会员专享（0-全部 1-仅VIP）
 }
 
-// ContentListResp 内容列表响应
+// ContentListResp 内容列表响应（完整版）
 type ContentListResp struct {
-	Total    int64             `json:"total"`
-	List     []ContentListItem `json:"list"`
-	Page     int               `json:"page"`
-	PageSize int               `json:"page_size"`
-	HasMore  bool              `json:"has_more"`
+	Total      int64             `json:"total"`       // 总记录数
+	List       []ContentListItem `json:"list"`        // 当前页数据列表
+	Page       int               `json:"page"`        // 当前页码
+	PageSize   int               `json:"page_size"`   // 每页数量
+	HasMore    bool              `json:"has_more"`    // 是否有更多数据
+	TotalPages int               `json:"total_pages"` // 总页数
 }
 
-// ContentDetailResp 内容详情响应
+// ContentDetailResp 内容详情响应（完整版）
 type ContentDetailResp struct {
-	ID              int64  `json:"id"`
-	Title           string `json:"title"`
-	CoverURL        string `json:"cover_url"`
-	AudioURL        string `json:"audio_url"`
-	Artist          string `json:"artist"`
-	Duration        int    `json:"duration"`
-	VipLevel        int16  `json:"vip_level"`
-	IsVipContent    bool   `json:"is_vip_content"`
-	CanPlay         bool   `json:"can_play"`
-	CanPlayFull     bool   `json:"can_play_full"`
-	PreviewSeconds  int    `json:"preview_seconds,omitempty"`
-	Format          string `json:"format,omitempty"`
-	SizeBytes       int64  `json:"size_bytes,omitempty"`
-	Bitrate         int    `json:"bitrate,omitempty"`
-	SpatialParams   string `json:"spatial_params,omitempty"`
-	CategoryID      int64  `json:"category_id,omitempty"`
-	PlayCount       int64  `json:"play_count"`
-	LikeCount       int64  `json:"like_count"`
-	IsLiked         bool   `json:"is_liked"`
-	PublishedAt     string `json:"published_at"`
-	AudioValidFrom  string `json:"audio_valid_from,omitempty"`
-	AudioValidUntil string `json:"audio_valid_until,omitempty"`
+	ContentID    int64          `json:"content_id"`    // 内容唯一ID
+	Title        string         `json:"title"`         // 标题
+	CoverURL     string         `json:"cover_url"`     // 封面图
+	Description  string         `json:"description"`   // 描述/简介
+	Duration     int            `json:"duration"`      // 时长（秒）
+	Format       string         `json:"format"`        // 文件格式
+	FileSize     int64          `json:"file_size"`     // 文件大小（字节）
+	PlayURL      string         `json:"play_url"`      // 播放地址（有权限才返回）
+	Category     string         `json:"category"`      // 分类
+	Tags         []string       `json:"tags"`          // 标签
+	ViewCount    int64          `json:"view_count"`    // 播放量
+	LikeCount    int64          `json:"like_count"`    // 点赞数
+	CommentCount int64          `json:"comment_count"` // 评论数
+	CreateTime   string         `json:"create_time"`   // 创建时间
+	UpdateTime   string         `json:"update_time"`   // 更新时间
+	Permission   PermissionInfo `json:"permission"`    // 权限信息（必带）
+}
+
+// PermissionInfo 权限信息
+type PermissionInfo struct {
+	NeedVIP       bool  `json:"need_vip"`       // 是否需要VIP
+	RequiredLevel int16 `json:"required_level"` // 所需会员等级
+	CanPlay       bool  `json:"can_play"`       // 是否可播放
+	CanDownload   bool  `json:"can_download"`   // 是否可下载
 }
 
 // RecommendItem 推荐内容单条数据

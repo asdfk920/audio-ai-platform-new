@@ -1,3 +1,16 @@
 Name: content-api
 Host: 0.0.0.0
 Port: 8888
+
+CORS:
+  AllowCredentials: false
+  AllowOrigins:
+    - "*"
+  AllowMethods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  AllowHeaders:
+    - "*"

@@ -1,18 +1,24 @@
 package logic
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/zeromicro/go-zero/core/logx"
 
+	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/deviceauthsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/model"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
@@ -20,9 +26,18 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/util"
 )
 
-const (
-	wsAuthTimeout = 10 * time.Second // 认证消息超时时间
-)
+// websocketAuthHandshakeTimeoutFromConfig 首包认证读超时（可配置）；默认 60s，最短 5s，最长 10m。
+func websocketAuthHandshakeTimeoutFromConfig(cf config.Config) time.Duration {
+	const def = 60 * time.Second
+	s := strings.TrimSpace(cf.WebSocket.AuthMessageTimeout)
+	if s != "" {
+		d, err := time.ParseDuration(s)
+		if err == nil && d >= 5*time.Second && d <= 10*time.Minute {
+			return d
+		}
+	}
+	return def
+}
 
 // WsAuthLogic WebSocket认证逻辑
 // 处理设备WebSocket连接后的身份认证
@@ -63,42 +78,40 @@ func NewWsAuthLogic(ctx context.Context, svcCtx *svc.ServiceContext) *WsAuthLogi
 // 参数 r *http.Request: HTTP请求对象（用于读取请求头中的Token）
 // 返回 (*types.WsAuthResponse, error): 认证结果；失败时 Success=false，交由上层关闭连接
 func (l *WsAuthLogic) AuthenticateDevice(conn *websocket.Conn, r *http.Request) (*types.WsAuthResponse, error) {
+	var cf config.Config
+	if l.svcCtx != nil {
+		cf = l.svcCtx.Config
+	}
+	handshakeWindow := websocketAuthHandshakeTimeoutFromConfig(cf)
 	logx.Infof("====================================")
 	logx.Infof("[WS Auth] 🔐 开始WebSocket认证流程...")
-	logx.Infof("[WS Auth] ⏱️  认证超时时间: %v", wsAuthTimeout)
+	logx.Infof("[WS Auth] ⏱️  认证首包超时窗口: %v", handshakeWindow)
 
-	logx.Infof("\n[WS Auth] 📋 步骤1: 从请求头读取Token...")
+	logx.Infof("\n[WS Auth] 📋 步骤1: 读取设备 JWT（握手前已校验，此处读取用于绑签名校验）...")
 
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		logx.Errorf("❌ [WS Auth] 缺少Authorization请求头")
-		resp := l.buildAuthResponse(false, "缺少Authorization请求头，请在请求头中添加: Authorization: Bearer <token>", 0, 0)
-		_ = conn.WriteJSON(resp)
-		return resp, fmt.Errorf("缺少Authorization请求头")
-	}
-
-	token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+	token := deviceauthsvc.ExtractDeviceWSBearerToken(r)
 	if token == "" {
-		logx.Errorf("❌ [WS Auth] Authorization格式错误，应为: Bearer <token>")
-		resp := l.buildAuthResponse(false, "Authorization格式错误，正确格式为: Bearer <token>", 0, 0)
+		logx.Errorf("❌ [WS Auth] 缺少设备 JWT")
+		resp := l.buildAuthResponse(false, "缺少Authorization: Bearer <token> 或 URL ?token= / ?access_token=", 0, 0)
 		_ = conn.WriteJSON(resp)
-		return resp, fmt.Errorf("Authorization格式错误")
+		return resp, fmt.Errorf("缺少设备JWT")
 	}
 
-	logx.Infof("[WS Auth] ✅ 从请求头获取Token成功: %s... (长度:%d)", truncateString(token, 20), len(token))
+	logx.Infof("[WS Auth] ✅ 已解析设备 JWT: %s... (长度:%d)", truncateString(token, 20), len(token))
 
-	conn.SetReadDeadline(time.Now().Add(wsAuthTimeout))
-
-	var authMsg types.WsAuthMessage
-	if err := conn.ReadJSON(&authMsg); err != nil {
+	deadline := time.Now().Add(handshakeWindow)
+	authMsg, readErr := readWsAuthHandshake(conn, deadline)
+	if readErr != nil {
 		logx.Errorf("❌ [WS Auth] 步骤2: 读取认证消息失败")
-		logx.Errorf("   错误详情: %v", err)
+		logx.Errorf("   错误详情: %v", readErr)
 		logx.Errorf("   可能原因:")
-		logx.Errorf("   - 未在 %v 内发送认证消息", wsAuthTimeout)
-		logx.Errorf("   - JSON格式错误")
-		resp := l.buildAuthResponse(false, "读取认证消息超时或格式错误，请在10秒内发送有效的JSON认证消息", 0, 0)
+		logx.Errorf("   - 未在 %v 内发送文本 JSON 认证首包（连接建立后尽快发送）", handshakeWindow)
+		logx.Errorf("   - 首帧为 Ping/非文本等非 JSON（已自动应答 Ping，请仍以文本帧发送 {\"type\":\"auth\",...}）")
+		logx.Errorf("   - timestamp 为字符串或非法 JSON，`json:\"timestamp\"` 必须能解析为毫秒时间戳")
+
+		resp := l.buildAuthResponse(false, authReadFailUserMessage(readErr, handshakeWindow), 0, 0)
 		_ = conn.WriteJSON(resp)
-		return resp, fmt.Errorf("读取认证消息失败: %v", err)
+		return resp, fmt.Errorf("读取认证消息失败: %w", readErr)
 	}
 
 	sn := strings.TrimSpace(strings.ToUpper(authMsg.Sn))
@@ -198,6 +211,15 @@ func (l *WsAuthLogic) AuthenticateDevice(conn *websocket.Conn, r *http.Request) 
 	}
 
 	logx.Infof("✅ [WS Auth] 步骤6: 签名验证通过")
+
+	// 生命周期：注册后为 status=5，HTTP 等业务曾仅查 status=1 会误判「设备不存在」；认证成功后升为正常。
+	if device.Status == model.DeviceStatusUnauthenticated || device.Status == model.DeviceStatusDefault {
+		if err := l.svcCtx.DeviceRepo.UpdateStatusAfterRegister(l.ctx, device.ID, model.DeviceStatusNormal); err != nil {
+			logx.Errorf("⚠️  [WS Auth] 更新设备生命周期状态失败(不影响认证): %v", err)
+		} else {
+			logx.Infof("✅ [WS Auth] 设备状态已更新为正常(已通过 WS 认证): device_id=%d", device.ID)
+		}
+	}
 
 	logx.Infof("\n[WS Auth] 💾 步骤7: 更新设备在线状态...")
 
@@ -387,6 +409,122 @@ func (l *WsAuthLogic) buildAuthResponse(success bool, message string, deviceID i
 		Message:   message,
 		DeviceID:  deviceID,
 		ExpiresIn: expiresIn,
+	}
+}
+
+// wsAuthPayloadWire 解析认证消息体；timestamp 使用 RawMessage 以兼容字符串/小数等客户端序列化差异。
+type wsAuthPayloadWire struct {
+	Type      string          `json:"type"`
+	Sn        string          `json:"sn"`
+	Timestamp json.RawMessage `json:"timestamp"`
+	Signature string          `json:"signature"`
+}
+
+func readWsAuthHandshake(conn *websocket.Conn, deadline time.Time) (types.WsAuthMessage, error) {
+	writeWait := 5 * time.Second
+	for {
+		if err := conn.SetReadDeadline(deadline); err != nil {
+			return types.WsAuthMessage{}, err
+		}
+		msgType, payload, err := conn.ReadMessage()
+		if err != nil {
+			return types.WsAuthMessage{}, err
+		}
+
+		switch msgType {
+		case websocket.PingMessage:
+			if werr := conn.SetWriteDeadline(time.Now().Add(writeWait)); werr != nil {
+				return types.WsAuthMessage{}, werr
+			}
+			_ = conn.WriteMessage(websocket.PongMessage, payload)
+			logx.Infof("[WS Auth] 📍 握手阶段应答 Ping，继续等待文本 JSON 认证包")
+			continue
+		case websocket.TextMessage, websocket.BinaryMessage:
+			msg, perr := parseWsAuthPayload(payload)
+			return msg, perr
+		default:
+			logx.Infof("[WS Auth] ⚠️ 跳过非预期的 WebSocket 帧类型(type=%d)，继续等待文本 JSON", msgType)
+		}
+	}
+}
+
+func parseWsAuthPayload(payload []byte) (types.WsAuthMessage, error) {
+	var w wsAuthPayloadWire
+	if err := json.Unmarshal(payload, &w); err != nil {
+		return types.WsAuthMessage{}, fmt.Errorf("解析认证 JSON 失败（请发送 UTF-8 Text 帧单行 JSON）: %w", err)
+	}
+	ts, err := parseMilliTimestampFlexible(w.Timestamp)
+	if err != nil {
+		return types.WsAuthMessage{}, err
+	}
+	return types.WsAuthMessage{
+		Type:      w.Type,
+		Sn:        w.Sn,
+		Timestamp: ts,
+		Signature: w.Signature,
+	}, nil
+}
+
+func parseMilliTimestampFlexible(raw json.RawMessage) (int64, error) {
+	b := bytes.TrimSpace(raw)
+	if len(b) == 0 || bytes.EqualFold(b, []byte("null")) {
+		return 0, nil
+	}
+
+	var num json.Number
+	if err := json.Unmarshal(b, &num); err == nil {
+		if i, ierr := num.Int64(); ierr == nil {
+			return i, nil
+		}
+		f, ierr := num.Float64()
+		if ierr != nil {
+			return 0, fmt.Errorf("字段 timestamp 无法转为数字: %w", ierr)
+		}
+		return int64(f), nil
+	}
+
+	var str string
+	if err := json.Unmarshal(b, &str); err == nil {
+		str = strings.TrimSpace(str)
+		if str == "" {
+			return 0, fmt.Errorf("字段 timestamp 不能为空的字符串")
+		}
+		i, err := strconv.ParseInt(str, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("字段 timestamp 须为毫秒级整数，当前字符串=%q: %w", str, err)
+		}
+		return i, nil
+	}
+
+	var f float64
+	if err := json.Unmarshal(b, &f); err == nil {
+		return int64(f), nil
+	}
+
+	return 0, fmt.Errorf("字段 timestamp 无法解析，应为数字或可解析的数字字符串；原始片段=%s", string(b))
+}
+
+func authReadFailUserMessage(err error, authWindow time.Duration) string {
+	if err == nil {
+		return "读取认证消息失败"
+	}
+	sec := int(authWindow.Round(time.Second) / time.Second)
+	if sec < 1 {
+		sec = 1
+	}
+	es := strings.ToLower(err.Error())
+	switch {
+	case errors.Is(err, os.ErrDeadlineExceeded) ||
+		strings.Contains(es, "timeout") ||
+		strings.Contains(es, "i/o timeout"):
+		return fmt.Sprintf("读取认证超时：连接建立后须在 %d 秒内用文本帧发送完整 {\"type\":\"auth\",...}", sec)
+	case strings.Contains(es, "timestamp") ||
+		strings.Contains(es, "解析") ||
+		strings.Contains(es, "parse") ||
+		strings.Contains(es, "invalid character"):
+		return "认证 JSON 不合法或无有效毫秒 timestamp（不要注释；建议使用数字类型 timestamp）"
+	default:
+		return fmt.Sprintf("读取认证失败：握手后请以 Text(JSON)在 %d 秒内发送 auth 首包（若工具先发 Ping，云端已应答，请再接一条 JSON）", sec)
 	}
 }
 

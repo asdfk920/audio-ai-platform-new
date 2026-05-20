@@ -40,6 +40,8 @@ type Config struct {
 	CORS apicors.Config `json:",optional"`
 	// WebSocket 设备长连接配置
 	WebSocket WebSocketConfig `json:",optional"`
+	// RabbitMQ 消息队列配置（指令异步下发、削峰填谷）
+	RabbitMQ RabbitMQ `json:",optional"`
 }
 
 // StatusReportHTTP 设备 HTTP 状态上报限流配置结构体
@@ -146,12 +148,34 @@ type DeviceCommand struct {
 // WebSocketConfig WebSocket 设备长连接配置结构体
 // 用于配置设备通过 WebSocket 建立长连接的参数（保活、缓冲区、跨域等）
 type WebSocketConfig struct {
-	Enable          bool   `json:",optional"` // 是否启用 WebSocket 服务
-	Path            string `json:",optional"` // WebSocket 连接路径，默认 /ws/device
-	ReadBufferSize  int    `json:",optional"` // 读缓冲区大小（字节），默认 10240
-	WriteBufferSize int    `json:",optional"` // 写缓冲区大小（字节），默认 10240
-	PingInterval    string `json:",optional"` // 心跳间隔（Go duration 格式），默认 "54s"
-	PongTimeout     string `json:",optional"` // Pong 超时时间（Go duration 格式），默认 "60s"
-	MaxMessageSize  int64  `json:",optional"` // 最大消息大小（字节），默认 65536 (64KB)
-	EnableCors      bool   `json:",optional"` // 是否允许跨域，默认 true
+	// Enable 省略或未写 WebSocket 节时默认开启；仅当在配置中显式写 Enable: false 时关闭。
+	// 兼容旧版 device.yaml：曾将「未配置」误当作关闭，导致未注册 /ws/device 而返回 404。
+	Enable             *bool `json:",optional"` // 是否启用 WebSocket 服务
+	Path               string `json:",optional"` // WebSocket 连接路径，默认 /ws/device
+	ReadBufferSize     int    `json:",optional"` // 读缓冲区大小（字节），默认 10240
+	WriteBufferSize    int    `json:",optional"` // 写缓冲区大小（字节），默认 10240
+	PingInterval       string `json:",optional"` // 心跳间隔（Go duration 格式），默认 "54s"
+	PongTimeout        string `json:",optional"` // Pong 超时时间（Go duration 格式），默认 "60s"
+	AuthMessageTimeout string `json:",optional"` // 连接建立后须在此时长内发送首包认证 JSON，默认 "60s"
+	MaxMessageSize     int64  `json:",optional"` // 最大消息大小（字节），默认 65536 (64KB)
+	EnableCors         bool   `json:",optional"` // 是否允许跨域，默认 true
+}
+
+// RabbitMQ RabbitMQ 消息队列配置结构体
+// 用于配置指令队列的连接参数、队列属性、并发控制等
+type RabbitMQ struct {
+	URL                  string `json:",optional"` // RabbitMQ连接URL (amqp://user:pass@host:5672/vhost)
+	VHost                string `json:",optional"` // 虚拟主机，默认 /
+	Exchange             string `json:",optional"` // 交换机名称，默认 device.cmd.exchange
+	QueueName            string `json:",optional"` // 主队列名称，默认 device.cmd.queue
+	RetryQueueName       string `json:",optional"` // 重试队列名称，默认 device.cmd.retry.queue
+	DLQQueueName         string `json:",optional"` // 死信队列名称，默认 device.cmd.dlq.queue
+	PrefetchCount        int    `json:",optional"` // 消费者预取数量，默认 10
+	MaxConcurrent        int    `json:",optional"` // 全局最大并发数，默认 100
+	MaxDeviceConcurrent  int    `json:",optional"` // 单设备最大并发数，默认 3
+	DefaultTimeout       int    `json:",optional"` // 默认超时时间（秒），默认 30
+	MaxRetry             int    `json:",optional"` // 最大重试次数，默认 3
+	RetryDelayMs         int    `json:",optional"` // 重试基础延迟（毫秒），默认 1000
+	DLQEnable            bool   `json:",optional"` // 是否启用死信队列，默认 true
+	ReconnectIntervalSec int    `json:",optional"` // 断线重连间隔（秒），默认 5
 }

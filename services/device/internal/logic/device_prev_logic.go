@@ -99,12 +99,7 @@ func (l *DevicePrevLogic) DevicePrev(req *types.DevicePrevReq) (*types.DevicePre
 	}
 
 	// 7. 组装响应
-	status := "cached"
-	message := "设备离线，指令已缓存，设备上线后将自动执行"
-	if result.Status == "dispatched" || result.Status == "delivered" {
-		status = "delivered"
-		message = "上一首指令已下发"
-	}
+	status, message := MapInstructionDispatchOutcome(result.Status, "上一首", "")
 
 	logx.Infof("设备上一首指令已下发: user_id=%d, sn=%s, action=%s, instruction_id=%d, status=%s",
 		userID, sn, action, result.InstructionID, status)

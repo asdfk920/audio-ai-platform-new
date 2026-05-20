@@ -7,14 +7,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 	"github.com/zeromicro/go-zero/core/logx"
 
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	redisshadow "github.com/jacklau/audio-ai-platform/services/device/internal/device/shadow"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/rabbitmq"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 )
 
@@ -42,7 +45,12 @@ const (
 )
 
 type Service struct {
-	svcCtx *svc.ServiceContext
+	svcCtx      *svc.ServiceContext
+	rabbitMQMgr *rabbitmq.Manager
+}
+
+func (s *Service) SetRabbitMQManager(mgr *rabbitmq.Manager) {
+	s.rabbitMQMgr = mgr
 }
 
 type PendingCommand struct {
@@ -247,16 +255,51 @@ RETURNING id`,
 
 	result := &CreateImmediateInstructionResult{
 		InstructionID:   instructionID,
-		Status:          "cached",
+		Status:          "queued",
 		QueuedCount:     s.countPendingForDevice(ctx, in.DeviceID),
 		ExpiresAt:       in.ExpiresAt,
 		InstructionType: instructionType,
 		CommandCode:     commandCode,
 	}
-	if s.isDeviceOnline(ctx, in.DeviceSN) {
-		result.Status = "delivered"
-		if pushed, _ := s.DispatchPendingInstructions(ctx, in.DeviceID, in.DeviceSN); pushed > 0 {
+
+	if s.rabbitMQMgr != nil && s.rabbitMQMgr.IsConnected() {
+		cmdMsg := &rabbitmq.CommandMessage{
+			MessageID:      uuid.New().String(),
+			InstructionID:  instructionID,
+			DeviceID:       in.DeviceID,
+			DeviceSN:       strings.ToUpper(strings.TrimSpace(in.DeviceSN)),
+			UserID:         in.UserID,
+			CommandCode:    commandCode,
+			CommandType:    instructionType,
+			Params:         in.Params,
+			Priority:       in.Priority,
+			RetryCount:     0,
+			MaxRetry:       in.MaxRetry,
+			TimeoutSeconds: in.TimeoutSeconds,
+			CreatedAt:      time.Now(),
+			ExpiresAt:      *in.ExpiresAt,
+			Operator:       operator,
+			Reason:         strings.TrimSpace(in.Reason),
+		}
+
+		if err := s.rabbitMQMgr.PublishCommand(ctx, cmdMsg); err != nil {
+			logx.Errorf("commandsvc: Failed to publish to RabbitMQ, fallback to sync mode: %v", err)
+			result.Status = "queued"
+		} else {
+			result.Status = "queued_mq"
+			logx.Infof("commandsvc: Instruction published to RabbitMQ: id=%d, device_sn=%s, cmd=%s",
+				instructionID, in.DeviceSN, commandCode)
+		}
+	} else if s.isDeviceOnline(ctx, in.DeviceSN) {
+		pushed, derr := s.DispatchPendingInstructions(ctx, in.DeviceID, in.DeviceSN)
+		if derr != nil {
+			logx.Errorf("commandsvc CreateImmediateInstruction: DispatchPendingInstructions err=%v", derr)
+		}
+		switch {
+		case pushed > 0:
 			result.Status = "dispatched"
+		default:
+			result.Status = "queued"
 		}
 	}
 	return result, nil
@@ -308,7 +351,20 @@ LIMIT $3`, deviceID, StatusPending, limit)
 			_ = s.markInstructionStatus(ctx, item.InstructionID, deviceID, StatusExpired(), "expired_before_dispatch", "system")
 			continue
 		}
-		logx.Infof("commandsvc dispatch instruction %d to device %s (MQTT已移除，仅更新数据库状态)", item.InstructionID, deviceID)
+
+		payload := wsInstructionEnvelope(sn, item.PendingCommand)
+
+		deviceKey := strconv.FormatInt(deviceID, 10)
+		if s.svcCtx.WsPushJSON == nil {
+			logx.Errorf("commandsvc: WsPushJSON 未注入，跳过 WS 投递 instruction_id=%d（请在 main 绑定 logic.SendCmdToDevice）", item.InstructionID)
+			continue
+		}
+		if err := s.svcCtx.WsPushJSON(deviceKey, payload); err != nil {
+			logx.Errorf("commandsvc: WebSocket 下发失败 instruction_id=%d device=%s: %v", item.InstructionID, deviceKey, err)
+			continue
+		}
+		logx.Infof("commandsvc: WebSocket 已推送 instruction_id=%d device=%s cmd=%s", item.InstructionID, deviceKey, strings.TrimSpace(item.Cmd))
+
 		now := time.Now()
 		if _, err := s.svcCtx.DB.ExecContext(ctx, `
 UPDATE public.device_instruction
@@ -322,7 +378,7 @@ WHERE id = $3 AND device_id = $4 AND status = $5`,
 			return pushed, logDBErr("DispatchPendingInstructions(update executing)", err)
 		}
 		prev := StatusPending
-		_ = s.insertStateLog(ctx, item.InstructionID, &prev, StatusExecuting, "mqtt_dispatched", "system")
+		_ = s.insertStateLog(ctx, item.InstructionID, &prev, StatusExecuting, "ws_dispatched", "system")
 		pushed++
 	}
 	return pushed, nil
@@ -1135,6 +1191,23 @@ func decodeMap(raw json.RawMessage) map[string]interface{} {
 	return out
 }
 
+// wsInstructionEnvelope 构造通过 WebSocket 下发给设备的负载（与直连 SendCmdToDevice 风格一致）。
+func wsInstructionEnvelope(snUpper string, item PendingCommand) map[string]interface{} {
+	params := decodeMap(item.Params)
+	env := map[string]interface{}{}
+	for k, v := range params {
+		env[k] = v
+	}
+	env["type"] = "cmd"
+	env["instruction_id"] = item.InstructionID
+	env["cmd"] = strings.TrimSpace(item.Cmd)
+	env["command_code"] = strings.TrimSpace(item.CommandCode)
+	env["instruction_type"] = strings.TrimSpace(item.InstructionType)
+	env["sn"] = strings.TrimSpace(strings.ToUpper(snUpper))
+	env["timestamp"] = time.Now().UTC().Format(time.RFC3339Nano)
+	return env
+}
+
 func trimNote(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -1177,4 +1250,60 @@ func toUnix(t *time.Time) interface{} {
 
 func StatusExpired() int16 {
 	return StatusCancelled
+}
+
+func (s *Service) ProcessCommandFromQueue(ctx context.Context, msg *rabbitmq.CommandMessage) error {
+	if s == nil || s.svcCtx == nil {
+		return fmt.Errorf("commandsvc: service not initialized")
+	}
+
+	logx.Infof("\n[ProcessFromQueue] 开始处理指令:")
+	logx.Infof("  Instruction ID: %d", msg.InstructionID)
+	logx.Infof("  Device SN:      %s", msg.DeviceSN)
+	logx.Infof("  Command Code:   %s", msg.CommandCode)
+	logx.Infof("  Retry Count:    %d", msg.RetryCount)
+
+	deviceKey := strconv.FormatInt(msg.DeviceID, 10)
+	payload := map[string]interface{}{
+		"type":             "cmd",
+		"instruction_id":   msg.InstructionID,
+		"cmd":              msg.CommandCode,
+		"command_code":     msg.CommandCode,
+		"instruction_type": msg.CommandType,
+		"sn":               msg.DeviceSN,
+		"timestamp":        time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	for k, v := range msg.Params {
+		payload[k] = v
+	}
+
+	now := time.Now()
+	_, err := s.svcCtx.DB.ExecContext(ctx, `
+UPDATE public.device_instruction
+SET status = $1,
+    dispatched_at = COALESCE(dispatched_at, $2),
+    received_at = COALESCE(received_at, $2),
+    retry_count = $3,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $4 AND device_id = $5 AND status IN ($6, $7)`,
+		StatusExecuting, now, msg.RetryCount, msg.InstructionID, msg.DeviceID, StatusPending, StatusExecuting,
+	)
+	if err != nil {
+		return fmt.Errorf("update instruction status to executing: %w", err)
+	}
+	prev := StatusPending
+	_ = s.insertStateLog(ctx, msg.InstructionID, &prev, StatusExecuting, "mq_dispatched", "system")
+
+	if s.svcCtx.WsPushJSON == nil {
+		return fmt.Errorf("WsPushJSON 未注入，请在 main 绑定 logic.SendCmdToDevice")
+	}
+
+	if err := s.svcCtx.WsPushJSON(deviceKey, payload); err != nil {
+		return fmt.Errorf("WebSocket dispatch failed: %w", err)
+	}
+
+	logx.Infof("[ProcessFromQueue] ✅ 指令已通过 WebSocket 下发: id=%d, device=%s, cmd=%s",
+		msg.InstructionID, msg.DeviceSN, msg.CommandCode)
+
+	return nil
 }

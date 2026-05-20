@@ -243,23 +243,26 @@
                     action="#"
                     :auto-upload="false"
                     :show-file-list="false"
-                    accept=".mp3,.wav,.flac,.aac,.ogg,.m4a"
+                    accept=".mp3,.wav,.flac,.aac"
                     :on-change="onAudioChange"
-                    :disabled="audioUploading"
                   >
-                    <el-button size="small" type="default" :loading="audioUploading">{{ audioUploading ? '加密上传中...' : '选择文件' }}</el-button>
+                    <el-button size="small" type="default">选择音频文件</el-button>
                   </el-upload>
                   <span v-if="audioPickName" class="ml8 file-name">{{ audioPickName }}</span>
-                  <el-tag v-if="audioUploadStatus" :type="audioUploadStatusType" size="mini" class="ml8">{{ audioUploadStatus }}</el-tag>
+                  <span class="muted ml8">或下方填写直链</span>
                 </div>
-                <div v-if="audioKey" class="mt8 audio-key-box">
-                  <span class="muted">audio_key：</span>
-                  <el-input v-model="audioKey" readonly size="mini" style="width: 240px">
-                    <el-button slot="append" icon="el-icon-document-copy" @click="copyAudioKey">复制</el-button>
-                  </el-input>
-                  <span class="muted ml8">（请妥善保管，仅创建时可见）</span>
-                </div>
-                <el-input v-model="form.audio_url" placeholder="音频 URL（与上传二选一）" clearable class="mt8" />
+                <div class="muted mt8">文件随「确认创建 / 确定」一并提交，服务端明文落盘（与封面上传相同）。格式：mp3 / wav / flac / aac，单文件最大 100MB。</div>
+                <el-input
+                  v-model="form.audio_url"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="或直接粘贴音频地址（http(s):// 或可访问的 / 路径）；与上传二选一"
+                  maxlength="2048"
+                  show-word-limit
+                  clearable
+                  class="mt8"
+                  @input="onAudioUrlInput"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="24">
@@ -390,8 +393,7 @@ import {
   updateContent,
   onlineContent,
   offlineContent,
-  deleteContent,
-  uploadFile
+  deleteContent
 } from '@/api/admin/platform-content'
 
 export default {
@@ -415,13 +417,8 @@ export default {
       },
       form: {},
       coverPreviewUrl: '',
-      audioPickName: '',
-      audioUploading: false,
-      audioUploadStatus: '',
-      audioUploadStatusType: '',
-      audioKey: '',
-      audioFileId: 0,
       coverFileId: 0,
+      audioPickName: '',
       rules: {
         title: [{ required: true, message: '标题不能为空', trigger: 'blur' }],
         artist: [{ required: true, message: '艺术家不能为空', trigger: 'blur' }],
@@ -630,19 +627,14 @@ export default {
           const contentId = this.form.id
           if (!contentId) {
             const okCover = this.form.cover_file instanceof File || (this.form.cover_url && String(this.form.cover_url).trim())
-            const okAudio = this.form.audio_file instanceof File || (this.form.audio_url && String(this.form.audio_url).trim())
+            const okAudio =
+              this.form.audio_file instanceof File || !!(this.form.audio_url && String(this.form.audio_url).trim())
             if (!okCover || !okAudio) {
-              this.$message.error('请上传封面与音频，或填写对应 URL')
+              this.$message.error('请选择封面图片（上传或 URL）并提供音频（上传文件或填写链接）')
               return
             }
           }
           const payload = { ...this.form }
-          if (this.audioKey) {
-            payload.audio_key = this.audioKey
-          }
-          if (this.audioFileId) {
-            payload.audio_id = this.audioFileId
-          }
           if (this.coverFileId) {
             payload.cover_id = this.coverFileId
           }
@@ -685,13 +677,8 @@ export default {
         URL.revokeObjectURL(this.coverPreviewUrl)
       }
       this.coverPreviewUrl = ''
-      this.audioPickName = ''
-      this.audioUploading = false
-      this.audioUploadStatus = ''
-      this.audioUploadStatusType = ''
-      this.audioKey = ''
-      this.audioFileId = 0
       this.coverFileId = 0
+      this.audioPickName = ''
       this.form = {
         id: undefined,
         title: '',
@@ -720,6 +707,20 @@ export default {
         this.$refs.form.clearValidate()
       }
     },
+    onAudioChange(file) {
+      const raw = file && file.raw
+      if (!raw) return
+      this.form.audio_file = raw
+      this.form.audio_url = ''
+      this.audioPickName = raw.name
+    },
+    onAudioUrlInput() {
+      const u = this.form.audio_url && String(this.form.audio_url).trim()
+      if (u) {
+        this.form.audio_file = undefined
+        this.audioPickName = ''
+      }
+    },
     onCoverChange(file) {
       const raw = file && file.raw
       if (!raw) return
@@ -727,38 +728,7 @@ export default {
       if (this.coverPreviewUrl) URL.revokeObjectURL(this.coverPreviewUrl)
       this.coverPreviewUrl = URL.createObjectURL(raw)
       this.form.cover_url = ''
-
-      uploadFile(raw).then(res => {
-        const d = (res && res.data) || {}
-        this.form.cover_url = d.file_url || ''
-        this.coverFileId = d.file_id || 0
-      }).catch(err => {
-        this.$message.error('封面文件加密上传失败: ' + (err.msg || err.message || '未知错误'))
-      })
-    },
-    onAudioChange(file) {
-      const raw = file && file.raw
-      if (!raw) return
-      this.audioUploading = true
-      this.audioUploadStatus = '加密上传中...'
-      this.audioUploadStatusType = 'warning'
-      this.audioKey = ''
-
-      uploadFile(raw).then(res => {
-        const d = (res && res.data) || {}
-        this.form.audio_url = d.file_url || ''
-        this.audioKey = d.audio_key || ''
-        this.audioFileId = d.file_id || 0
-        this.audioUploadStatus = '已加密'
-        this.audioUploadStatusType = 'success'
-        this.audioPickName = raw.name + ' (已加密)'
-        this.audioUploading = false
-      }).catch(err => {
-        this.audioUploadStatus = '上传失败'
-        this.audioUploadStatusType = 'danger'
-        this.audioUploading = false
-        this.$message.error('文件加密上传失败: ' + (err.msg || err.message || '未知错误'))
-      })
+      this.coverFileId = 0
     },
     applySpatialFromDetail(sp) {
       let obj = sp
@@ -829,16 +799,6 @@ export default {
       }
       return map[status] || ''
     },
-    copyAudioKey() {
-      if (!this.audioKey) return
-      const input = document.createElement('textarea')
-      input.value = this.audioKey
-      document.body.appendChild(input)
-      input.select()
-      document.execCommand('copy')
-      document.body.removeChild(input)
-      this.$message.success('audio_key 已复制到剪贴板')
-    }
   }
 }
 </script>
@@ -896,11 +856,6 @@ export default {
   background: #f5f7fa;
 }
 
-.audio-key-box {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-}
 </style>
 
 <style>

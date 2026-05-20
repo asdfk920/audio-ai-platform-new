@@ -49,7 +49,7 @@ func devicePlayHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
 			"code": 200,
-			"msg":  "操作成功",
+			"msg":  "指令已接收",
 			"data": resp,
 		})
 	})

@@ -125,12 +125,7 @@ func (l *DevicePlayPlaylistLogic) DevicePlayPlaylist(req *types.DevicePlayPlayli
 	}
 
 	// 9. 组装响应
-	status := "cached"
-	message := "设备离线，指令已缓存，设备上线后将自动执行"
-	if result.Status == "dispatched" || result.Status == "delivered" {
-		status = "delivered"
-		message = "播放歌单指令已下发"
-	}
+	status, message := MapInstructionDispatchOutcome(result.Status, "播放歌单", "")
 
 	// 10. 组装歌单信息
 	playlistResp := &types.DevicePlaylistInfo{

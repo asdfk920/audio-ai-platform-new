@@ -123,3 +123,4 @@
 {"data":{"n":5},"hypothesisId":"H2","location":"sys_dept.go:Get2Tree","message":"dept_tree_ok","runId":"pre-fix","sessionId":"167bb8","timestamp":1776934065377}
 {"data":{"n":5},"hypothesisId":"H2","location":"sys_dept.go:Get2Tree","message":"dept_tree_ok","runId":"pre-fix","sessionId":"167bb8","timestamp":1776934079255}
 {"data":{"n":5},"hypothesisId":"H2","location":"sys_dept.go:Get2Tree","message":"dept_tree_ok","runId":"pre-fix","sessionId":"167bb8","timestamp":1777012374745}
+{"data":{"n":5},"hypothesisId":"H2","location":"sys_dept.go:Get2Tree","message":"dept_tree_ok","runId":"pre-fix","sessionId":"167bb8","timestamp":1779272897060}

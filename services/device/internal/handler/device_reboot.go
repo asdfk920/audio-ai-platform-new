@@ -10,9 +10,8 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
 )
 
-// deviceRebootHandler 设备重启指令处理器
-// POST /api/device/cmd/reboot
-// 用途：用户通过 App 向设备下发重启指令，后端通过 MQTT 将指令推送给设备
+// deviceRebootHandler 设备重启指令接口处理器
+// 处理用户通过App下发的设备重启请求
 func deviceRebootHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -37,9 +36,9 @@ func deviceRebootHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewDeviceRebootLogic(r.Context(), svcCtx)
 		resp, err := l.DeviceReboot(&req)
 		if err != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code": 400,
-				"msg":  err.Error(),
+			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
+				"code": 500,
+				"msg":  "下发失败: " + err.Error(),
 				"data": nil,
 			})
 			return
@@ -47,25 +46,8 @@ func deviceRebootHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
 			"code": 200,
-			"msg":  "成功",
+			"msg":  "指令已下发",
 			"data": resp,
 		})
 	}
-}
-
-// DeviceRebootHandler 设备重启
-// @Summary      设备重启
-// @Description  用户通过 App 向设备下发重启指令
-// @Tags         设备控制
-// @Accept       json
-// @Produce      json
-// @Param        body  body      types.DeviceRebootReq  true  "设备重启请求"
-// @Success      200  {object}  types.DeviceRebootResp  "成功"
-// @Failure      400  {object}  errorx.Response  "参数错误"
-// @Failure      401  {object}  errorx.Response  "未登录"
-// @Failure      500  {object}  errorx.Response  "服务器错误"
-// @Router       /api/v1/device/cmd/reboot [post]
-// @Security     BearerAuth
-func DeviceRebootHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
-	return deviceRebootHandler(svcCtx)
 }

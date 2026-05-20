@@ -101,14 +101,12 @@ func (l *DeviceSetShuffleLogic) DeviceSetShuffle(req *types.DeviceSetShuffleReq)
 	}
 
 	// 7. 组装响应
-	status := "cached"
-	message := "设备离线，指令已缓存，设备上线后将自动执行"
-	if result.Status == "dispatched" || result.Status == "delivered" {
-		status = "delivered"
+	status, message := MapInstructionDispatchOutcome(result.Status, "随机播放设置", "")
+	if status == "delivered" {
 		if enable {
-			message = "随机播放已开启"
+			message = "随机播放已开启（已通过 WebSocket 下发至设备）"
 		} else {
-			message = "随机播放已关闭"
+			message = "随机播放已关闭（已通过 WebSocket 下发至设备）"
 		}
 	}
 

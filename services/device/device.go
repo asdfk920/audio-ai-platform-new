@@ -29,6 +29,7 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/commandsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/handler"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/redisexpire"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/shadowsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/statuspersist"
@@ -135,10 +136,12 @@ func main() {
 	server.Use(apicors.Middleware(c.CORS))
 
 	ctx := svc.NewServiceContext(c, db, rdb)
+	ctx.WsPushJSON = logic.SendCmdToDevice
 	handler.RegisterHandlers(server, ctx)
 
-	// 注册 WebSocket 设备长连接路由
-	if c.WebSocket.Enable {
+	wsEnabled := c.WebSocket.Enable == nil || *c.WebSocket.Enable
+	// 注册 WebSocket 设备长连接路由（未配置 Enable 时默认开启）
+	if wsEnabled {
 		wsPath := c.WebSocket.Path
 		if wsPath == "" {
 			wsPath = "/ws/device"
@@ -148,7 +151,9 @@ func main() {
 			Path:    wsPath,
 			Handler: handler.DeviceWsHandler(ctx),
 		})
-		logx.Infof("WebSocket 服务已启用: %s", wsPath)
+		logx.Infof("WebSocket 服务已启用: GET %s （完整 URL 示例 ws://%s:%d%s）", wsPath, c.Host, c.Port, wsPath)
+	} else {
+		logx.Infof("WebSocket 已关闭（配置 WebSocket.Enable: false），未注册设备长连接路由；连接原路径将收到 HTTP 404")
 	}
 
 	bgCtx, bgStop := context.WithCancel(context.Background())

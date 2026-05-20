@@ -21,6 +21,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: contentListHandler(serverCtx),
 			},
 			{
+				// 与 /list 相同；兼容文档或客户端误写为大写 Path（否则会命中 /:id 报「内容 ID 格式无效」）
+				Method:  http.MethodGet,
+				Path:    "/List",
+				Handler: contentListHandler(serverCtx),
+			},
+			{
 				// 最新内容推荐（可选登录）
 				Method:  http.MethodGet,
 				Path:    "/new",

@@ -1,97 +1,11 @@
-Name: device-service
+# 设备服务（默认 -f etc/device.yaml）；监听与 @host 注释一致时可改为 8002。
+Name: device-api
 Host: 0.0.0.0
 Port: 8002
 
-# 日志配置
-Log:
-  Level: info
-  Mode: console
-
-# 认证配置（用户端JWT）
-Auth:
-  AccessSecret: audio-ai-platform-user-secret
-  AccessExpire: 3600
-
-# PostgreSQL 数据库配置
-Postgres:
-  DataSource: postgres://admin:admin123@localhost:5432/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai
-
-# Redis 配置（可选，不使用时留空）
-Redis:
-  Addr: ""
-  Password:
-  DB: 0
-
-# 设备认证配置
-DeviceAuth:
-  TokenSecret: audio-ai-platform-device-secret
-  TokenExpireSeconds: 86400
-  TimestampToleranceSecond: 300
-  FailureThreshold: 5
-  LockSeconds: 300
-
-# WebSocket 设备长连接配置
-WebSocket:
-  Enable: true
-  Path: /ws/device
-  ReadBufferSize: 10240
-  WriteBufferSize: 10240
-  PingInterval: "54s"
-  PongTimeout: "60s"
-  MaxMessageSize: 65536
-  EnableCors: true
-
-# 设备影子配置
-DeviceShadow:
-  HeartbeatTTLSeconds: 90
-  EnableOnlineSet: true
-  PubSubEnabled: true
-  EventChannelPrefix: device:shadow:event
-  SeedTTLSeconds: 86400
-
-# 设备状态查询配置
-DeviceStatusQuery:
-  OnlineStaleSeconds: 300
-  DisableNegCache: false
-  NegCacheTTLSeconds: 60
-  RateLimitWindowSec: 60
-  RateLimitMaxPerUser: 30
-  DisableRateLimit: false
-
-# 设备指令配置
-DeviceCommand:
-  DefaultExpiresSeconds: 86400
-  DefaultTimeoutSeconds: 30
-  DefaultMaxRetry: 3
-  DispatchBatchSize: 100
-  WorkerIntervalSeconds: 10
-
-# 状态上报策略配置
-StatusReport:
-  IntervalNormalSec: 60
-  IntervalMidRangeSec: 120
-  IntervalEnergySec: 300
-  IntervalEmergencySec: 10
-  IntervalMinSec: 10
-  IntervalMaxSec: 300
-  EnergyBatteryPercent: 20
-  MidRangeBatteryPercent: 50
-
-# HTTP状态上报限流
-StatusReportHTTP:
-  RateLimitPerMinute: 60
-
-# Redis Keyspace通知（可选）
-RedisKeyspace:
-  Enabled: false
-
-# 状态持久化配置
-StatusPersist:
-  QueueSize: 1000
-  Workers: 5
-
-# CORS跨域配置
+# 浏览器跨域（对应 common/cors.Config）。
 CORS:
+  AllowCredentials: false
   AllowOrigins:
     - "*"
   AllowMethods:
@@ -101,13 +15,16 @@ CORS:
     - DELETE
     - OPTIONS
   AllowHeaders:
-    - Content-Type
-    - Authorization
-    - X-Device-Secret
-  ExposeHeaders:
-    - Content-Length
-  MaxAge: 86400
-  AllowCredentials: false
+    - "*"
 
-# 用户最大绑定设备数
-MaxDeviceBinds: 10
+Auth:
+  AccessSecret: audio-ai-platform-user-secret
+  AccessExpire: 3600
+
+Postgres:
+  DataSource: "postgres://admin:admin123@14.103.202.69:5432/audio_platform?sslmode=disable&TimeZone=Asia/Shanghai"
+
+Redis:
+  Addr: "14.103.202.69:6379"
+  Password: "cjs110017"
+  DB: 0

@@ -1,70 +1,52 @@
-Name: ai-worker
-Host: 0.0.0.0
-Port: 8004
+# 本地默认配置（默认 -f etc/ai-worker.yaml）；可按需对齐 k8s ConfigMap。
+name: ai-worker-api
+host: 0.0.0.0
+port: 8004
 
-CORS: {}
+CORS:
+  AllowCredentials: false
+  AllowOrigins:
+    - "*"
+  AllowMethods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  AllowHeaders:
+    - "*"
 
-# 认证配置（必须与 User 服务一致）
 Auth:
   AccessSecret: audio-ai-platform-user-secret
 
-# 数据库配置
-Database:
-  Host: localhost
-  Port: 5432
-  User: admin
-  Password: admin123
-  DBName: audio_platform
+AI:
+  ModelType: bsroformer
+  ModelPath: ./models/bsroformer
+  GPUDevice: 0
+  SegmentSize: 10
+  Overlap: 0.25
+  UseFP16: true
+  UseINT8: false
+  BatchSize: 1
+  MaxConcurrentJobs: 3
+  UseCUDA: false
+  CUDABenchmark: false
+  NumThreads: 4
+  InterThreads: 2
+  OutputDir: ./data/output
+  CacheDir: ./data/cache
+  DefaultStems:
+    - vocals
+    - drums
+    - bass
+    - other
 
-# Redis 配置
-CacheRedis:
-  - Host: localhost:6379
-    Pass: ""
-    Type: node
-
-# 对象存储配置 (阿里云 OSS)
 Storage:
-  Driver: oss  # oss | s3 | local
-  Bucket: 220aaa
-  Region: oss-cn-beijing
-  Endpoint: oss-cn-beijing.aliyuncs.com
-  AccessKey: LTAI5t8vrb1GWkvu1Bw5T4k4
-  SecretKey: 7GMwzmyWLbMgW7HpPnjkMZTEYEfNLs
+  Driver: local
   Local:
     Root: ./data/ai-worker-objects
 
-# SQS 队列配置
-SQS:
-  Endpoint: http://localhost:4566
-  Region: us-east-1
-  QueueURL: http://localhost:4566/000000000000/ai-inference-queue
-  AccessKey: ""
-  SecretKey: ""
-
-# AI 模型配置
-AI:
-  # ====== 独立 BS-RoFormer 模型配置（通过 Demucs 仓库）======
-  ModelType: bsroformer          # 模型类型
-  ModelName: bss_roformer        # Demucs 中的独立 BS-RoFormer 模型名称
-  ModelPath: ./models            # 模型存储路径
-
-  # 设备配置
-  GPUID: -1                      # GPU ID (-1 表示使用 CPU)
-  Device: cpu                    # 计算设备: cpu | cuda:0 | cuda:1
-  BatchSize: 1                   # 批量大小
-
-  # 性能优化
-  SegmentSize: 10                # 分段大小（秒）
-  Overlap: 0.25                  # 重叠比例 (0.25 = 25%)
-  UseFP16: false                 # 是否使用 FP16 半精度（GPU 推荐）
-  UseINT8: false                 # 是否使用 INT8 量化
-
-  # 输出配置
-  OutputDir: ./output            # 输出目录（Docker 挂载或本地路径）
-  CacheDir: ./cache              # 缓存目录
-  MaxConcurrentJobs: 2           # 最大并发任务数
-
-# 回调配置
-Callback:
-  TimeoutSec: 30
-  RetryCount: 3
+Log:
+  Mode: console
+  Level: info
+  Encoding: json
