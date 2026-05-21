@@ -77,7 +77,7 @@ func RegisterPlatformDeviceRouter(v1 *gin.RouterGroup, authMiddleware *jwt.GinJW
 		// 指令历史（须在 /:sn 之前）
 		r.GET("/instructions", api.InstructionList)
 		r.GET("/instructions/:id", api.InstructionDetail)
-		r.POST("/instructions/:id/cancel", api.InstructionCancel)
+		// POST /instructions/:id/cancel 已在上方 pubPD 组注册（无需 JWT）
 		// 固件包（须在 /:sn 之前；upload 须在 /firmware/:id 之前）
 		r.GET("/firmware/list", api.FirmwareList)
 		r.POST("/firmware/upload", api.FirmwareUpload)

@@ -7,42 +7,48 @@ type EnumItem struct {
 	Value string `json:"value"` // 实际值
 }
 
-// DeviceRegisterReq 设备注册请求
-// 设备首次上线时向云端注册身份（简化版：只需SN + 设备密钥）
-// 安全设计：服务端自动生成时间戳并使用密钥计算签名，防止重放攻击
+// DeviceRegisterReq 设备注册请求（预录入+首次激活模式）
+// 设备生产时SN和密钥已预录入云端（状态：未激活），设备首次联网时触发注册/激活流程
+// 流程：参数校验 → 查询预录入设备 → 密钥验证 → 状态检查 → 激活记录
 type DeviceRegisterReq struct {
-	Sn           string `json:"sn" validate:"required"`            // 设备序列号（16位，从Flash/OTP读取）
+	Sn              string `json:"sn" validate:"required"`            // 设备序列号（16位字母数字组合，从Flash/OTP读取）
+	DeviceSecret    string `json:"device_secret" validate:"required"` // 设备密钥（生产阶段预烧录，用于身份验证）
+	FirmwareVersion string `json:"firmware_version,omitempty"`        // 固件版本号（可选，用于记录设备当前固件版本）
+	HardwareVersion string `json:"hardware_version,omitempty"`        // 硬件版本号（可选，用于记录设备硬件型号）
+	Mac             string `json:"mac,omitempty"`                     // MAC地址（可选，用于设备识别和定位）
+}
+
+// DeviceRegisterResp 设备注册响应（激活模式）
+// 注册成功后不返回token，设备需调用 /api/device/auth 接口获取访问凭证
+type DeviceRegisterResp struct {
+	Sn          string `json:"sn"`           // 设备序列号
+	DeviceID    int64  `json:"device_id"`    // 设备ID（云端分配的唯一标识）
+	Status      string `json:"status"`       // 激活状态：activated-已激活, already_activated-已是激活状态
+	ActivatedAt string `json:"activated_at"` // 激活时间（ISO8601格式，首次激活或上次激活时间）
+	Message     string `json:"message"`      // 提示信息（成功原因说明）
+}
+
+// DeviceAuthReq 设备认证请求（密钥模式）
+// 设备使用 SN + device_secret 向云端获取访问凭证（JWT Token）
+// 流程：参数校验 → 设备查询 → 密钥验证 → 状态检查 → 生成Token
+type DeviceAuthReq struct {
+	Sn           string `json:"sn" validate:"required"`            // 设备序列号（16位字母数字组合）
 	DeviceSecret string `json:"device_secret" validate:"required"` // 设备密钥（生产阶段预烧录，用于身份验证）
 }
 
-// DeviceRegisterResp 设备注册响应
-// 返回设备访问凭证（JWT Token），设备端保存用于后续认证
-type DeviceRegisterResp struct {
-	Sn                string `json:"sn"`                 // 设备序列号
-	Token             string `json:"token"`              // 访问凭证（JWT Token，用于后续API调用和WebSocket连接）
-	ExpiresIn         int64  `json:"expires_in"`         // 凭证有效期（秒），默认86400秒（24小时）
-	DeviceID          int64  `json:"device_id"`          // 设备ID
-	RegisterTime      string `json:"register_time"`      // 注册时间（ISO8601格式）
-	RegisterTimestamp int64  `json:"register_timestamp"` // 注册时间戳（毫秒级Unix时间戳，用于签名验证）
-	Signature         string `json:"signature"`          // 注册签名（HMAC-SHA256(device_secret, sn + timestamp)，用于WebSocket认证）
-}
-
-// DeviceAuthReq 设备认证请求
-// 设备使用 token 向云端认证身份
-type DeviceAuthReq struct {
-	Sn    string `json:"sn" validate:"required"`    // 设备序列号，16位字母数字组合
-	Token string `json:"token" validate:"required"` // 注册时获取的认证 token
-}
-
-// DeviceAuthResp 设备认证响应
-// 返回认证结果和设备信息
+// DeviceAuthResp 设备认证响应（返回JWT Token）
+// 返回设备访问凭证、有效期、设备基础信息，设备端保存Token用于后续API调用
 type DeviceAuthResp struct {
-	Success         bool   `json:"success"`          // 是否认证成功
-	DeviceID        int64  `json:"device_id"`        // 设备 ID
+	Token           string `json:"token"`            // 访问凭证（JWT Token，用于后续API调用和WebSocket连接）
+	ExpiresIn       int64  `json:"expires_in"`       // 凭证有效期（秒），默认2592000秒（30天）
+	DeviceID        int64  `json:"device_id"`        // 设备ID（云端分配的唯一标识）
 	Sn              string `json:"sn"`               // 设备序列号
 	Model           string `json:"model"`            // 设备型号
 	FirmwareVersion string `json:"firmware_version"` // 固件版本号
-	Message         string `json:"message"`          // 提示信息
+	HardwareVersion string `json:"hardware_version"` // 硬件版本号
+	OnlineStatus    int16  `json:"online_status"`    // 在线状态：0-离线, 1-在线
+	Status          int16  `json:"status"`           // 设备状态：1-正常, 2-禁用, 3-停用, 4-未注册, 5-未认证
+	Message         string `json:"message"`          // 提示信息（成功原因说明）
 }
 
 // WsAuthMessage WebSocket认证消息
@@ -221,6 +227,40 @@ type DevicePauseResp struct {
 	Message       string `json:"message"`        // 提示信息
 }
 
+// DevicePlayAudioReq 点播/URL 播放（与 media-processing 点播参数对齐）
+// WebSocket 下行与暂停等指令一致：type=cmd，command_code=play_audio，payload 中包含以下业务字段。
+type DevicePlayAudioReq struct {
+	Sn        string  `json:"sn"`                       // 设备序列号（16 位）
+	ContentID int64   `json:"content_id"`               // 内容 ID（正整数）
+	AudioURL  string  `json:"audio_url"`                // 可播放音频 URL
+	StartPos  float64 `json:"start_pos,omitempty"`      // 起始进度（秒）
+	Volume    int     `json:"volume,omitempty"`         // 音量 0–100（0 或未传服务端按默认处理）
+	PlayMode  string  `json:"play_mode,omitempty"`      // sequential/list_loop/single_loop/random
+}
+
+// DevicePlayAudioResp 点播指令响应
+type DevicePlayAudioResp struct {
+	TaskID          string `json:"task_id"`          // 与设备侧载荷中的 task_id 一致，便于对账
+	InstructionID   int64  `json:"instruction_id"`   // 指令 ID
+	Status          string `json:"status"`           // delivered / queued / cached 等
+	Message         string `json:"message"`          // 人类可读提示
+}
+
+// DeviceSeekReq 进度条跳转（与 media-processing seek 对齐）
+type DeviceSeekReq struct {
+	Sn       string  `json:"sn"`               // 设备序列号（16 位）
+	Position float64 `json:"position"`         // 跳转目标秒数
+	TaskID   string  `json:"task_id,omitempty"` // 可选：与当前点播任务对齐
+}
+
+// DeviceSeekResp 进度跳转指令响应
+type DeviceSeekResp struct {
+	TaskID          string `json:"task_id"`
+	InstructionID   int64  `json:"instruction_id"`
+	Status          string `json:"status"`
+	Message         string `json:"message"`
+}
+
 // DeviceResumeReq 设备继续播放指令请求
 // 用户通过 App 向设备下发继续播放指令
 type DeviceResumeReq struct {
@@ -320,9 +360,9 @@ type DeviceVolumeDownResp struct {
 // DeviceVolumeReq 设备音量调节指令请求（统一接口）
 // 用户通过 App 向设备下发音量调节指令，支持直接设置目标音量值（0-100）
 type DeviceVolumeReq struct {
-	Sn           string `json:"sn" validate:"required"`             // 设备序列号，16位字母数字组合
-	Action       string `json:"action" validate:"required"`         // 操作类型：set_volume/volume_up/volume_down
-	TargetVolume int    `json:"target_volume" validate:"required"`  // 目标音量值，范围0-100
+	Sn           string `json:"sn" validate:"required"`            // 设备序列号，16位字母数字组合
+	Action       string `json:"action" validate:"required"`        // 操作类型：set_volume/volume_up/volume_down
+	TargetVolume int    `json:"target_volume" validate:"required"` // 目标音量值，范围0-100
 }
 
 // DeviceVolumeResp 设备音量调节指令响应

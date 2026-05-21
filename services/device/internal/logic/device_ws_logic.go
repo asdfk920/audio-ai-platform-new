@@ -15,7 +15,9 @@ import (
 
 	"github.com/jacklau/audio-ai-platform/common/errorx"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/commandsvc"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/device/shadow"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/deviceauthsvc"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/model"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 )
 
@@ -75,7 +77,17 @@ type DeviceConnectReq struct {
 	DeviceId string `json:"deviceId"`
 }
 
-// DeviceWs 设备长连接入口：升级 WebSocket **之前**先校验设备 JWT；通过后升级，再完成首包签名认证，最后登记在线并收发消息。
+// DeviceWs 设备长连接入口（简化版）
+//
+// 流程：
+//  1. 握手前校验：提取JWT Token + 验证Token有效性 + 检查设备状态
+//     - Token无效/过期 → 拒绝连接（401）
+//     - 设备未激活 → 拒绝连接（403）
+//     - 设备已禁用 → 拒绝连接（403）
+//  2. 升级 HTTP → WebSocket
+//  3. 直接建立长连接（无需首包签名认证）
+//  4. 更新在线状态、加入连接池、启动心跳
+//  5. 进入消息监听循环（可立即收发消息）
 func (l *DeviceWsLogic) DeviceWs(w http.ResponseWriter, r *http.Request) {
 	logx.Infof("====================================")
 	logx.Infof("[WS] 📡 收到新的WebSocket连接请求")
@@ -83,82 +95,94 @@ func (l *DeviceWsLogic) DeviceWs(w http.ResponseWriter, r *http.Request) {
 	logx.Infof("[WS] User-Agent: %s", r.UserAgent())
 	logx.Infof("====================================")
 
-	// 0. 握手前校验：须为已注册设备且 JWT 有效（未建立 WS 即拒绝，避免无效升级）
+	// ══════════════════════════════════════════════
+	// 步骤0: 握手前校验 - JWT Token验证 + 设备状态检查
+	// ══════════════════════════════════════════════
 	token := deviceauthsvc.ExtractDeviceWSBearerToken(r)
 	if token == "" {
 		l.writeWSHandshakeJSON(w, http.StatusUnauthorized, errorx.CodeTokenInvalid,
 			"缺少设备访问凭证：请在请求头添加 Authorization: Bearer <token>，或使用 ?token= / ?access_token=")
 		return
 	}
+
 	authSvc := deviceauthsvc.New(l.svcCtx)
-	if _, err := authSvc.VerifyDeviceToken(l.ctx, token); err != nil {
+
+	principal, err := authSvc.VerifyDeviceToken(l.ctx, token)
+	if err != nil {
 		logx.Errorf("[WS] ❌ 握手前设备 JWT 校验失败: %v", err)
 		l.writeWSHandshakeFromError(w, err)
 		return
 	}
-	logx.Infof("[WS] ✅ 握手前设备 JWT 校验通过")
+	logx.Infof("[WS] ✅ JWT Token校验通过: device_id=%d sn=%s", principal.DeviceID, principal.DeviceSN)
 
-	// 1. 升级 HTTP → WebSocket
+	deviceID := principal.DeviceID
+	deviceSN := principal.DeviceSN
+	snUpper := strings.ToUpper(strings.TrimSpace(deviceSN))
+
+	if statusErr := l.checkDeviceStatusForWS(deviceID); statusErr != nil {
+		logx.Errorf("[WS] ❌ 设备状态检查失败: device_id=%d error=%v", deviceID, statusErr)
+		l.writeWSHandshakeJSON(w, http.StatusForbidden, errorx.CodeDeviceNotFound, statusErr.Error())
+		return
+	}
+	logx.Infof("[WS] ✅ 设备状态正常: device_id=%d (已激活且未禁用)", deviceID)
+
+	// ══════════════════════════════════════════════
+	// 步骤1: 升级 HTTP → WebSocket
+	// ══════════════════════════════════════════════
 	conn, err := upGrader.Upgrade(w, r, nil)
 	if err != nil {
 		logx.Errorf("[WS] ❌ WebSocket升级失败: %v", err)
 		return
 	}
 
-	logx.Infof("[WS] ✅ WebSocket连接建立成功")
-	authWindow := websocketAuthHandshakeTimeoutFromConfig(l.svcCtx.Config)
-	logx.Infof("[WS] 🔐 开始身份认证（须在 %v 内用文本帧发送完整 auth JSON 首包）...", authWindow)
-
-	// 2. 立即进行身份认证（设备须在配置窗口内发送首包 auth JSON）
-	authLogic := NewWsAuthLogic(l.ctx, l.svcCtx)
-	authResp, authErr := authLogic.AuthenticateDevice(conn, r)
-
-	if authErr != nil || !authResp.Success {
-		logx.Errorf("[WS] ❌ 设备认证失败，立即关闭连接")
-		logx.Errorf("[WS] 错误原因: %v", authErr)
-		// AuthenticateDevice 在失败分支通常已下发 auth_response；此处不再额外等待。
-		_ = conn.Close()
-		return
-	}
-
-	deviceId := fmt.Sprintf("%d", authResp.DeviceID)
+	logx.Infof("✅ ✅ ✅ [WS] WebSocket连接建立成功!")
+	logx.Infof("   设备ID:   %d", deviceID)
+	logx.Infof("   设备SN:   %s", deviceSN)
+	logx.Infof("   客户端IP: %s", r.RemoteAddr)
 
 	defer conn.Close()
 
-	logx.Infof("")
-	logx.Infof("====================================")
-	logx.Infof("[WS] ✅✅✅ 设备已成功上线! ✅✅✅")
-	logx.Infof("====================================")
-	logx.Infof("  设备ID:     %s", deviceId)
-	logx.Infof("  连接状态:   已建立长连接")
-	logx.Infof("  心跳间隔:   54秒 (自动保活)")
-	logx.Infof("====================================")
+	deviceIdStr := fmt.Sprintf("%d", deviceID)
+
+	// ══════════════════════════════════════════════
+	// 步骤2: 初始化连接管理
+	// ══════════════════════════════════════════════
 
 	// ① 更新设备在线状态为"在线"
-	l.updateDeviceOnlineStatus(authResp.DeviceID)
+	l.updateDeviceOnlineStatus(deviceID)
 
 	dc := &wsDeviceConn{conn: conn}
 
-	// ② 必须先登记连接：SendCmdToDevice / commandsvc.Dispatch 依赖 deviceConnMap
+	// ② 加入连接池（供SendCmdToDevice等外部函数使用）
 	lock.Lock()
-	deviceConnMap[deviceId] = dc
+	deviceConnMap[deviceIdStr] = dc
+	if snUpper != "" {
+		deviceConnMap[snUpper] = dc // 冗余键：与其它按 SN 寻址的逻辑兼容（同一条连接）
+	}
 	lock.Unlock()
 
-	// ③ HTTP 在离线时写入的 pending 指令：上线后统一经 WebSocket 信封补发
-	go l.afterWSAuthFlushPendingInstructions(authResp.DeviceID)
+	// ③ 补发离线期间的pending指令
+	go l.afterWSAuthFlushPendingInstructions(deviceID)
 
-	logx.Infof("[WS] 📍 设备已加入在线列表: device_id=%s (当前在线设备数: %d)", deviceId, len(deviceConnMap))
+	logx.Infof("[WS] 📍 设备已加入在线列表: device_id=%s sn_key=%s (当前在线设备数: %d)", deviceIdStr, snUpper, len(deviceConnMap))
 
+	// ④ 注册断开清理逻辑
 	defer func() {
 		lock.Lock()
-		delete(deviceConnMap, deviceId)
+		delete(deviceConnMap, deviceIdStr)
+		if snUpper != "" {
+			delete(deviceConnMap, snUpper)
+		}
 		lock.Unlock()
 
-		logx.Infof("[WS] 🔴 设备离线: device_id=%s (剩余在线设备数: %d)", deviceId, len(deviceConnMap))
+		logx.Infof("[WS] 🔴 设备离线: device_id=%s (剩余在线设备数: %d)", deviceIdStr, len(deviceConnMap))
 
-		l.handleDeviceDisconnect(deviceId, authResp.DeviceID)
+		l.handleDeviceDisconnect(deviceIdStr, deviceID)
 	}()
 
+	// ══════════════════════════════════════════════
+	// 步骤3: 配置心跳机制
+	// ══════════════════════════════════════════════
 	pingInterval := time.Duration(54) * time.Second
 	if l.svcCtx.Config.WebSocket.PingInterval != "" {
 		if d, err := time.ParseDuration(l.svcCtx.Config.WebSocket.PingInterval); err == nil {
@@ -177,33 +201,36 @@ func (l *DeviceWsLogic) DeviceWs(w http.ResponseWriter, r *http.Request) {
 
 	conn.SetReadDeadline(time.Now().Add(pongTimeout))
 	conn.SetPongHandler(func(appData string) error {
-		logx.Debugf("[WS] 💓 收到设备 %s 的Pong响应", deviceId)
+		logx.Debugf("[WS] 💓 收到设备 %s 的Pong响应", deviceIdStr)
 		conn.SetReadDeadline(time.Now().Add(pongTimeout))
 		return nil
 	})
 
-	go l.startHeartbeat(dc, deviceId, pingInterval)
+	go l.startHeartbeat(dc, deviceIdStr, pingInterval)
 
 	logx.Infof("[WS] 🔄 进入消息监听循环...")
 
+	// ══════════════════════════════════════════════
+	// 步骤4: 进入消息监听循环（双向通信）
+	// ══════════════════════════════════════════════
 	for {
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				logx.Errorf("[WS] ❌ 设备 %s 连接异常断开: %v", deviceId, err)
+				logx.Errorf("[WS] ❌ 设备 %s 连接异常断开: %v", deviceIdStr, err)
 			} else {
-				logx.Infof("[WS] ℹ️  设备 %s 正常断开连接: %v", deviceId, err)
+				logx.Infof("[WS] ℹ️  设备 %s 正常断开连接: %v", deviceIdStr, err)
 			}
 			break
 		}
 
 		logx.Debugf("[WS] 📥 收到设备 %s 消息 (类型:%d, 长度:%d): %s",
-			deviceId, messageType, len(message), truncateStringForLog(string(message), 100))
+			deviceIdStr, messageType, len(message), truncateStringForLog(string(message), 100))
 
-		l.handleDeviceMessage(deviceId, message)
+		l.handleDeviceMessage(deviceIdStr, message)
 	}
 
-	logx.Infof("[WS] 👋 设备 %s 连接处理结束", deviceId)
+	logx.Infof("[WS] 👋 设备 %s 连接处理结束", deviceIdStr)
 }
 
 // startHeartbeat 经 wsDeviceConn 写 Ping，与 SendCmdToDevice 共用写锁，避免 Gorilla/WebSocket 并发写导致异常断连。
@@ -266,7 +293,8 @@ func (l *DeviceWsLogic) handleCommandResponse(deviceId string, response map[stri
 
 	switch cmd {
 	case "reboot":
-		HandleDeviceRebootResponse(deviceId, response)
+		// 传递 l (DeviceWsLogic) 给处理函数，使其能访问数据库和连接池
+		HandleDeviceRebootResponse(l, deviceId, response)
 	default:
 		logx.Infof("[CMD_RESPONSE] 未知指令反馈: device_id=%s, cmd=%s", deviceId, cmd)
 	}
@@ -278,15 +306,27 @@ func SendCmdToDevice(deviceId string, data interface{}) error {
 	dc, ok := deviceConnMap[deviceId]
 	lock.RUnlock()
 
-	if !ok {
-		logx.Errorf("设备 %s 未在线或未建立 WebSocket 连接", deviceId)
-		return fmt.Errorf("设备 WebSocket 未连接: %s", deviceId)
+	if ok {
+		if err := dc.WriteJSON(data); err != nil {
+			return fmt.Errorf("WebSocket 写入失败(device_id=%s): %w", deviceId, err)
+		}
+		return nil
 	}
 
-	if err := dc.WriteJSON(data); err != nil {
-		return fmt.Errorf("WebSocket 写入失败(device_id=%s): %w", deviceId, err)
+	// 多实例部署：Redis 仍为在线但本进程无连接 → 尝试经 Redis Pub/Sub 转发到持有 WS 的节点
+	if wsRelayRedis != nil {
+		pctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := relayPublishWsPush(pctx, deviceId, data); err != nil {
+			logx.Errorf("[WS] relay publish 失败 device_id=%s: %v", deviceId, err)
+		} else {
+			logx.Infof("[WS] relay publish ok device_id=%s（将由在线实例投递）", deviceId)
+			return nil
+		}
 	}
-	return nil
+
+	logx.Errorf("设备 %s 未在线或未建立 WebSocket 连接（本实例 map 为空且未启用/未能发布 relay）", deviceId)
+	return fmt.Errorf("设备 WebSocket 未连接: %s", deviceId)
 }
 
 // GetOnlineDevices 获取当前在线设备列表
@@ -320,13 +360,13 @@ func (l *DeviceWsLogic) updateDeviceOnlineStatus(deviceID int64) {
 
 	query := `
 		UPDATE public.device
-		SET online_status = 1,
+		SET online_status = $2,
 		    updated_at = NOW()
 		WHERE id = $1
 		  AND deleted_at IS NULL
 	`
 
-	result, err := l.svcCtx.DB.ExecContext(l.ctx, query, deviceID)
+	result, err := l.svcCtx.DB.ExecContext(l.ctx, query, deviceID, DeviceOnlineStatusOnline)
 	if err != nil {
 		logx.Errorf("[WS] 更新设备在线状态失败: device_id=%d, error=%v", deviceID, err)
 		return
@@ -334,8 +374,43 @@ func (l *DeviceWsLogic) updateDeviceOnlineStatus(deviceID int64) {
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected > 0 {
-		logx.Infof("[WS] ✅ 设备在线状态已更新: device_id=%d, status=在线", deviceID)
+		logx.Infof("[WS] ✅ DB 设备在线状态已更新: device_id=%d", deviceID)
+	} else {
+		logx.Infof("[WS] ⚠️ DB 在线状态写入影响行数为 0 device_id=%d（仍将刷新 Redis 心跳，避免误判在线 TTL）", deviceID)
 	}
+	// commandsvc.isDeviceOnline 依赖 Redis TTL；不因「本次 UPDATE 影响 0 行」而跳过写入，否则会话已建立但投递仍走不可靠路径
+	l.syncDeviceOnlineStatusToRedis(deviceID)
+}
+
+// syncDeviceOnlineStatusToRedis 同步设备在线状态到Redis
+// 用于让commandsvc的isDeviceOnline()能正确识别设备在线状态，从而实时推送指令
+func (l *DeviceWsLogic) syncDeviceOnlineStatusToRedis(deviceID int64) {
+	if l.svcCtx == nil || l.svcCtx.Redis == nil {
+		logx.Infof("[WS] ℹ️  Redis未配置，跳过在线状态同步")
+		return
+	}
+
+	device, err := l.svcCtx.DeviceRepo.FindById(l.ctx, deviceID)
+	if err != nil {
+		logx.Errorf("[WS] ❌ 查询设备信息失败（无法同步Redis）: device_id=%d, error=%v", deviceID, err)
+		return
+	}
+
+	if device == nil || device.Sn == "" {
+		logx.Errorf("[WS] ❌ 设备不存在或SN为空（无法同步Redis）: device_id=%d", deviceID)
+		return
+	}
+
+	sn := strings.ToUpper(strings.TrimSpace(device.Sn))
+	onlineKey := shadow.OnlineKey(sn)
+
+	err = l.svcCtx.Redis.Set(l.ctx, onlineKey, "1", 30*time.Minute).Err()
+	if err != nil {
+		logx.Errorf("[WS] ❌ 设置Redis在线状态失败: sn=%s, key=%s, error=%v", sn, onlineKey, err)
+		return
+	}
+
+	logx.Infof("[WS] ✅ Redis在线状态已同步: sn=%s, key=%s, TTL=30分钟", sn, onlineKey)
 }
 
 // afterWSAuthFlushPendingInstructions WebSocket 认证成功后，将库中 pending(status=1) 经统一通道推到设备。
@@ -363,6 +438,49 @@ func (l *DeviceWsLogic) afterWSAuthFlushPendingInstructions(deviceID int64) {
 	}
 	if n > 0 {
 		logx.Infof("[WS] ✅ 上线补发 pending 指令经 WebSocket device_id=%d sn=%s count=%d", deviceID, sn, n)
+	}
+}
+
+// checkDeviceStatusForWS WebSocket握手前检查设备状态
+//
+// 检查项：
+//   - 设备是否存在
+//   - 设备是否已激活（status=1，正常）
+//   - 设备是否被禁用（status=2）或停用（status=3）
+//   - 设备是否未注册（status=4）
+//
+// 返回 error: 状态异常时返回具体原因；正常时返回nil
+func (l *DeviceWsLogic) checkDeviceStatusForWS(deviceID int64) error {
+	if l.svcCtx == nil || l.svcCtx.DeviceRepo == nil {
+		return fmt.Errorf("服务上下文未初始化")
+	}
+
+	device, err := l.svcCtx.DeviceRepo.FindById(l.ctx, deviceID)
+	if err != nil {
+		return fmt.Errorf("查询设备信息失败: %w", err)
+	}
+
+	if device == nil || device.ID == 0 {
+		return fmt.Errorf("设备不存在（device_id=%d），请先注册", deviceID)
+	}
+
+	switch device.Status {
+	case model.DeviceStatusNormal:
+		logx.Infof("[WS] ✅ 设备状态检查通过: id=%d sn=%s status=正常(1)", device.ID, device.Sn)
+		return nil
+
+	case model.DeviceStatusUnregistered:
+		return fmt.Errorf("设备未激活（sn=%s），请先调用 /api/device/register 接口激活设备", device.Sn)
+
+	case model.DeviceStatusDisabled:
+		return fmt.Errorf("设备已被管理员禁用（sn=%s），无法建立连接，请联系客服", device.Sn)
+
+	case model.DeviceStatusInactive:
+		return fmt.Errorf("设备已停用或报废（sn=%s），无法使用", device.Sn)
+
+	default:
+		logx.Infof("[WS] ⚠️ 设备状态未知: id=%d status=%d (允许连接)", device.ID, device.Status)
+		return nil
 	}
 }
 

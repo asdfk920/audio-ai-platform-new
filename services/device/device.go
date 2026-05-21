@@ -139,25 +139,12 @@ func main() {
 	ctx.WsPushJSON = logic.SendCmdToDevice
 	handler.RegisterHandlers(server, ctx)
 
-	wsEnabled := c.WebSocket.Enable == nil || *c.WebSocket.Enable
-	// 注册 WebSocket 设备长连接路由（未配置 Enable 时默认开启）
-	if wsEnabled {
-		wsPath := c.WebSocket.Path
-		if wsPath == "" {
-			wsPath = "/ws/device"
-		}
-		server.AddRoute(rest.Route{
-			Method:  http.MethodGet,
-			Path:    wsPath,
-			Handler: handler.DeviceWsHandler(ctx),
-		})
-		logx.Infof("WebSocket 服务已启用: GET %s （完整 URL 示例 ws://%s:%d%s）", wsPath, c.Host, c.Port, wsPath)
-	} else {
-		logx.Infof("WebSocket 已关闭（配置 WebSocket.Enable: false），未注册设备长连接路由；连接原路径将收到 HTTP 404")
-	}
-
 	bgCtx, bgStop := context.WithCancel(context.Background())
 	defer bgStop()
+	if rdb != nil {
+		logic.SetWsRelayRedis(rdb)
+		go logic.StartWsRelaySubscriber(bgCtx)
+	}
 	startCommandWorker(bgCtx, ctx)
 
 	var persist *statuspersist.Pool

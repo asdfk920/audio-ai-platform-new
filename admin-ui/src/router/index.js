@@ -71,6 +71,11 @@ export const constantRoutes = [
     hidden: true
   },
   {
+    path: '/offline',
+    component: () => import('@/views/error-page/offline'),
+    hidden: true
+  },
+  {
     path: '/',
     component: Layout,
     // 默认进入新首页（登录后落地页）

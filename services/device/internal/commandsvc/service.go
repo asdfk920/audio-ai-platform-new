@@ -30,6 +30,22 @@ func logDBErr(op string, err error) error {
 	return errorx.NewDefaultError(errorx.CodeDatabaseError)
 }
 
+// wsPushPayload 向设备 WebSocket 写入；先按 device_id 数字键，失败再按 SN（与连接池双键注册一致）。
+func (s *Service) wsPushPayload(deviceKey string, sn string, payload interface{}) error {
+	if s == nil || s.svcCtx == nil || s.svcCtx.WsPushJSON == nil {
+		return fmt.Errorf("WsPushJSON 未注入")
+	}
+	if err := s.svcCtx.WsPushJSON(deviceKey, payload); err != nil {
+		snAlt := strings.ToUpper(strings.TrimSpace(sn))
+		if snAlt != "" && snAlt != deviceKey {
+			logx.Infof("commandsvc: WS 按 device_key=%s 失败，尝试 SN 键 %s: %v", deviceKey, snAlt, err)
+			return s.svcCtx.WsPushJSON(snAlt, payload)
+		}
+		return err
+	}
+	return nil
+}
+
 const (
 	CommandCodeShadowSync = "shadow_sync"
 
@@ -355,11 +371,7 @@ LIMIT $3`, deviceID, StatusPending, limit)
 		payload := wsInstructionEnvelope(sn, item.PendingCommand)
 
 		deviceKey := strconv.FormatInt(deviceID, 10)
-		if s.svcCtx.WsPushJSON == nil {
-			logx.Errorf("commandsvc: WsPushJSON 未注入，跳过 WS 投递 instruction_id=%d（请在 main 绑定 logic.SendCmdToDevice）", item.InstructionID)
-			continue
-		}
-		if err := s.svcCtx.WsPushJSON(deviceKey, payload); err != nil {
+		if err := s.wsPushPayload(deviceKey, sn, payload); err != nil {
 			logx.Errorf("commandsvc: WebSocket 下发失败 instruction_id=%d device=%s: %v", item.InstructionID, deviceKey, err)
 			continue
 		}
@@ -1294,11 +1306,7 @@ WHERE id = $4 AND device_id = $5 AND status IN ($6, $7)`,
 	prev := StatusPending
 	_ = s.insertStateLog(ctx, msg.InstructionID, &prev, StatusExecuting, "mq_dispatched", "system")
 
-	if s.svcCtx.WsPushJSON == nil {
-		return fmt.Errorf("WsPushJSON 未注入，请在 main 绑定 logic.SendCmdToDevice")
-	}
-
-	if err := s.svcCtx.WsPushJSON(deviceKey, payload); err != nil {
+	if err := s.wsPushPayload(deviceKey, msg.DeviceSN, payload); err != nil {
 		return fmt.Errorf("WebSocket dispatch failed: %w", err)
 	}
 

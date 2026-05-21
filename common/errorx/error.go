@@ -8,11 +8,11 @@ const (
 	CodeSuccess = 0
 
 	// 用户相关错误 1xxx
-	CodeUserNotFound                  = 1001
-	CodePasswordError                 = 1002
-	CodeUserExists                    = 1003
-	CodeTokenInvalid                  = 1004
-	CodeTokenExpired                  = 1005
+	CodeUserNotFound                  = 1001 //用户不存在
+	CodePasswordError                 = 1002 //密码错误
+	CodeUserExists                    = 1003 //用户已存在
+	CodeTokenInvalid                  = 1004 //Token 无效
+	CodeTokenExpired                  = 1005 //Token 过期错误码
 	CodeVerifyCodeLimit               = 1006 // 验证码发送过于频繁，请3分钟后重试
 	CodeVerifyCodeInvalid             = 1007 // 验证码错误或已过期
 	CodeInvalidParam                  = 1008 // 参数无效（需邮箱或手机二选一）
@@ -63,7 +63,7 @@ const (
 	CodeDeviceShareForbiddenReshare   = 1053 // 当前角色不允许继续分享
 	CodeDeviceShareNotFound           = 1054 // 共享记录不存在
 	CodeDeviceShareNoCancelPermission = 1055 // 无权限撤销此共享
-	CodeDeviceShareAlreadyCanceled     = 1056 // 该共享已取消/已过期
+	CodeDeviceShareAlreadyCanceled    = 1056 // 该共享已取消/已过期
 
 	// 设备相关错误 2xxx
 	CodeDeviceNotFound = 2001
@@ -119,10 +119,10 @@ const (
 	CodeParamError    = 9003
 	CodeSystemError   = 9004
 	CodeDBError       = 9005
-	CodeNotFound      = 404
-	CodeNoPermission  = 403
-	CodeUnauthorized  = 401
-	CodeInternalError = 500
+	CodeNotFound      = 404 //路由不存在
+	CodeNoPermission  = 403 //无权访问
+	CodeUnauthorized  = 401 //未授权
+	CodeInternalError = 500 //服务器内部错误
 )
 
 // 错误消息映射

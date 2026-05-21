@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/jacklau/audio-ai-platform/common/httpresp"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/pkg/util/auth"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/svc"
 	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // qqMusicFavoriteListHandler 获取 QQ 音乐收藏歌曲列表处理器
@@ -19,34 +19,25 @@ import (
 // @Produce      json
 // @Param        limit   query     int  false  "每页数量" default(20)
 // @Param        offset  query     int  false  "偏移量" default(0)
-// @Success      200  {object}  map[string]interface{}  "成功"
-// @Failure      401  {object}  map[string]interface{}  "未登录"
-// @Failure      403  {object}  map[string]interface{}  "未绑定 QQ 音乐"
-// @Failure      500  {object}  map[string]interface{}  "服务器错误"
+// @Success      200  {object}  httpresp.Standard  "成功"
+// @Failure      401  {object}  httpresp.Standard  "未登录"
+// @Failure      403  {object}  httpresp.Standard  "未绑定 QQ 音乐"
+// @Failure      500  {object}  httpresp.Standard  "服务器错误"
 // @Router       /qq-music/favorites [get]
 // @Security     BearerAuth
 func qqMusicFavoriteListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 GET",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.MsgMethodNotAllowed+`：仅支持 GET`, nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.MsgUnauthorized, nil)
 			return
 		}
 
-		// 解析分页参数
 		limitStr := r.URL.Query().Get("limit")
 		offsetStr := r.URL.Query().Get("offset")
 
@@ -65,38 +56,24 @@ func qqMusicFavoriteListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			}
 		}
 
-		// 调用 Logic 层获取收藏列表
 		logicInstance := logic.NewQQMusicFavoriteLogic(r.Context(), svcCtx)
 		resp, err := logicInstance.GetFavoriteTracks(bearerCtx.UserID, limit, offset)
 		if err != nil {
 			logx.Errorf("获取 QQ 音乐收藏歌曲失败：userID=%d, limit=%d, offset=%d, error=%v",
 				bearerCtx.UserID, limit, offset, err)
 
-			// 检查是否未绑定 QQ 音乐
 			if err.Error() == "未找到 QQ 音乐绑定信息" {
-				httpx.WriteJson(w, http.StatusForbidden, map[string]interface{}{
-					"code":    403,
-					"message": "请先绑定 QQ 音乐账号",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusForbidden, httpresp.WithDetail(httpresp.MsgForbidden, `请先绑定 QQ 音乐账号`), nil)
 				return
 			}
 
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "获取收藏歌曲失败：" + err.Error(),
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.MsgInternal, err.Error()), nil)
 			return
 		}
 
 		logx.Infof("获取 QQ 音乐收藏歌曲成功：userID=%d, total=%d, limit=%d, offset=%d",
 			bearerCtx.UserID, resp.Total, resp.Limit, resp.Offset)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code":    200,
-			"message": "success",
-			"data":    resp,
-		})
+		httpresp.WriteSuccess(w, resp)
 	}
 }

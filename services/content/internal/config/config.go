@@ -20,9 +20,9 @@ type Config struct {
 	Database struct {
 		DataSource string `json:",optional"`
 	}
-	// Storage 对象存储：s3/minio 或 local（开发落盘）
+	// Storage 对象存储：local | s3 | oss（阿里云）
 	Storage struct {
-		Driver       string `json:",default=local"` // local | s3
+		Driver       string `json:",default=local"` // local | s3 | oss
 		Region       string `json:",optional"`
 		Endpoint     string `json:",optional"` // MinIO / 自定义 S3 endpoint
 		AccessKey    string `json:",optional"`
@@ -31,15 +31,20 @@ type Config struct {
 		UsePathStyle bool   `json:",optional"`
 		// CdnBaseUrl 对外访问前缀（不要尾斜杠），写入 DB 的 cover_url / audio_url
 		CdnBaseUrl string `json:",optional"`
+		// SyncFromSysConfig 为 true 时，启动先从 Database.DataSource 对应库的 public.sys_config
+		// 读取 upload_storage_*（与 go-admin 上传配置一致）；优先级：环境变量 > sys_config > YAML。
+		SyncFromSysConfig bool `json:",optional"`
 	}
-	// Local 本地存储根目录（Driver=local 时使用）
+	// Local 本地目录：Driver=local 时为主存储；OSS/S3 时可为私有格式上传的本地镜像备份根目录。
 	Local struct {
 		Root string `json:",default=./data/content-objects"`
 	}
 	// Upload 校验上限（可配置）
 	Upload struct {
-		AudioMaxMB int64 `json:",default=100"`
-		CoverMaxMB int64 `json:",default=10"`
+		AudioMaxMB                 int64 `json:",default=100"`
+		CoverMaxMB                 int64 `json:",default=10"`
+		PrivateFormatMaxMB         int64 `json:",default=128"` // 私有格式整包；需与 RestConf.MaxBytes 协调
+		PrivateFormatLocalMirror   bool  `json:",default=true"` // 主存储为 OSS/S3 时是否在 Local.Root 下再写一份副本
 	}
 	// List 内容列表：热点缓存 TTL 在逻辑层限制为 300–600 秒
 	List struct {

@@ -30,6 +30,19 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 			Path:    "/api/device/register",
 			Handler: deviceRegisterHandler(svcCtx),
 		})
+		// 设备认证接口（设备使用SN+密钥获取JWT Token，用于后续API调用）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/auth",
+			Handler: deviceAuthHandler(svcCtx),
+		})
+		// 设备WebSocket长连接接口（设备建立实时双向通信通道）
+		// 流程：携带JWT Token → 握手前校验 → 升级WebSocket → 首包签名认证 → 建立长连接
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/ws/device",
+			Handler: DeviceWsHandler(svcCtx),
+		})
 		// 设备重启指令接口（用户通过 App 下发重启指令）
 		routes = append(routes, rest.Route{
 			Method:  http.MethodPost,
@@ -89,6 +102,18 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 			Method:  http.MethodPost,
 			Path:    "/api/device/cmd/play",
 			Handler: devicePlayHandler(svcCtx),
+		})
+		// 点播 / URL 播放（与 WS 链路一致：command_code=play_audio）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/cmd/play_audio",
+			Handler: devicePlayAudioHandler(svcCtx),
+		})
+		// 进度条跳转（command_code=seek）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/cmd/seek",
+			Handler: deviceSeekHandler(svcCtx),
 		})
 		// 设备暂停指令接口（用户通过 App 下发暂停指令，需 JWT 鉴权）
 		routes = append(routes, rest.Route{

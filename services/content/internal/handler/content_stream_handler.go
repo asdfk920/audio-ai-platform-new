@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jacklau/audio-ai-platform/common/httpresp"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/pkg/util/auth"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/types"
@@ -26,42 +27,26 @@ import (
 func contentStreamHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 GET",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 GET"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
 		path := r.URL.Path
 		parts := strings.Split(strings.Trim(path, "/"), "/")
 		if len(parts) < 4 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "内容 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空"), nil)
 			return
 		}
 
 		contentID, err := strconv.ParseInt(parts[len(parts)-1], 10, 64)
 		if err != nil || contentID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "内容 ID 格式错误",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 格式错误"), nil)
 			return
 		}
 
@@ -79,11 +64,7 @@ func contentStreamHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			First(&content).Error
 		if err != nil {
 			logx.Errorf("查询内容失败: %v", err)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "内容不存在或已下架",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "内容不存在或已下架"), nil)
 			return
 		}
 
@@ -98,20 +79,12 @@ func contentStreamHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		if content.VipLevel > userVipLevel {
-			httpx.WriteJson(w, http.StatusForbidden, map[string]interface{}{
-				"code":    403,
-				"message": "该内容为VIP专属，请先升级会员",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusForbidden, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusForbidden), "该内容为VIP专属，请先升级会员"), nil)
 			return
 		}
 
 		if content.AudioURL == "" {
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "音频文件不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "音频文件不存在"), nil)
 			return
 		}
 
@@ -121,22 +94,14 @@ func contentStreamHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		localPath := getLocalFilePath(svcCtx, content.AudioURL)
 		if localPath == "" {
 			logx.Errorf("无法解析本地文件路径: %s", content.AudioURL)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "音频文件路径无效",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "音频文件路径无效"), nil)
 			return
 		}
 
 		file, err := os.Open(localPath)
 		if err != nil {
 			logx.Errorf("打开音频文件失败: %v, path=%s", err, localPath)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "音频文件不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "音频文件不存在"), nil)
 			return
 		}
 		defer file.Close()
@@ -144,11 +109,7 @@ func contentStreamHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		fileInfo, err := file.Stat()
 		if err != nil {
 			logx.Errorf("获取文件信息失败: %v", err)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "文件信息获取失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "文件信息获取失败"), nil)
 			return
 		}
 
@@ -175,11 +136,7 @@ func contentStreamHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			}
 
 			if start < 0 || start >= fileSize || end < start || end >= fileSize {
-				httpx.WriteJson(w, http.StatusRequestedRangeNotSatisfiable, map[string]interface{}{
-					"code":    416,
-					"message": "请求范围无效",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusRequestedRangeNotSatisfiable, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusRequestedRangeNotSatisfiable), "请求范围无效"), nil)
 				return
 			}
 
@@ -270,42 +227,26 @@ func getContentTypeFromExt(audioURL string) string {
 func contentDownloadHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 GET",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 GET"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
 		path := r.URL.Path
 		parts := strings.Split(strings.Trim(path, "/"), "/")
 		if len(parts) < 4 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "内容 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空"), nil)
 			return
 		}
 
 		contentID, err := strconv.ParseInt(parts[len(parts)-1], 10, 64)
 		if err != nil || contentID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "内容 ID 格式错误",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 格式错误"), nil)
 			return
 		}
 
@@ -323,11 +264,7 @@ func contentDownloadHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			First(&content).Error
 		if err != nil {
 			logx.Errorf("查询内容失败: %v", err)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "内容不存在或已下架",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "内容不存在或已下架"), nil)
 			return
 		}
 
@@ -342,20 +279,12 @@ func contentDownloadHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		if content.VipLevel > userVipLevel {
-			httpx.WriteJson(w, http.StatusForbidden, map[string]interface{}{
-				"code":    403,
-				"message": "该内容为VIP专属，请先升级会员",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusForbidden, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusForbidden), "该内容为VIP专属，请先升级会员"), nil)
 			return
 		}
 
 		if content.AudioURL == "" {
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "音频文件不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "音频文件不存在"), nil)
 			return
 		}
 
@@ -369,17 +298,13 @@ func contentDownloadHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		go recordDownloadEvent(svcCtx, bearerCtx.UserID, contentID, content.Title, content.AudioURL, fileSize)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code":    200,
-			"message": "下载中",
-			"data": map[string]interface{}{
-				"content_id":    contentID,
-				"title":         content.Title,
-				"status":        "downloading",
-				"stream_url":    fmt.Sprintf("/api/v1/content/stream/%d", contentID),
-				"file_size":     fileSize,
-				"download_time": time.Now().Format("2006-01-02 15:04:05"),
-			},
+		httpresp.WriteSuccessMsg(w, "下载中", map[string]interface{}{
+			"content_id":    contentID,
+			"title":         content.Title,
+			"status":        "downloading",
+			"stream_url":    fmt.Sprintf("/api/v1/content/stream/%d", contentID),
+			"file_size":     fileSize,
+			"download_time": time.Now().Format("2006-01-02 15:04:05"),
 		})
 	}
 }
@@ -398,21 +323,13 @@ func contentDownloadHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentPlayStartHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 POST",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 POST"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -421,11 +338,7 @@ func contentPlayStartHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if strings.Contains(contentType, "application/json") {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-					"code":    400,
-					"message": "读取请求体失败",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "读取请求体失败"), nil)
 				return
 			}
 			json.Unmarshal(body, &req)
@@ -439,11 +352,7 @@ func contentPlayStartHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		if req.ContentID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌曲 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌曲 ID 不能为空"), nil)
 			return
 		}
 
@@ -460,11 +369,7 @@ func contentPlayStartHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if err != nil {
 			logx.Errorf("查询歌曲失败: %v", err)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "歌曲不存在或已下架",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "歌曲不存在或已下架"), nil)
 			return
 		}
 
@@ -492,11 +397,7 @@ func contentPlayStartHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if result.Error != nil {
 			logx.Errorf("创建播放记录失败: %v", result.Error)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "创建播放记录失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "创建播放记录失败"), nil)
 			return
 		}
 
@@ -511,13 +412,10 @@ func contentPlayStartHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		logx.Infof("播放开始: userID=%d, contentID=%d, title=%s, playID=%d, IP=%s",
 			bearerCtx.UserID, req.ContentID, song.Title, playID, clientIP)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": map[string]interface{}{
-				"play_id":    playID,
-				"play_url":   song.AudioURL,
-				"started_at": now.Format("2006-01-02 15:04:05"),
-			},
+		httpresp.WriteSuccess(w, map[string]interface{}{
+			"play_id":    playID,
+			"play_url":   song.AudioURL,
+			"started_at": now.Format("2006-01-02 15:04:05"),
 		})
 	}
 }
@@ -528,21 +426,13 @@ func contentPlayStartHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentPlayProgressHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 POST",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 POST"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -551,11 +441,7 @@ func contentPlayProgressHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if strings.Contains(contentType, "application/json") {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-					"code":    400,
-					"message": "读取请求体失败",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "读取请求体失败"), nil)
 				return
 			}
 			json.Unmarshal(body, &req)
@@ -576,11 +462,7 @@ func contentPlayProgressHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		if req.PlayID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "播放记录 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "播放记录 ID 不能为空"), nil)
 			return
 		}
 
@@ -595,21 +477,14 @@ func contentPlayProgressHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			First(&record).Error
 
 		if err != nil || record.ID <= 0 {
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "播放记录不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "播放记录不存在"), nil)
 			return
 		}
 
 		if record.Status == 2 {
-			httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-				"code": 200,
-				"data": map[string]interface{}{
-					"success": false,
-					"message": "播放已完成，无法更新进度",
-				},
+			httpresp.WriteSuccessMsg(w, "播放已完成，无法更新进度", map[string]interface{}{
+				"success": false,
+				"message": "播放已完成，无法更新进度",
 			})
 			return
 		}
@@ -627,13 +502,10 @@ func contentPlayProgressHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		logx.Infof("更新播放进度: playID=%d, progress=%ds, duration=%ds", req.PlayID, req.Progress, req.Duration)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": map[string]interface{}{
-				"success":  true,
-				"message":  "进度更新成功",
-				"progress": req.Progress,
-			},
+		httpresp.WriteSuccessMsg(w, "进度更新成功", map[string]interface{}{
+			"success":  true,
+			"message":  "进度更新成功",
+			"progress": req.Progress,
 		})
 	}
 }
@@ -644,21 +516,13 @@ func contentPlayProgressHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentPlayCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 POST",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 POST"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -667,11 +531,7 @@ func contentPlayCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if strings.Contains(contentType, "application/json") {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-					"code":    400,
-					"message": "读取请求体失败",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "读取请求体失败"), nil)
 				return
 			}
 			json.Unmarshal(body, &req)
@@ -688,11 +548,7 @@ func contentPlayCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		if req.PlayID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "播放记录 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "播放记录 ID 不能为空"), nil)
 			return
 		}
 
@@ -709,21 +565,14 @@ func contentPlayCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			First(&record).Error
 
 		if err != nil || record.ID <= 0 {
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "播放记录不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "播放记录不存在"), nil)
 			return
 		}
 
 		if record.Status == 2 {
-			httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-				"code": 200,
-				"data": map[string]interface{}{
-					"success": false,
-					"message": "该播放已完成，无需重复提交",
-				},
+			httpresp.WriteSuccessMsg(w, "该播放已完成，无需重复提交", map[string]interface{}{
+				"success": false,
+				"message": "该播放已完成，无需重复提交",
 			})
 			return
 		}
@@ -746,14 +595,11 @@ func contentPlayCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		logx.Infof("播放完成: userID=%d, playID=%d, contentID=%d, duration=%ds",
 			bearerCtx.UserID, req.PlayID, record.ContentID, finalDuration)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": map[string]interface{}{
-				"success":   true,
-				"message":   "播放完成",
-				"duration":  finalDuration,
-				"played_at": now.Format("2006-01-02 15:04:05"),
-			},
+		httpresp.WriteSuccessMsg(w, "播放完成", map[string]interface{}{
+			"success":   true,
+			"message":   "播放完成",
+			"duration":  finalDuration,
+			"played_at": now.Format("2006-01-02 15:04:05"),
 		})
 	}
 }
@@ -764,21 +610,13 @@ func contentPlayCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentPlayHistoryListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 GET",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 GET"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -849,11 +687,7 @@ func contentPlayHistoryListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 
 		if err != nil {
 			logx.Errorf("查询播放记录失败: %v", err)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "查询播放记录失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "查询播放记录失败"), nil)
 			return
 		}
 		defer rows.Close()
@@ -911,14 +745,11 @@ func contentPlayHistoryListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 		logx.Infof("查询播放记录列表: userID=%d, page=%d, size=%d, total=%d",
 			bearerCtx.UserID, page, pageSize, total)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": map[string]interface{}{
-				"total":     total,
-				"list":      list,
-				"page":      page,
-				"page_size": pageSize,
-			},
+		httpresp.WriteSuccess(w, map[string]interface{}{
+			"total":     total,
+			"list":      list,
+			"page":      page,
+			"page_size": pageSize,
 		})
 	}
 }
@@ -929,21 +760,13 @@ func contentPlayHistoryListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 func contentSearchHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 GET",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 GET"), nil)
 			return
 		}
 
 		keyword := strings.TrimSpace(r.URL.Query().Get("keyword"))
 		if keyword == "" {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "搜索关键词不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "搜索关键词不能为空"), nil)
 			return
 		}
 
@@ -1055,11 +878,7 @@ func contentSearchHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		rows, err := svcCtx.DB.Raw(searchSQL, args...).Rows()
 		if err != nil {
 			logx.Errorf("搜索歌曲失败: %v", err)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "搜索失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "搜索失败"), nil)
 			return
 		}
 		defer rows.Close()
@@ -1099,14 +918,11 @@ func contentSearchHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		logx.Infof("搜索歌曲: keyword=%s, type=%s, total=%d, page=%d", keyword, searchType, total, page)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": map[string]interface{}{
-				"total":     total,
-				"list":      list,
-				"page":      page,
-				"page_size": pageSize,
-			},
+		httpresp.WriteSuccess(w, map[string]interface{}{
+			"total":     total,
+			"list":      list,
+			"page":      page,
+			"page_size": pageSize,
 		})
 	}
 }
@@ -1117,21 +933,13 @@ func contentSearchHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func downloadCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 POST",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 POST"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -1141,20 +949,12 @@ func downloadCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			LocalPath string `json:"local_path"`
 		}
 		if err := httpx.ParseJsonBody(r, &req); err != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "请求参数错误: " + err.Error(),
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.MsgBadRequest, err.Error()), nil)
 			return
 		}
 
 		if req.ContentID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "内容 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空"), nil)
 			return
 		}
 
@@ -1170,11 +970,7 @@ func downloadCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			First(&record).Error
 		if err != nil {
 			logx.Errorf("查询下载记录失败: %v", err)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "下载记录不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "下载记录不存在"), nil)
 			return
 		}
 
@@ -1196,11 +992,7 @@ func downloadCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			Updates(updates)
 		if result.Error != nil {
 			logx.Errorf("更新下载记录失败: %v", result.Error)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "更新下载记录失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "更新下载记录失败"), nil)
 			return
 		}
 
@@ -1215,15 +1007,12 @@ func downloadCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		logx.Infof("确认下载完成: userID=%d, contentID=%d, recordID=%d, fileSize=%d",
 			bearerCtx.UserID, req.ContentID, record.ID, req.FileSize)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": map[string]interface{}{
-				"success":      true,
-				"message":      "下载完成",
-				"record_id":    record.ID,
-				"status":       "completed",
-				"completed_at": now.Format("2006-01-02 15:04:05"),
-			},
+		httpresp.WriteSuccessMsg(w, "下载完成", map[string]interface{}{
+			"success":      true,
+			"message":      "下载完成",
+			"record_id":    record.ID,
+			"status":       "completed",
+			"completed_at": now.Format("2006-01-02 15:04:05"),
 		})
 	}
 }
@@ -1273,42 +1062,26 @@ func recordDownloadEvent(svcCtx *svc.ServiceContext, userID, contentID int64, ti
 func contentLikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 POST",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 POST"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
 		path := r.URL.Path
 		parts := strings.Split(strings.Trim(path, "/"), "/")
 		if len(parts) < 4 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "内容 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空"), nil)
 			return
 		}
 
 		contentID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
 		if err != nil || contentID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "内容 ID 格式错误",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 格式错误"), nil)
 			return
 		}
 
@@ -1324,11 +1097,7 @@ func contentLikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			First(&content).Error
 		if err != nil {
 			logx.Errorf("查询内容失败: %v", err)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "歌曲不存在或已下架",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "歌曲不存在或已下架"), nil)
 			return
 		}
 
@@ -1348,11 +1117,7 @@ func contentLikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 				Delete(&struct{}{})
 			if deleteResult.Error != nil {
 				logx.Errorf("取消点赞失败: %v", deleteResult.Error)
-				httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-					"code":    500,
-					"message": "取消点赞失败",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "取消点赞失败"), nil)
 				return
 			}
 
@@ -1365,14 +1130,11 @@ func contentLikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			var likeCount int64
 			svcCtx.DB.Table("content").Select("like_count").Where("id = ?", contentID).Scan(&likeCount)
 
-			httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-				"code": 200,
-				"data": map[string]interface{}{
-					"success":    true,
-					"message":    "取消点赞成功",
-					"liked":      false,
-					"like_count": likeCount,
-				},
+			httpresp.WriteSuccessMsg(w, "取消点赞成功", map[string]interface{}{
+				"success":    true,
+				"message":    "取消点赞成功",
+				"liked":      false,
+				"like_count": likeCount,
 			})
 		} else {
 			createResult := svcCtx.DB.Table("user_likes").Create(map[string]interface{}{
@@ -1382,11 +1144,7 @@ func contentLikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			})
 			if createResult.Error != nil {
 				logx.Errorf("点赞失败: %v", createResult.Error)
-				httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-					"code":    500,
-					"message": "点赞失败",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "点赞失败"), nil)
 				return
 			}
 
@@ -1399,14 +1157,11 @@ func contentLikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			var likeCount int64
 			svcCtx.DB.Table("content").Select("like_count").Where("id = ?", contentID).Scan(&likeCount)
 
-			httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-				"code": 200,
-				"data": map[string]interface{}{
-					"success":    true,
-					"message":    "点赞成功",
-					"liked":      true,
-					"like_count": likeCount,
-				},
+			httpresp.WriteSuccessMsg(w, "点赞成功", map[string]interface{}{
+				"success":    true,
+				"message":    "点赞成功",
+				"liked":      true,
+				"like_count": likeCount,
 			})
 		}
 	}
@@ -1418,21 +1173,13 @@ func contentLikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentLikeListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 GET",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 GET"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -1476,11 +1223,7 @@ func contentLikeListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		`, bearerCtx.UserID, pageSize, offset).Rows()
 		if err != nil {
 			logx.Errorf("查询点赞列表失败: %v", err)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "查询点赞列表失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "查询点赞列表失败"), nil)
 			return
 		}
 		defer rows.Close()
@@ -1517,14 +1260,11 @@ func contentLikeListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		logx.Infof("查询点赞列表: userID=%d, page=%d, size=%d, total=%d",
 			bearerCtx.UserID, page, pageSize, total)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": map[string]interface{}{
-				"total":     total,
-				"list":      list,
-				"page":      page,
-				"page_size": pageSize,
-			},
+		httpresp.WriteSuccess(w, map[string]interface{}{
+			"total":     total,
+			"list":      list,
+			"page":      page,
+			"page_size": pageSize,
 		})
 	}
 }
@@ -1535,21 +1275,13 @@ func contentLikeListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentPlaylistCreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 POST",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 POST"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -1558,11 +1290,7 @@ func contentPlaylistCreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if strings.Contains(contentType, "application/json") {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-					"code":    400,
-					"message": "读取请求体失败",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "读取请求体失败"), nil)
 				return
 			}
 			json.Unmarshal(body, &req)
@@ -1575,20 +1303,12 @@ func contentPlaylistCreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		name := strings.TrimSpace(req.Name)
 		if name == "" {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌单名称不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单名称不能为空"), nil)
 			return
 		}
 
 		if len(name) < 1 || len(name) > 100 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌单名称长度必须在1-100个字符之间",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单名称长度必须在1-100个字符之间"), nil)
 			return
 		}
 
@@ -1599,11 +1319,7 @@ func contentPlaylistCreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		const maxPlaylists = 100
 		if playlistCount >= maxPlaylists {
-			httpx.WriteJson(w, http.StatusForbidden, map[string]interface{}{
-				"code":    403,
-				"message": fmt.Sprintf("已达到最大歌单数量限制（%d个）", maxPlaylists),
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusForbidden, httpresp.WithDetail(httpresp.MsgForbidden, fmt.Sprintf("已达到最大歌单数量限制（%d个）", maxPlaylists)), nil)
 			return
 		}
 
@@ -1643,11 +1359,7 @@ func contentPlaylistCreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if result.Error != nil {
 			logx.Errorf("创建歌单失败: %v", result.Error)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "创建歌单失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "创建歌单失败"), nil)
 			return
 		}
 
@@ -1659,16 +1371,13 @@ func contentPlaylistCreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		logx.Infof("创建歌单成功: userID=%d, playlistID=%d, name=%s",
 			bearerCtx.UserID, playlist.ID, playlist.Name)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": map[string]interface{}{
-				"id":          playlist.ID,
-				"name":        playlist.Name,
-				"description": playlist.Description,
-				"cover_url":   playlist.CoverURL,
-				"song_count":  playlist.SongCount,
-				"created_at":  playlist.CreatedAt.Format("2006-01-02 15:04:05"),
-			},
+		httpresp.WriteSuccess(w, map[string]interface{}{
+			"id":          playlist.ID,
+			"name":        playlist.Name,
+			"description": playlist.Description,
+			"cover_url":   playlist.CoverURL,
+			"song_count":  playlist.SongCount,
+			"created_at":  playlist.CreatedAt.Format("2006-01-02 15:04:05"),
 		})
 	}
 }
@@ -1679,42 +1388,26 @@ func contentPlaylistCreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentPlaylistAddSongHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 POST",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 POST"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
 		path := r.URL.Path
 		parts := strings.Split(strings.Trim(path, "/"), "/")
 		if len(parts) < 5 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌单 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单 ID 不能为空"), nil)
 			return
 		}
 
 		playlistID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
 		if err != nil || playlistID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌单 ID 格式错误",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单 ID 格式错误"), nil)
 			return
 		}
 
@@ -1723,11 +1416,7 @@ func contentPlaylistAddSongHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 		if strings.Contains(contentType, "application/json") {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-					"code":    400,
-					"message": "读取请求体失败",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "读取请求体失败"), nil)
 				return
 			}
 			json.Unmarshal(body, &req)
@@ -1740,11 +1429,7 @@ func contentPlaylistAddSongHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 		}
 
 		if req.ContentID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌曲 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌曲 ID 不能为空"), nil)
 			return
 		}
 
@@ -1762,20 +1447,12 @@ func contentPlaylistAddSongHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 			First(&playlist).Error
 		if err != nil {
 			logx.Errorf("查询歌单失败: %v", err)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "歌单不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "歌单不存在"), nil)
 			return
 		}
 
 		if playlist.UserID != bearerCtx.UserID && playlist.IsPublic == 0 {
-			httpx.WriteJson(w, http.StatusForbidden, map[string]interface{}{
-				"code":    403,
-				"message": "无权限操作此歌单",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusForbidden, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusForbidden), "无权限操作此歌单"), nil)
 			return
 		}
 
@@ -1790,11 +1467,7 @@ func contentPlaylistAddSongHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 			First(&song).Error
 
 		if songErr != nil {
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "歌曲不存在或已下架",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "歌曲不存在或已下架"), nil)
 			return
 		}
 
@@ -1807,13 +1480,10 @@ func contentPlaylistAddSongHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 			First(&existingRecord).Error
 
 		if existingErr == nil && existingRecord.ID > 0 {
-			httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-				"code": 200,
-				"data": map[string]interface{}{
-					"success":    false,
-					"message":    "歌曲已在歌单中",
-					"song_count": playlist.SongCount,
-				},
+			httpresp.WriteSuccessMsg(w, "歌曲已在歌单中", map[string]interface{}{
+				"success":    false,
+				"message":    "歌曲已在歌单中",
+				"song_count": playlist.SongCount,
 			})
 			return
 		}
@@ -1834,11 +1504,7 @@ func contentPlaylistAddSongHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 
 		if insertResult.Error != nil {
 			logx.Errorf("添加歌曲到歌单失败: %v", insertResult.Error)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "添加歌曲到歌单失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "添加歌曲到歌单失败"), nil)
 			return
 		}
 
@@ -1856,13 +1522,10 @@ func contentPlaylistAddSongHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 		logx.Infof("添加歌曲到歌单成功: userID=%d, playlistID=%d, playlistName=%s, contentID=%d, songTitle=%s",
 			bearerCtx.UserID, playlistID, playlist.Name, req.ContentID, song.Title)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": map[string]interface{}{
-				"success":    true,
-				"message":    "添加歌曲到歌单成功",
-				"song_count": newSongCount,
-			},
+		httpresp.WriteSuccessMsg(w, "添加歌曲到歌单成功", map[string]interface{}{
+			"success":    true,
+			"message":    "添加歌曲到歌单成功",
+			"song_count": newSongCount,
 		})
 	}
 }
@@ -1873,42 +1536,26 @@ func contentPlaylistAddSongHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 func contentPlaylistUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut && r.Method != http.MethodPatch {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 PUT/PATCH",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 PUT/PATCH"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
 		path := strings.Trim(r.URL.Path, "/")
 		parts := strings.Split(path, "/")
 		if len(parts) < 3 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌单 ID 格式无效",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单 ID 格式无效"), nil)
 			return
 		}
 		playlistIDStr := parts[len(parts)-1]
 		playlistID, err := strconv.ParseInt(playlistIDStr, 10, 64)
 		if err != nil || playlistID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌单 ID 格式无效",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单 ID 格式无效"), nil)
 			return
 		}
 
@@ -1917,11 +1564,7 @@ func contentPlaylistUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if strings.Contains(contentType, "application/json") {
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
-				httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-					"code":    400,
-					"message": "读取请求体失败",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "读取请求体失败"), nil)
 				return
 			}
 			json.Unmarshal(body, &req)
@@ -1944,21 +1587,13 @@ func contentPlaylistUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if name != "" {
 			if len(name) < 1 || len(name) > 100 {
-				httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-					"code":    400,
-					"message": "歌单名称长度必须在1-100个字符之间",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单名称长度必须在1-100个字符之间"), nil)
 				return
 			}
 		}
 
 		if description != "" && len(description) > 500 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌单描述长度不能超过500个字符",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单描述长度不能超过500个字符"), nil)
 			return
 		}
 
@@ -1981,20 +1616,12 @@ func contentPlaylistUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if err != nil {
 			logx.Errorf("查询歌单失败: %v", err)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "歌单不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "歌单不存在"), nil)
 			return
 		}
 
 		if playlist.UserID != bearerCtx.UserID {
-			httpx.WriteJson(w, http.StatusForbidden, map[string]interface{}{
-				"code":    403,
-				"message": "无权限修改此歌单，只有创建者才能修改",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusForbidden, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusForbidden), "无权限修改此歌单，只有创建者才能修改"), nil)
 			return
 		}
 
@@ -2030,27 +1657,20 @@ func contentPlaylistUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 				updates["is_public"] = *req.IsPublic
 				hasUpdate = true
 			} else {
-				httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-					"code":    400,
-					"message": "可见性设置无效，0-私有，1-公开",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "可见性设置无效，0-私有，1-公开"), nil)
 				return
 			}
 		}
 
 		if !hasUpdate {
-			httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-				"code": 200,
-				"data": types.PlaylistUpdateResp{
-					ID:          playlist.ID,
-					Name:        playlist.Name,
-					Description: playlist.Description,
-					CoverURL:    playlist.CoverURL,
-					SongCount:   playlist.SongCount,
-					IsPublic:    playlist.IsPublic,
-					UpdatedAt:   playlist.UpdatedAt.Format("2006-01-02 15:04:05"),
-				},
+			httpresp.WriteSuccess(w, types.PlaylistUpdateResp{
+				ID:          playlist.ID,
+				Name:        playlist.Name,
+				Description: playlist.Description,
+				CoverURL:    playlist.CoverURL,
+				SongCount:   playlist.SongCount,
+				IsPublic:    playlist.IsPublic,
+				UpdatedAt:   playlist.UpdatedAt.Format("2006-01-02 15:04:05"),
 			})
 			return
 		}
@@ -2061,11 +1681,7 @@ func contentPlaylistUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		result := svcCtx.DB.Table("playlists").Where("id = ?", playlistID).Updates(updates)
 		if result.Error != nil {
 			logx.Errorf("更新歌单失败: %v", result.Error)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "更新歌单失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "更新歌单失败"), nil)
 			return
 		}
 
@@ -2100,17 +1716,14 @@ func contentPlaylistUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		logx.Infof("更新歌单成功: userID=%d, playlistID=%d, name=%s",
 			bearerCtx.UserID, playlistID, playlist.Name)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": types.PlaylistUpdateResp{
-				ID:          playlist.ID,
-				Name:        playlist.Name,
-				Description: playlist.Description,
-				CoverURL:    playlist.CoverURL,
-				SongCount:   playlist.SongCount,
-				IsPublic:    playlist.IsPublic,
-				UpdatedAt:   now.Format("2006-01-02 15:04:05"),
-			},
+		httpresp.WriteSuccess(w, types.PlaylistUpdateResp{
+			ID:          playlist.ID,
+			Name:        playlist.Name,
+			Description: playlist.Description,
+			CoverURL:    playlist.CoverURL,
+			SongCount:   playlist.SongCount,
+			IsPublic:    playlist.IsPublic,
+			UpdatedAt:   now.Format("2006-01-02 15:04:05"),
 		})
 	}
 }
@@ -2121,42 +1734,26 @@ func contentPlaylistUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentPlaylistDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 DELETE",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 DELETE"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
 		path := strings.Trim(r.URL.Path, "/")
 		parts := strings.Split(path, "/")
 		if len(parts) < 3 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌单 ID 格式无效",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单 ID 格式无效"), nil)
 			return
 		}
 		playlistIDStr := parts[len(parts)-1]
 		playlistID, err := strconv.ParseInt(playlistIDStr, 10, 64)
 		if err != nil || playlistID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌单 ID 格式无效",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单 ID 格式无效"), nil)
 			return
 		}
 
@@ -2177,38 +1774,22 @@ func contentPlaylistDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if err != nil {
 			logx.Errorf("查询歌单失败: %v", err)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "歌单不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "歌单不存在"), nil)
 			return
 		}
 
 		if playlist.DeletedAt != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌单已被删除",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单已被删除"), nil)
 			return
 		}
 
 		if playlist.UserID != bearerCtx.UserID {
-			httpx.WriteJson(w, http.StatusForbidden, map[string]interface{}{
-				"code":    403,
-				"message": "无权限删除此歌单，只有创建者才能删除",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusForbidden, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusForbidden), "无权限删除此歌单，只有创建者才能删除"), nil)
 			return
 		}
 
 		if playlist.IsDefault == 1 {
-			httpx.WriteJson(w, http.StatusForbidden, map[string]interface{}{
-				"code":    403,
-				"message": "默认歌单不能删除",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusForbidden, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusForbidden), "默认歌单不能删除"), nil)
 			return
 		}
 
@@ -2229,23 +1810,16 @@ func contentPlaylistDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if result.Error != nil {
 			logx.Errorf("删除歌单失败: %v", result.Error)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "删除歌单失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "删除歌单失败"), nil)
 			return
 		}
 
 		logx.Infof("歌单删除成功: userID=%d, playlistID=%d, name=%s, deletedSongs=%d",
 			bearerCtx.UserID, playlistID, playlist.Name, songCount)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": types.PlaylistDeleteResp{
-				Success: true,
-				Message: "歌单删除成功",
-			},
+		httpresp.WriteSuccess(w, types.PlaylistDeleteResp{
+			Success: true,
+			Message: "歌单删除成功",
 		})
 	}
 }
@@ -2267,21 +1841,13 @@ func contentPlaylistDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentSubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 POST",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 POST"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -2314,11 +1880,7 @@ func contentSubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		if contentID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "音频 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "音频 ID 不能为空"), nil)
 			return
 		}
 
@@ -2341,11 +1903,7 @@ func contentSubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		if subscribeType < 1 || subscribeType > 3 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "订阅类型无效，1-歌曲，2-歌手，3-专辑",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "订阅类型无效，1-歌曲，2-歌手，3-专辑"), nil)
 			return
 		}
 
@@ -2363,20 +1921,12 @@ func contentSubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if err != nil {
 			logx.Errorf("查询音频失败: %v", err)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "音频不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "音频不存在"), nil)
 			return
 		}
 
 		if content.IsDeleted == 1 || content.Status != 1 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "该音频不可订阅（已下架或已删除）",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "该音频不可订阅（已下架或已删除）"), nil)
 			return
 		}
 
@@ -2389,14 +1939,11 @@ func contentSubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			First(&existingSub)
 
 		if existingSub.ID > 0 {
-			httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-				"code": 200,
-				"data": types.SubscribeResp{
-					Success:        false,
-					Message:        "您已订阅过该内容",
-					ContentID:      contentID,
-					SubscribeCount: content.SubscribeCount,
-				},
+			httpresp.WriteSuccess(w, types.SubscribeResp{
+				Success:        false,
+				Message:        "您已订阅过该内容",
+				ContentID:      contentID,
+				SubscribeCount: content.SubscribeCount,
 			})
 			return
 		}
@@ -2412,11 +1959,7 @@ func contentSubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if insertResult.Error != nil {
 			logx.Errorf("保存订阅记录失败: %v", insertResult.Error)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "保存订阅失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "保存订阅失败"), nil)
 			return
 		}
 
@@ -2430,14 +1973,11 @@ func contentSubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		logx.Infof("订阅成功: userID=%d, contentID=%d, title=%s, type=%d, newCount=%d",
 			bearerCtx.UserID, contentID, content.Title, subscribeType, newCount)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": types.SubscribeResp{
-				Success:        true,
-				Message:        "订阅成功",
-				ContentID:      contentID,
-				SubscribeCount: newCount,
-			},
+		httpresp.WriteSuccess(w, types.SubscribeResp{
+			Success:        true,
+			Message:        "订阅成功",
+			ContentID:      contentID,
+			SubscribeCount: newCount,
 		})
 	}
 }
@@ -2459,21 +1999,13 @@ func contentSubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentUnsubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 DELETE",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 DELETE"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -2506,11 +2038,7 @@ func contentUnsubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		if contentID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "音频 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "音频 ID 不能为空"), nil)
 			return
 		}
 
@@ -2542,14 +2070,11 @@ func contentUnsubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			First(&existingSub)
 
 		if existingSub.ID <= 0 {
-			httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-				"code": 200,
-				"data": types.UnsubscribeResp{
-					Success:        false,
-					Message:        "您未订阅该内容",
-					ContentID:      contentID,
-					SubscribeCount: 0,
-				},
+			httpresp.WriteSuccess(w, types.UnsubscribeResp{
+				Success:        false,
+				Message:        "您未订阅该内容",
+				ContentID:      contentID,
+				SubscribeCount: 0,
 			})
 			return
 		}
@@ -2560,11 +2085,7 @@ func contentUnsubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if deleteResult.Error != nil {
 			logx.Errorf("删除订阅记录失败: %v", deleteResult.Error)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "取消订阅失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "取消订阅失败"), nil)
 			return
 		}
 
@@ -2578,14 +2099,11 @@ func contentUnsubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		logx.Infof("取消订阅成功: userID=%d, contentID=%d, targetName=%s, type=%d, newCount=%d",
 			bearerCtx.UserID, contentID, existingSub.TargetName, subscribeType, newCount)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": types.UnsubscribeResp{
-				Success:        true,
-				Message:        "取消订阅成功",
-				ContentID:      contentID,
-				SubscribeCount: newCount,
-			},
+		httpresp.WriteSuccess(w, types.UnsubscribeResp{
+			Success:        true,
+			Message:        "取消订阅成功",
+			ContentID:      contentID,
+			SubscribeCount: newCount,
 		})
 	}
 }
@@ -2606,21 +2124,13 @@ func contentUnsubscribeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentSubscribeListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 GET",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 GET"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -2679,11 +2189,7 @@ func contentSubscribeListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if err != nil {
 			logx.Errorf("查询订阅记录失败: %v", err)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "查询订阅记录失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "查询订阅记录失败"), nil)
 			return
 		}
 		defer rows.Close()
@@ -2776,14 +2282,11 @@ func contentSubscribeListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		logx.Infof("查询订阅列表: userID=%d, type=%v, page=%d, size=%d, total=%d",
 			bearerCtx.UserID, subscribeType, page, pageSize, total)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": types.SubscribeListResp{
-				Total:    total,
-				List:     list,
-				Page:     page,
-				PageSize: pageSize,
-			},
+		httpresp.WriteSuccess(w, types.SubscribeListResp{
+			Total:    total,
+			List:     list,
+			Page:     page,
+			PageSize: pageSize,
 		})
 	}
 }
@@ -2802,11 +2305,7 @@ func contentSubscribeListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentArtistDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 GET",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 GET"), nil)
 			return
 		}
 
@@ -2820,11 +2319,7 @@ func contentArtistDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			}
 		}
 		if artistID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌手 ID 不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌手 ID 不能为空"), nil)
 			return
 		}
 
@@ -2845,20 +2340,12 @@ func contentArtistDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if err != nil {
 			logx.Errorf("查询歌手失败: %v", err)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "歌手不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "歌手不存在"), nil)
 			return
 		}
 
 		if artist.Status != 1 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "该歌手已下架或被禁用",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "该歌手已下架或被禁用"), nil)
 			return
 		}
 
@@ -2930,20 +2417,17 @@ func contentArtistDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		logx.Infof("查询歌手详情: artistID=%d, name=%s, hotSongs=%d, albums=%d",
 			artistID, artist.Name, len(hotSongList), len(albumList))
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": types.ArtistDetailResp{
-				ID:         artist.ID,
-				Name:       artist.Name,
-				AvatarURL:  artist.AvatarURL,
-				Bio:        artist.Bio,
-				FanCount:   artist.FanCount,
-				SongCount:  artist.SongCount,
-				AlbumCount: albumCount,
-				TotalPlays: totalPlays,
-				HotSongs:   hotSongList,
-				Albums:     albumList,
-			},
+		httpresp.WriteSuccess(w, types.ArtistDetailResp{
+			ID:         artist.ID,
+			Name:       artist.Name,
+			AvatarURL:  artist.AvatarURL,
+			Bio:        artist.Bio,
+			FanCount:   artist.FanCount,
+			SongCount:  artist.SongCount,
+			AlbumCount: albumCount,
+			TotalPlays: totalPlays,
+			HotSongs:   hotSongList,
+			Albums:     albumList,
 		})
 	}
 }
@@ -2964,21 +2448,13 @@ func contentArtistDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentSubscribeNotifyHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 POST",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 POST"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -2998,11 +2474,7 @@ func contentSubscribeNotifyHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				logx.Errorf("读取请求体失败: %v", err)
-				httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-					"code":    400,
-					"message": "读取请求失败",
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "读取请求失败"), nil)
 				return
 			}
 			json.Unmarshal(body, &req)
@@ -3022,11 +2494,7 @@ func contentSubscribeNotifyHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 		}
 
 		if req.ContentID <= 0 || req.Title == "" {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "内容ID和标题不能为空",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容ID和标题不能为空"), nil)
 			return
 		}
 
@@ -3047,16 +2515,13 @@ func contentSubscribeNotifyHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 
 		if len(subscribers) == 0 {
 			logx.Infof("无订阅者，跳过通知: contentID=%d", req.ContentID)
-			httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-				"code": 200,
-				"data": types.SubscribeNotifyResp{
-					Success:      true,
-					Message:      "暂无订阅用户",
-					TotalSent:    0,
-					SuccessCount: 0,
-					FailCount:    0,
-					NotifyLogID:  0,
-				},
+			httpresp.WriteSuccess(w, types.SubscribeNotifyResp{
+				Success:      true,
+				Message:      "暂无订阅用户",
+				TotalSent:    0,
+				SuccessCount: 0,
+				FailCount:    0,
+				NotifyLogID:  0,
 			})
 			return
 		}
@@ -3135,16 +2600,13 @@ func contentSubscribeNotifyHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 		logx.Infof("订阅通知完成: logID=%d, contentID=%d, title=%s, total=%d, success=%d, fail=%d",
 			notifyLogID, req.ContentID, req.Title, len(subscribers), successCount, failCount)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": types.SubscribeNotifyResp{
-				Success:      true,
-				Message:      fmt.Sprintf("通知发送完成，成功%d条，失败%d条", successCount, failCount),
-				TotalSent:    int64(len(subscribers)),
-				SuccessCount: successCount,
-				FailCount:    failCount,
-				NotifyLogID:  notifyLogID,
-			},
+		httpresp.WriteSuccess(w, types.SubscribeNotifyResp{
+			Success:      true,
+			Message:      fmt.Sprintf("通知发送完成，成功%d条，失败%d条", successCount, failCount),
+			TotalSent:    int64(len(subscribers)),
+			SuccessCount: successCount,
+			FailCount:    failCount,
+			NotifyLogID:  notifyLogID,
 		})
 	}
 }
@@ -3165,21 +2627,13 @@ func contentSubscribeNotifyHandler(svcCtx *svc.ServiceContext) http.HandlerFunc 
 func contentDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code":    405,
-				"message": "仅支持 DELETE",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 DELETE"), nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "请先登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
 			return
 		}
 
@@ -3194,11 +2648,7 @@ func contentDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		contentID, err := strconv.ParseInt(contentIDStr, 10, 64)
 		if err != nil || contentID <= 0 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌曲 ID 格式无效",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌曲 ID 格式无效"), nil)
 			return
 		}
 
@@ -3229,20 +2679,12 @@ func contentDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if err != nil {
 			logx.Errorf("查询歌曲失败: %v", err)
-			httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-				"code":    404,
-				"message": "歌曲不存在",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "歌曲不存在"), nil)
 			return
 		}
 
 		if content.IsDeleted == 1 {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "歌曲已被删除",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌曲已被删除"), nil)
 			return
 		}
 
@@ -3256,11 +2698,7 @@ func contentDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		isUploader := content.UploaderID != nil && *content.UploaderID == bearerCtx.UserID
 
 		if !isAdmin && !isUploader {
-			httpx.WriteJson(w, http.StatusForbidden, map[string]interface{}{
-				"code":    403,
-				"message": "无权限删除此歌曲",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusForbidden, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusForbidden), "无权限删除此歌曲"), nil)
 			return
 		}
 
@@ -3315,11 +2753,7 @@ func contentDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if result.Error != nil {
 			logx.Errorf("删除歌曲失败: %v", result.Error)
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": "删除歌曲失败",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "删除歌曲失败"), nil)
 			return
 		}
 
@@ -3335,15 +2769,12 @@ func contentDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		logx.Infof("歌曲删除成功: contentID=%d, title=%s, reason=%s, operator=%d, isAdmin=%v",
 			contentID, content.Title, reason, bearerCtx.UserID, isAdmin)
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"data": map[string]interface{}{
-				"success":    true,
-				"message":    "歌曲删除成功",
-				"content_id": contentID,
-				"title":      content.Title,
-				"deleted_at": now.Format("2006-01-02 15:04:05"),
-			},
+		httpresp.WriteSuccessMsg(w, "歌曲删除成功", map[string]interface{}{
+			"success":    true,
+			"message":    "歌曲删除成功",
+			"content_id": contentID,
+			"title":      content.Title,
+			"deleted_at": now.Format("2006-01-02 15:04:05"),
 		})
 	}
 }

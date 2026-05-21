@@ -2,6 +2,7 @@ package svc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jacklau/audio-ai-platform/services/content/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/pkg/storage"
@@ -19,7 +20,7 @@ type ServiceContext struct {
 	Storage storage.Uploader
 }
 
-func NewServiceContext(c config.Config) *ServiceContext {
+func NewServiceContext(c config.Config) (*ServiceContext, error) {
 	ctx := context.Background()
 	var db *gorm.DB
 	dsn := c.Database.DataSource
@@ -39,7 +40,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	up, err := storage.NewUploader(ctx, c)
 	if err != nil {
 		logx.Errorf("content service: storage init failed: %v", err)
-		up = nil
+		return nil, fmt.Errorf("对象存储初始化失败（请检查Storage配置中的Driver/Endpoint/Bucket/AccessKey/SecretKey）: %w", err)
 	}
 
 	var rds *redis.Redis
@@ -57,5 +58,5 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		DB:      db,
 		Redis:   rds,
 		Storage: up,
-	}
+	}, nil
 }

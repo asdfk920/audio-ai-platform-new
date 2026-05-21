@@ -49,6 +49,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/api/v1/user/verify/send",
 				Handler: sendVerifyCodeHandler(serverCtx),
 			},
+			{
+				// 调试Token有效性（仅开发环境使用，生产环境应删除此路由）
+				Method:  http.MethodGet,
+				Path:    "/api/v1/debug/token",
+				Handler: DebugTokenHandler(serverCtx),
+			},
 		},
 	)
 
@@ -78,6 +84,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodGet,
 				Path:    "/device/detail",
 				Handler: GetDeviceDetailHandler(serverCtx),
+			},
+			{
+				// 更新设备信息（备注名、位置、分组、场景等辅助信息）
+				Method:  http.MethodPut,
+				Path:    "/device/update",
+				Handler: UpdateDeviceHandler(serverCtx),
 			},
 			{
 				// 发起设备共享邀请

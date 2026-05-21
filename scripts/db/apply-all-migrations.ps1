@@ -97,6 +97,7 @@ $migrations = @(
     ,"083_platform_org_dept_seed.sql"
     ,"084_fix_sys_dept_names_encoding.sql"
     ,"085_content_audio_validity.sql"
+    ,"100_content_files_storage_meta.sql"
 )
 foreach ($f in $migrations) {
     $path = Join-Path $dir $f

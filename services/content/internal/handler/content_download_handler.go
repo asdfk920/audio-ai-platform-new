@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/jacklau/audio-ai-platform/common/httpresp"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/pkg/util/auth"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // contentDownloadDeleteHandler 删除下载记录处理器
@@ -18,50 +18,30 @@ import (
 func contentDownloadDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code": 405,
-				"msg":  "仅支持 DELETE",
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.MsgMethodNotAllowed+`：仅支持 DELETE`, nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code": 401,
-				"msg":  "请先登录",
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.MsgUnauthorized, nil)
 			return
 		}
 
 		var req types.DownloadDeleteReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code": 400,
-				"msg":  "JSON 解析失败",
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.MsgBadRequest, `解析 JSON 失败`), nil)
 			return
 		}
 
 		l := logic.NewContentDownloadLogic(r.Context(), svcCtx)
 		err := l.DeleteDownloadRecords(&req, bearerCtx.UserID)
 		if err != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code": 400,
-				"msg":  err.Error(),
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.MsgBadRequest, err.Error()), nil)
 			return
 		}
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code":    200,
-			"message": "删除成功",
-			"data":    nil,
-		})
+		httpresp.WriteSuccessMsg(w, `删除成功`, nil)
 	}
 }
 
@@ -71,21 +51,13 @@ func contentDownloadDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 func contentDownloadListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code": 405,
-				"msg":  "仅支持 GET",
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.MsgMethodNotAllowed+`：仅支持 GET`, nil)
 			return
 		}
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code": 401,
-				"msg":  "请先登录",
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.MsgUnauthorized, nil)
 			return
 		}
 
@@ -106,18 +78,10 @@ func contentDownloadListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewContentDownloadLogic(r.Context(), svcCtx)
 		resp, err := l.GetDownloadList(&req, bearerCtx.UserID)
 		if err != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code": 400,
-				"msg":  err.Error(),
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.MsgBadRequest, err.Error()), nil)
 			return
 		}
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code":    200,
-			"message": "success",
-			"data":    resp,
-		})
+		httpresp.WriteSuccess(w, resp)
 	}
 }

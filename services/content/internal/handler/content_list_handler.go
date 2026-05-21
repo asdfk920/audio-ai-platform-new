@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jacklau/audio-ai-platform/common/httpresp"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/pkg/util/auth"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // queryPickFold 按「忽略大小写」的 query key 取第一个非空值（兼容 Title/title、Page_Size/page_size 等）
@@ -79,11 +79,7 @@ func parseContentListQuery(r *http.Request) *types.ContentListReq {
 func contentListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code": 405,
-				"msg":  "仅支持 GET",
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.MsgMethodNotAllowed+`：仅支持 GET`, nil)
 			return
 		}
 
@@ -95,18 +91,10 @@ func contentListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewContentListLogic(r.Context(), svcCtx)
 		resp, err := l.ContentList(req, userID)
 		if err != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code": 400,
-				"msg":  err.Error(),
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.MsgBadRequest, err.Error()), nil)
 			return
 		}
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"msg":  "获取成功",
-			"data": resp,
-		})
+		httpresp.WriteSuccess(w, resp)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/zeromicro/go-zero/core/logx"
 
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
@@ -131,6 +132,10 @@ func (l *DeviceRebootLogic) DeviceReboot(req *types.DeviceRebootReq) (*types.Dev
 		logx.Slowf("[REBOOT] 更新设备状态为重启中失败(不影响指令): sn=%s, error=%v", sn, updateErr)
 	} else {
 		logx.Infof("[REBOOT] 设备状态已更新为重启中: sn=%s", sn)
+
+		// 🔴 关键：启动超时保护定时器
+		// 如果设备在30秒内没有响应ACK，强制标记为离线并断开连接
+		l.startRebootTimeoutProtection(deviceInfo.ID, sn, requestId, deviceId)
 	}
 
 	// 8. 记录指令到数据库（可选，用于追踪和审计）
@@ -227,18 +232,27 @@ func (l *DeviceRebootLogic) cacheRebootInstruction(sn string, deviceId string, d
 
 // updateDeviceStatusToRebooting 更新设备状态为重启中
 // 参数 deviceID int64: 设备ID
-// 参数 sn string: 设备序列号
+// updateDeviceStatusToRebooting 更新设备在线状态为"重启中"
+// 在设备重启指令成功下发后调用
+// 状态值定义（参见 migration 20260520_fix_device_online_status_constraint.sql）：
+//
+//	0 = 离线（offline）
+//	1 = 在线（online）
+//	2 = 重启中（rebooting）← 当前使用的值
+//
+// 参数 deviceID int64: 设备ID（整数）
+// 参数 sn string: 设备序列号（用于日志）
 // 返回 error: 更新失败时的错误信息
 func (l *DeviceRebootLogic) updateDeviceStatusToRebooting(deviceID int64, sn string) error {
 	query := `
 		UPDATE public.device
-		SET online_status = 2,
+		SET online_status = $2,
 		    updated_at = NOW()
 		WHERE id = $1
 		  AND deleted_at IS NULL
 	`
 
-	result, err := l.svcCtx.DB.ExecContext(l.ctx, query, deviceID)
+	result, err := l.svcCtx.DB.ExecContext(l.ctx, query, deviceID, DeviceOnlineStatusRebooting)
 	if err != nil {
 		return fmt.Errorf("更新设备状态失败: %v", err)
 	}
@@ -284,11 +298,20 @@ func (l *DeviceRebootLogic) logRebootInstruction(deviceID int64, sn string, requ
 	return instructionId, nil
 }
 
-// HandleDeviceRebootResponse 处理设备反馈的重启响应
-// 设备端在重启前或重启后通过 WebSocket 反馈执行结果
+// HandleDeviceRebootResponse 处理设备反馈的重启响应（增强版）
+// 设备端在重启前通过 WebSocket 反馈执行结果
+//
+// 完整流程：
+//  1. 接收设备的reboot响应消息
+//  2. 根据status判断执行结果
+//  3. 如果success：更新状态为离线 + 断开WebSocket连接
+//  4. 如果failed：恢复状态为在线（设备未重启）
+//  5. 记录日志和审计信息
+//
+// 参数 wsLogic *DeviceWsLogic: WebSocket逻辑实例（用于访问数据库和连接池）
 // 参数 deviceId string: 设备ID
 // 参数 response map[string]interface{}: 设备反馈的消息体
-func HandleDeviceRebootResponse(deviceId string, response map[string]interface{}) {
+func HandleDeviceRebootResponse(wsLogic *DeviceWsLogic, deviceId string, response map[string]interface{}) {
 	sn, _ := response["sn"].(string)
 	requestId, _ := response["request_id"].(string)
 	status, _ := response["status"].(string)
@@ -300,11 +323,335 @@ func HandleDeviceRebootResponse(deviceId string, response map[string]interface{}
 	switch status {
 	case "success":
 		logx.Infof("[REBOOT] ✅ 设备确认即将重启: sn=%s, request_id=%s", sn, requestId)
+
+		// 🔴 关键：设备确认重启后，立即将状态改为离线并断开连接
+		if wsLogic != nil {
+			wsLogic.handleDeviceRebootSuccess(deviceId, sn, requestId)
+		}
+
 	case "failed":
 		logx.Errorf("[REBOOT] ❌ 设备重启失败: sn=%s, request_id=%s, reason=%s", sn, requestId, message)
+
+		// 恢复设备在线状态（因为设备没有真正重启）
+		if wsLogic != nil {
+			wsLogic.handleDeviceRebootFailed(deviceId, sn, requestId, message)
+		}
+
 	default:
 		logx.Infof("[REBOOT] 设备反馈未知状态: sn=%s, status=%s", sn, status)
 	}
+}
+
+// handleDeviceRebootSuccess 处理设备重启成功后的清理工作
+// 完成以下操作：
+//  1. 将设备状态从"重启中(2)"更新为"离线(0)"
+//  2. 从WebSocket连接池中移除设备
+//  3. 关闭WebSocket连接（触发onClose事件）
+//  4. 同步离线状态到Redis
+//
+// 参数 deviceId string: 设备ID字符串
+// 参数 sn string: 设备序列号
+// 参数 requestId string: 请求ID（用于审计）
+func (l *DeviceWsLogic) handleDeviceRebootSuccess(deviceId string, sn string, requestId string) {
+	logx.Infof("[REBOOT-POST] 开始处理设备重启成功后的清理工作...")
+	logx.Infof("[REBOOT-POST]   设备ID: %s", deviceId)
+	logx.Infof("[REBOOT-POST]   序列号: %s", sn)
+	logx.Infof("[REBOOT-POST]   请求ID: %s", requestId)
+
+	// ① 从数据库查询设备ID（int64类型）
+	deviceID, err := l.getDeviceIDBySN(sn)
+	if err != nil {
+		logx.Errorf("[REBOOT-POST] ❌ 查询设备ID失败: sn=%s, error=%v", sn, err)
+		return
+	}
+
+	// ② 更新设备状态为"离线"
+	l.updateDeviceOfflineStatus(deviceID)
+	logx.Infof("[REBOOT-POST] ✅ 设备状态已更新为离线: device_id=%d (重启中→离线)", deviceID)
+
+	// ③ 从WebSocket连接池中移除并关闭连接
+	l.forceDisconnectDevice(deviceId, deviceID, 4004, "Device rebooting")
+	logx.Infof("[REBOOT-POST] ✅ WebSocket连接已主动关闭: device_id=%s", deviceId)
+
+	// ④ 记录审计日志
+	logx.Infof("[REBOOT-POST] 🎉 设备重启流程完成:")
+	logx.Infof("            在线(1) → 重启中(2) → 离线(0)")
+	logx.Infof("            时间: %s", time.Now().Format("2006-01-02 15:04:05"))
+}
+
+// handleDeviceRebootFailed 处理设备重启失败的恢复工作
+// 当设备返回重启失败时，需要：
+//  1. 将设备状态从"重启中(2)"恢复为"在线(1)"
+//  2. 保持WebSocket连接不断开
+//  3. 记录失败原因
+//
+// 参数 deviceId string: 设备ID字符串
+// 参数 sn string: 设备序列号
+// 参数 requestId string: 请求ID
+// 参数 reason string: 失败原因
+func (l *DeviceWsLogic) handleDeviceRebootFailed(deviceId string, sn string, requestId string, reason string) {
+	logx.Infof("[REBOOT-FAIL] 开始处理设备重启失败后的恢复工作...")
+
+	// ① 从数据库查询设备ID
+	deviceID, err := l.getDeviceIDBySN(sn)
+	if err != nil {
+		logx.Errorf("[REBOOT-FAIL] ❌ 查询设备ID失败: sn=%s, error=%v", sn, err)
+		return
+	}
+
+	// ② 恢复设备状态为"在线"（因为设备没有真正重启）
+	l.updateDeviceOnlineStatus(deviceID)
+	logx.Infof("[REBOOT-FAIL] ✅ 设备状态已恢复为在线: device_id=%d (重启中→在线)", deviceID)
+
+	// ③ 记录失败原因
+	logx.Errorf("[REBOOT-FAIL] ⚠️  设备重启失败详情:")
+	logx.Errorf("           设备ID: %s", deviceId)
+	logx.Errorf("           序列号: %s", sn)
+	logx.Errorf("           请求ID: %s", requestId)
+	logx.Errorf("           失败原因: %s", reason)
+	logx.Errorf("           处理方案: 已恢复在线状态，保持WebSocket连接")
+}
+
+// getDeviceIDBySN 根据序列号查询设备ID
+// 用于在处理设备响应时获取数据库主键
+//
+// 参数 sn string: 设备序列号
+// 返回 int64: 设备ID
+// 返回 error: 查询错误
+func (l *DeviceWsLogic) getDeviceIDBySN(sn string) (int64, error) {
+	if l.svcCtx == nil || l.svcCtx.DB == nil {
+		return 0, fmt.Errorf("ServiceContext或数据库未初始化")
+	}
+
+	var deviceID int64
+	err := l.svcCtx.DB.QueryRowContext(l.ctx, `
+		SELECT id 
+		FROM public.device 
+		WHERE sn = $1 
+		  AND deleted_at IS NULL
+	`, sn).Scan(&deviceID)
+
+	if err != nil {
+		return 0, fmt.Errorf("查询设备ID失败: %w", err)
+	}
+
+	return deviceID, nil
+}
+
+// forceDisconnectDevice 强制断开设备WebSocket连接
+// 用于服务端主动踢掉设备（如重启、禁用等场景）
+//
+// 完成以下操作：
+//  1. 从连接池中移除设备
+//  2. 发送关闭帧给设备（附带原因码）
+//  3. 清理相关资源
+//
+// 参数 deviceId string: 设备ID字符串
+// 参数 deviceID int64: 设备数据库ID
+// 参数 closeCode int: WebSocket关闭码（参考RFC6455）
+// 参数 closeReason string: 关闭原因描述
+func (l *DeviceWsLogic) forceDisconnectDevice(deviceId string, deviceID int64, closeCode int, closeReason string) {
+	lock.Lock()
+	dc, ok := deviceConnMap[deviceId]
+	if ok {
+		delete(deviceConnMap, deviceId)
+	}
+	lock.Unlock()
+
+	if !ok {
+		logx.Slowf("[FORCE-DISCONNECT] 设备不在连接池中: device_id=%s", deviceId)
+		return
+	}
+
+	// 发送关闭帧（带自定义关闭码）
+	closeMessage := websocket.FormatCloseMessage(closeCode, closeReason)
+	if err := dc.conn.WriteMessage(websocket.CloseMessage, closeMessage); err != nil {
+		logx.Slowf("[FORCE-DISCONNECT] 发送关闭帧失败: device_id=%s, error=%v", deviceId, err)
+	}
+
+	// 底层关闭连接
+	if err := dc.conn.Close(); err != nil {
+		logx.Slowf("[FORCE-DISCONNECT] 关闭连接失败: device_id=%s, error=%v", deviceId, err)
+	}
+
+	logx.Infof("[FORCE-DISCONNECT] ✅ 设备已强制断开:")
+	logx.Infof("              设备ID: %s", deviceId)
+	logx.Infof("              关闭码: %d (%s)", closeCode, closeReason)
+	logx.Infof("              剩余在线设备: %d", len(deviceConnMap))
+
+	// 触发断开回调（更新离线状态等）
+	l.handleDeviceDisconnect(deviceId, deviceID)
+}
+
+// startRebootTimeoutProtection 启动重启超时保护定时器
+// 作用：防止设备收到reboot指令后不响应，导致状态卡在"重启中"
+//
+// 工作原理：
+//  1. 在发送reboot指令成功后启动定时器（默认30秒）
+//  2. 定时器到期后检查设备是否还在"重启中"状态
+//  3. 如果是，强制标记为离线并断开连接
+//  4. 记录超时警告日志
+//
+// 参数 deviceID int64: 设备数据库ID
+// 参数 sn string: 设备序列号
+// 参数 requestId string: 重启请求ID（用于日志追踪）
+// 参数 deviceIdStr string: 设备ID字符串（用于连接池操作）
+func (l *DeviceRebootLogic) startRebootTimeoutProtection(deviceID int64, sn string, requestId string, deviceIdStr string) {
+	// 🔴 关键优化：使用5秒超时（原30秒太长）
+	timeoutDuration := RebootTimeoutDuration
+
+	logx.Infof("[REBOOT-TIMEOUT] ⏱️  启动超时保护定时器:")
+	logx.Infof("              设备SN: %s", sn)
+	logx.Infof("              超时时间: %v", timeoutDuration)
+	logx.Infof("              启动时间: %s", time.Now().Format("2006-01-02 15:04:05"))
+
+	// 使用time.AfterFunc启动异步定时器
+	time.AfterFunc(timeoutDuration, func() {
+		l.handleRebootTimeout(deviceID, sn, requestId, deviceIdStr)
+	})
+}
+
+// handleRebootTimeout 处理重启超时事件
+// 当设备在规定时间内未响应reboot指令时调用
+//
+// 完成以下操作：
+//  1. 检查设备当前状态是否仍为"重启中"
+//  2. 如果是，强制更新为"离线"
+//  3. 断开WebSocket连接
+//  4. 发送告警通知（可选）
+//
+// 参数 deviceID int64: 设备数据库ID
+// 参数 sn string: 设备序列号
+// 参数 requestId string: 请求ID
+// 参数 deviceIdStr string: 设备ID字符串
+func (l *DeviceRebootLogic) handleRebootTimeout(deviceID int64, sn string, requestId string, deviceIdStr string) {
+	logx.Slowf("\n⏰⏰⏰ [REBOOT-TIMEOUT] 设备重启响应超时 ⏰⏰⏰")
+	logx.Slowf("   设备SN: %s", sn)
+	logx.Slowf("   请求ID: %s", requestId)
+	logx.Slowf("   超时时间: %s", time.Now().Format("2006-01-02 15:04:05"))
+	logx.Slowf("   原因: 设备在30秒内未响应重启指令")
+	logx.Slowf("   处理方案: 强制标记为离线并断开连接\n")
+
+	// ① 检查设备当前状态（防止重复处理）
+	currentStatus, err := l.getDeviceOnlineStatus(deviceID)
+	if err != nil {
+		logx.Errorf("[REBOOT-TIMEOUT] ❌ 查询设备状态失败: error=%v", err)
+		return
+	}
+
+	// 如果已经不是"重启中"状态，说明已经正常处理过了
+	if currentStatus != DeviceOnlineStatusRebooting {
+		logx.Infof("[REBOOT-TIMEOUT] ℹ️  设备已不在重启中状态(当前=%d)，跳过超时处理", currentStatus)
+		return
+	}
+
+	// ② 强制更新为离线状态
+	if l.svcCtx != nil && l.svcCtx.DB != nil {
+		_, updateErr := l.svcCtx.DB.ExecContext(context.Background(), `
+			UPDATE public.device
+			SET online_status = $2,
+			    updated_at = NOW()
+			WHERE id = $1
+			  AND deleted_at IS NULL
+		`, deviceID, DeviceOnlineStatusOffline)
+
+		if updateErr != nil {
+			logx.Errorf("[REBOOT-TIMEOUT] ❌ 强制更新离线状态失败: error=%v", updateErr)
+		} else {
+			logx.Infof("[REBOOT-TIMEOUT] ✅ 设备状态已强制更新为离线: device_id=%d (重启中→离线)", deviceID)
+		}
+	}
+
+	// ③ 强制断开WebSocket连接（必须执行！）
+	if IsDeviceOnline(deviceIdStr) {
+		logx.Slowf("[REBOOT-TIMEOUT] ⚠️  设备仍在线，立即强制断开: device_id=%s", deviceIdStr)
+
+		// 🔴 关键修复：直接操作连接池并关闭连接
+		lock.Lock()
+		dc, connExists := deviceConnMap[deviceIdStr]
+		if connExists {
+			delete(deviceConnMap, deviceIdStr)
+		}
+		lock.Unlock()
+
+		if connExists && dc != nil && dc.conn != nil {
+			// 发送关闭帧
+			closeMsg := websocket.FormatCloseMessage(4005, "Reboot timeout")
+			if writeErr := dc.conn.WriteMessage(websocket.CloseMessage, closeMsg); writeErr != nil {
+				logx.Slowf("[REBOOT-TIMEOUT] 发送关闭帧失败: %v", writeErr)
+			}
+
+			// 强制关闭底层连接（必须！）
+			if closeErr := dc.conn.Close(); closeErr != nil {
+				logx.Slowf("[REBOOT-TIMEOUT] 关闭连接失败: %v", closeErr)
+			} else {
+				logx.Infof("[REBOOT-TIMEOUT] ✅ 连接已强制关闭: device_id=%s", deviceIdStr)
+			}
+
+			// 更新离线状态到数据库和Redis
+			l.handleDeviceDisconnectFromTimeout(deviceIdStr, deviceID)
+		} else {
+			logx.Slowf("[REBOOT-TIMEOUT] 设备已不在连接池中或连接为空")
+		}
+	} else {
+		logx.Infof("[REBOOT-TIMEOUT] 设备已离线，无需断开")
+	}
+
+	// ④ 记录超时审计日志
+	logx.Errorf("[REBOOT-TIMEOUT] 🚨 超时审计记录:")
+	logx.Errorf("           设备SN: %s", sn)
+	logx.Errorf("           请求ID: %s", requestId)
+	logx.Errorf("           超时时长: %ds", int(RebootTimeoutDuration.Seconds()))
+	logx.Errorf("           最终状态: 离线(0)")
+	logx.Errorf("           建议: 检查设备网络或固件是否正常")
+}
+
+// handleDeviceDisconnectFromTimeout 超时时调用的断开处理
+// 用于更新数据库和Redis的离线状态
+func (l *DeviceRebootLogic) handleDeviceDisconnectFromTimeout(deviceId string, deviceID int64) {
+	if l.svcCtx != nil && l.svcCtx.DB != nil {
+		_, err := l.svcCtx.DB.ExecContext(context.Background(), `
+			UPDATE public.device
+			SET online_status = $2,
+			    updated_at = NOW()
+			WHERE id = $1
+			  AND deleted_at IS NULL
+		`, deviceID, DeviceOnlineStatusOffline)
+
+		if err != nil {
+			logx.Errorf("[REBOOT-TIMEOUT] 更新离线状态失败: %v", err)
+		} else {
+			logx.Infof("[REBOOT-TIMEOUT] 数据库状态已更新为离线: device_id=%d", deviceID)
+		}
+	}
+
+	logx.Infof("[REBOOT-TIMEOUT] ✅ 超时断开完成: device_id=%s, 剩余设备=%d", deviceId, len(deviceConnMap))
+}
+
+// getDeviceOnlineStatus 查询设备当前在线状态
+// 用于超时保护等场景的状态检查
+//
+// 参数 deviceID int64: 设备数据库ID
+// 返回 int: 当前在线状态值 (0=离线, 1=在线, 2=重启中)
+// 返回 error: 查询错误
+func (l *DeviceRebootLogic) getDeviceOnlineStatus(deviceID int64) (int, error) {
+	if l.svcCtx == nil || l.svcCtx.DB == nil {
+		return 0, fmt.Errorf("ServiceContext或数据库未初始化")
+	}
+
+	var status int
+	err := l.svcCtx.DB.QueryRowContext(context.Background(), `
+		SELECT online_status 
+		FROM public.device 
+		WHERE id = $1 
+		  AND deleted_at IS NULL
+	`, deviceID).Scan(&status)
+
+	if err != nil {
+		return 0, fmt.Errorf("查询设备状态失败: %w", err)
+	}
+
+	return status, nil
 }
 
 // sendInstructionWithConnectionCheck 通过WebSocket发送指令（带连接验证）

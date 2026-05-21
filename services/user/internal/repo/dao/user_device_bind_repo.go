@@ -385,3 +385,27 @@ VALUES ($1, $2, $3, $4, $5, $6)
 `, userID, deviceID, sn, operator, action, actionTime)
 	return err
 }
+
+// UpdateDeviceAuxiliaryInfo 更新用户设备的辅助信息（备注名、位置、分组、场景）
+// 只更新请求中非空字段，支持部分更新
+// 返回值：
+//   - affected: 影响的行数（0表示未找到记录或无权限）
+//   - error: 错误信息
+func (r *UserDeviceBindRepo) UpdateDeviceAuxiliaryInfo(ctx context.Context, userID int64, sn string, alias, location, groupName, scene string) (affected int64, err error) {
+	result, err := r.db.ExecContext(ctx, `
+UPDATE public.user_device_bind
+   SET alias = COALESCE(NULLIF($3,''), alias),
+       location = COALESCE(NULLIF($4,''), location),
+       group_name = COALESCE(NULLIF($5,''), group_name),
+       scene = COALESCE(NULLIF($6,''), scene),
+       updated_at = CURRENT_TIMESTAMP
+ WHERE user_id = $1 AND sn = $2 AND status = 1
+`, userID, sn, alias, location, groupName, scene)
+
+	if err != nil {
+		return 0, err
+	}
+
+	n, _ := result.RowsAffected()
+	return n, nil
+}

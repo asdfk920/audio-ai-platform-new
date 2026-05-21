@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/zeromicro/go-zero/rest/httpx"
 
@@ -35,25 +35,34 @@ func deviceRegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewDeviceRegisterLogic(r.Context(), svcCtx)
 		resp, err := l.DeviceRegister(&req)
 		if err != nil {
-			if errors.Is(err, logic.ErrDeviceAlreadyRegistered) {
-				httpx.WriteJson(w, http.StatusConflict, map[string]interface{}{
-					"code": 409,
-					"msg":  logic.ErrDeviceAlreadyRegistered.Error(),
-					"data": nil,
-				})
-				return
+			errMsg := err.Error()
+
+			statusCode := http.StatusBadRequest
+
+			if strings.Contains(errMsg, "非法设备") {
+				statusCode = http.StatusNotFound
+			} else if strings.Contains(errMsg, "认证失败") || strings.Contains(errMsg, "密钥不正确") {
+				statusCode = http.StatusUnauthorized
 			}
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code": 400,
-				"msg":  "注册失败: " + err.Error(),
+
+			httpx.WriteJson(w, statusCode, map[string]interface{}{
+				"code": statusCode,
+				"msg":  errMsg,
 				"data": nil,
 			})
 			return
 		}
 
+		msg := "注册成功"
+		if resp.Status == "already_activated" {
+			msg = resp.Message
+		} else if resp.Status == "activated" {
+			msg = "设备激活成功"
+		}
+
 		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
 			"code": 200,
-			"msg":  "注册成功",
+			"msg":  msg,
 			"data": resp,
 		})
 	}

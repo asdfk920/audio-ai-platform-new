@@ -6,8 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/zeromicro/go-zero/rest/httpx"
-
+	"github.com/jacklau/audio-ai-platform/common/httpresp"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/pkg/util/auth"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/svc"
@@ -22,20 +21,16 @@ import (
 // @Produce      json
 // @Param        callback_url  query     string  false  "回调地址（可选）"
 // @Param        redirect      query     string  false  "是否直接跳转（true=302重定向，默认false=返回JSON）"
-// @Success      200  {object}  map[string]interface{}  "成功返回授权链接"
-// @Success      302  {object}  map[string]interface{}  "跳转到QQ音乐授权页面"
-// @Failure      401  {object}  map[string]interface{}  "未登录"
+// @Success      200  {object}  httpresp.Standard  "成功返回授权链接"
+// @Success      302  {object}  httpresp.Standard  "跳转到QQ音乐授权页面"
+// @Failure      401  {object}  httpresp.Standard  "未登录"
 // @Router       /qq-music/auth [get]
 // @Security     BearerAuth
 func qqMusicAuthHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "未登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.MsgUnauthorized, nil)
 			return
 		}
 
@@ -45,23 +40,15 @@ func qqMusicAuthHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewQQMusicAuthLogic(r.Context(), svcCtx)
 		resp, err := l.Auth(bearerCtx.UserID, callbackURL)
 		if err != nil {
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": err.Error(),
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.MsgInternal, err.Error()), nil)
 			return
 		}
 
 		if redirect == "true" {
 			http.Redirect(w, r, resp.AuthURL, http.StatusFound)
 		} else {
-			httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-				"code":    200,
-				"message": "获取授权链接成功",
-				"data": map[string]interface{}{
-					"auth_url": resp.AuthURL,
-				},
+			httpresp.WriteSuccess(w, map[string]interface{}{
+				"auth_url": resp.AuthURL,
 			})
 		}
 	}
@@ -76,22 +63,18 @@ func qqMusicAuthHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 // @Param        code   query     string  true  "授权码"
 // @Param        state  query     string  true  "状态参数"
 // @Param        redirect  query  string  false  "是否直接跳转（true=302重定向，默认false=返回JSON）"
-// @Success      200  {object}  map[string]interface{}  "绑定成功"
-// @Success      302  {object}  map[string]interface{}  "绑定成功，跳转到成功页面"
-// @Failure      400  {object}  map[string]interface{}  "参数错误"
-// @Failure      401  {object}  map[string]interface{}  "未登录"
-// @Failure      500  {object}  map[string]interface{}  "服务器错误"
+// @Success      200  {object}  httpresp.Standard  "绑定成功"
+// @Success      302  {object}  httpresp.Standard  "绑定成功，跳转到成功页面"
+// @Failure      400  {object}  httpresp.Standard  "参数错误"
+// @Failure      401  {object}  httpresp.Standard  "未登录"
+// @Failure      500  {object}  httpresp.Standard  "服务器错误"
 // @Router       /qq-music/callback [get]
 // @Security     BearerAuth
 func qqMusicCallbackHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "未登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.MsgUnauthorized, nil)
 			return
 		}
 
@@ -114,22 +97,14 @@ func qqMusicCallbackHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		if req.Code == "" || req.State == "" {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "缺少必要参数",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.MsgBadRequest, `缺少必要参数`), nil)
 			return
 		}
 
 		l := logic.NewQQMusicCallbackLogic(r.Context(), svcCtx)
 		err := l.Callback(bearerCtx.UserID, req.Code, req.State)
 		if err != nil {
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": err.Error(),
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.MsgInternal, err.Error()), nil)
 			return
 		}
 
@@ -137,11 +112,7 @@ func qqMusicCallbackHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		if redirect == "true" {
 			http.Redirect(w, r, "/binding/success?platform=qq-music", http.StatusFound)
 		} else {
-			httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-				"code":    200,
-				"message": "账号绑定成功",
-				"data":    nil,
-			})
+			httpresp.WriteSuccessMsg(w, `账号绑定成功`, nil)
 		}
 	}
 }
@@ -152,34 +123,26 @@ func qqMusicCallbackHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 // @Tags         QQ音乐绑定
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "成功"
-// @Failure      401  {object}  map[string]interface{}  "未登录"
+// @Success      200  {object}  httpresp.Standard  "成功"
+// @Failure      401  {object}  httpresp.Standard  "未登录"
 // @Router       /qq-music/status [get]
 // @Security     BearerAuth
 func qqMusicBindingStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "未登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.MsgUnauthorized, nil)
 			return
 		}
 
 		l := logic.NewQQMusicBindingStatusLogic(r.Context(), svcCtx)
 		resp, err := l.GetStatus(bearerCtx.UserID)
 		if err != nil {
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": err.Error(),
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.MsgInternal, err.Error()), nil)
 			return
 		}
 
-		httpx.WriteJson(w, http.StatusOK, resp)
+		httpresp.WriteSuccess(w, resp)
 	}
 }
 
@@ -189,20 +152,16 @@ func qqMusicBindingStatusHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 // @Tags         QQ音乐绑定
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "成功"
-// @Failure      401  {object}  map[string]interface{}  "未登录"
-// @Failure      404  {object}  map[string]interface{}  "未绑定"
+// @Success      200  {object}  httpresp.Standard  "成功"
+// @Failure      401  {object}  httpresp.Standard  "未登录"
+// @Failure      404  {object}  httpresp.Standard  "未绑定"
 // @Router       /qq-music/unbind [post]
 // @Security     BearerAuth
 func qqMusicUnbindHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "未登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.MsgUnauthorized, nil)
 			return
 		}
 
@@ -210,27 +169,15 @@ func qqMusicUnbindHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		err := l.Unbind(bearerCtx.UserID)
 		if err != nil {
 			if err.Error() == "未找到绑定的QQ音乐账号" {
-				httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-					"code":    404,
-					"message": err.Error(),
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.MsgNotFound, err.Error()), nil)
 				return
 			}
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": err.Error(),
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.MsgInternal, err.Error()), nil)
 			return
 		}
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code":    200,
-			"message": "解绑成功",
-			"data": map[string]interface{}{
-				"success": true,
-			},
+		httpresp.WriteSuccessMsg(w, `解绑成功`, map[string]interface{}{
+			"success": true,
 		})
 	}
 }
@@ -244,32 +191,24 @@ func qqMusicUnbindHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 // @Param        playlist_id  query     string  true  "歌单ID"
 // @Param        limit        query     int     false  "每页数量（默认20，最大100）"
 // @Param        offset       query     int     false  "偏移量（默认0）"
-// @Success      200  {object}  map[string]interface{}  "成功"
-// @Failure      400  {object}  map[string]interface{}  "参数错误"
-// @Failure      401  {object}  map[string]interface{}  "未登录"
-// @Failure      404  {object}  map[string]interface{}  "未绑定QQ音乐"
-// @Failure      500  {object}  map[string]interface{}  "服务器错误"
+// @Success      200  {object}  httpresp.Standard  "成功"
+// @Failure      400  {object}  httpresp.Standard  "参数错误"
+// @Failure      401  {object}  httpresp.Standard  "未登录"
+// @Failure      404  {object}  httpresp.Standard  "未绑定QQ音乐"
+// @Failure      500  {object}  httpresp.Standard  "服务器错误"
 // @Router       /qq-music/playlist/tracks [get]
 // @Security     BearerAuth
 func qqMusicPlaylistTracksHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "未登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.MsgUnauthorized, nil)
 			return
 		}
 
 		playlistID := r.URL.Query().Get("playlist_id")
 		if playlistID == "" {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code":    400,
-				"message": "缺少playlist_id参数",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.MsgBadRequest, `缺少 playlist_id 参数`), nil)
 			return
 		}
 
@@ -287,26 +226,14 @@ func qqMusicPlaylistTracksHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		resp, err := l.GetPlaylistTracks(bearerCtx.UserID, playlistID, limit, offset)
 		if err != nil {
 			if strings.Contains(err.Error(), "未找到QQ音乐绑定记录") {
-				httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-					"code":    404,
-					"message": err.Error(),
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.MsgNotFound, err.Error()), nil)
 				return
 			}
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": err.Error(),
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.MsgInternal, err.Error()), nil)
 			return
 		}
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code":    200,
-			"message": "获取歌单歌曲成功",
-			"data":    resp,
-		})
+		httpresp.WriteSuccessMsg(w, `获取歌单歌曲成功`, resp)
 	}
 }
 
@@ -316,21 +243,17 @@ func qqMusicPlaylistTracksHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 // @Tags         QQ音乐绑定
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "成功"
-// @Failure      401  {object}  map[string]interface{}  "未登录"
-// @Failure      404  {object}  map[string]interface{}  "未绑定QQ音乐"
-// @Failure      500  {object}  map[string]interface{}  "服务器错误"
+// @Success      200  {object}  httpresp.Standard  "成功"
+// @Failure      401  {object}  httpresp.Standard  "未登录"
+// @Failure      404  {object}  httpresp.Standard  "未绑定QQ音乐"
+// @Failure      500  {object}  httpresp.Standard  "服务器错误"
 // @Router       /qq-music/playlists [get]
 // @Security     BearerAuth
 func qqMusicPlaylistListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code":    401,
-				"message": "未登录",
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.MsgUnauthorized, nil)
 			return
 		}
 
@@ -338,25 +261,13 @@ func qqMusicPlaylistListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		resp, err := l.GetPlaylists(bearerCtx.UserID)
 		if err != nil {
 			if err.Error() == "未找到QQ音乐绑定记录" {
-				httpx.WriteJson(w, http.StatusNotFound, map[string]interface{}{
-					"code":    404,
-					"message": err.Error(),
-					"data":    nil,
-				})
+				httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.MsgNotFound, err.Error()), nil)
 				return
 			}
-			httpx.WriteJson(w, http.StatusInternalServerError, map[string]interface{}{
-				"code":    500,
-				"message": err.Error(),
-				"data":    nil,
-			})
+			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.MsgInternal, err.Error()), nil)
 			return
 		}
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code":    200,
-			"message": "获取歌单列表成功",
-			"data":    resp,
-		})
+		httpresp.WriteSuccessMsg(w, `获取歌单列表成功`, resp)
 	}
 }

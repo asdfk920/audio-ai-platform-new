@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/jacklau/audio-ai-platform/common/httpresp"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/pkg/util/auth"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // contentNewHandler 最新内容推荐处理器
@@ -17,11 +17,7 @@ import (
 func contentNewHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code": 405,
-				"msg":  "仅支持 GET",
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.MsgMethodNotAllowed+`：仅支持 GET`, nil)
 			return
 		}
 
@@ -50,18 +46,10 @@ func contentNewHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewContentNewLogic(r.Context(), svcCtx)
 		resp, err := l.ContentNew(req, userID)
 		if err != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code": 400,
-				"msg":  err.Error(),
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.MsgBadRequest, err.Error()), nil)
 			return
 		}
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"msg":  "获取成功",
-			"data": resp,
-		})
+		httpresp.WriteSuccess(w, resp)
 	}
 }

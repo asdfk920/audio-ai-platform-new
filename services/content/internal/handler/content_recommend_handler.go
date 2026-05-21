@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/jacklau/audio-ai-platform/common/httpresp"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/pkg/util/auth"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // contentRecommendHandler 内容推荐处理器
@@ -17,11 +17,7 @@ import (
 func contentRecommendHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			httpx.WriteJson(w, http.StatusMethodNotAllowed, map[string]interface{}{
-				"code": 405,
-				"msg":  "仅支持 GET",
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.MsgMethodNotAllowed+`：仅支持 GET`, nil)
 			return
 		}
 
@@ -36,29 +32,17 @@ func contentRecommendHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
 		if bearerCtx.UserID <= 0 {
-			httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-				"code": 401,
-				"msg":  "请先登录",
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.MsgUnauthorized, nil)
 			return
 		}
 
 		l := logic.NewContentRecommendLogic(r.Context(), svcCtx)
 		resp, err := l.ContentRecommend(req, bearerCtx.UserID)
 		if err != nil {
-			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
-				"code": 400,
-				"msg":  err.Error(),
-				"data": nil,
-			})
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.MsgBadRequest, err.Error()), nil)
 			return
 		}
 
-		httpx.WriteJson(w, http.StatusOK, map[string]interface{}{
-			"code": 200,
-			"msg":  "获取成功",
-			"data": resp,
-		})
+		httpresp.WriteSuccess(w, resp)
 	}
 }

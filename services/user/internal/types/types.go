@@ -94,15 +94,15 @@ type DeviceShareAcceptDeviceRef struct {
 }
 
 type DeviceShareAcceptReq struct {
-	ShareId int64                         `json:"share_id,omitempty"`
-	Sn      string                        `json:"sn,omitempty"`
+	ShareId int64                        `json:"share_id,omitempty"`
+	Sn      string                       `json:"sn,omitempty"`
 	Devices []DeviceShareAcceptDeviceRef `json:"devices,omitempty"`
 	List    []DeviceShareAcceptDeviceRef `json:"list,omitempty"` // 与 devices 等价，兼容前端命名
 }
 
 // DeviceShareAcceptBatchResp 批量同意的结果：成功的条目 + 失败条目（逐条独立事务，互不影响）。
 type DeviceShareAcceptBatchResp struct {
-	Accepted []DeviceShareItem             `json:"accepted"`
+	Accepted []DeviceShareItem           `json:"accepted"`
 	Failed   []DeviceShareAcceptFailItem `json:"failed,omitempty"`
 }
 
@@ -446,4 +446,26 @@ type WithdrawAccountCancellationResp struct {
 	Status            string `json:"status"`
 	WithdrawnAt       int64  `json:"withdrawn_at"`
 	CoolingEndCleared bool   `json:"cooling_end_cleared"`
+}
+
+// ==================== 设备更新相关类型定义 ====================
+
+// UpdateDeviceReq 对应：PUT /api/v1/user/device/update（更新设备信息请求）
+type UpdateDeviceReq struct {
+	Sn        string `json:"sn"`                  // 设备序列号（必填）
+	Alias     string `json:"alias,optional"`      // 设备备注名（如"卧室音箱"，最多50字符）
+	Location  string `json:"location,optional"`   // 设备位置（如"卧室"、"客厅"，最多100字符）
+	GroupName string `json:"group_name,optional"` // 设备分组（如"家庭音响组"，最多100字符）
+	Scene     string `json:"scene,optional"`      // 常用场景（如"晨间唤醒"、"睡前音乐"，最多200字符）
+}
+
+// UpdateDeviceResp 对应：PUT /api/v1/user/device/update（更新设备信息响应）
+type UpdateDeviceResp struct {
+	Sn        string `json:"sn"`         // 设备序列号
+	Alias     string `json:"alias"`      // 更新后的设备备注名
+	Location  string `json:"location"`   // 更新后的位置
+	GroupName string `json:"group_name"` // 更新后的分组
+	Scene     string `json:"scene"`      // 更新后的场景
+	UpdatedAt string `json:"updated_at"`         // 更新时间
+	Message   string `json:"message,omitempty"` // 冗余提示（一般由顶层 msg 表达，可不返回）
 }

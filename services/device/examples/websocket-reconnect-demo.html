@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备WebSocket自动重连演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .status-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected { background: #4caf50; }
+        .status-dot.connecting { background: #ff9800; }
+        .status-dot.disconnected { background: #f44336; }
+        .status-dot.reconnecting { background: #9c27b0; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+            font-family: monospace;
+        }
+
+        input, button {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: auto;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            word-wrap: break-word;
+        }
+
+        .log-info { color: #87ceeb; }
+        .log-success { color: #00ff00; }
+        .log-warning { color: #ffff00; }
+        .log-error { color: #ff6b6b; }
+        .log-reconnect { color: #da70d6; }
+
+        .message-input-area {
+            display: grid;
+            gap: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: monospace;
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .config-section {
+            margin-top: 15px;
+        }
+
+        .config-item {
+            margin-bottom: 10px;
+        }
+
+        .config-item label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        .config-item input[type="range"] {
+            cursor: pointer;
+        }
+
+        .range-value {
+            float: right;
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 设备WebSocket自动重连演示系统</h1>
+
+        <div class="grid">
+            <!-- 连接状态卡片 -->
+            <div class="card">
+                <h3>📡 连接状态</h3>
+                <div class="status-indicator">
+                    <div id="statusDot" class="status-dot disconnected"></div>
+                    <span id="statusText">未连接</span>
+                </div>
+
+                <div class="info-row">
+                    <span class="info-label">连接状态:</span>
+                    <span id="stateValue" class="info-value">DISCONNECTED</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">重连次数:</span>
+                    <span id="reconnectCount" class="info-value">0</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">当前延迟:</span>
+                    <span id="currentDelay" class="info-value">1.0s</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">缓存消息数:</span>
+                    <span id="queueSize" class="info-value">0</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">网络状态:</span>
+                    <span id="networkStatus" class="info-value">检测中...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">最后消息时间:</span>
+                    <span id="lastMessageTime" class="info-value">N/A</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">心跳状态:</span>
+                    <span id="heartbeatStatus" class="info-value">未启动</span>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="messagesSent">0</div>
+                        <div class="stat-label">已发送消息</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="messagesReceived">0</div>
+                        <div class="stat-label">已接收消息</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 连接配置卡片 -->
+            <div class="card">
+                <h3>⚙️ 连接配置</h3>
+
+                <div class="config-section">
+                    <div class="config-item">
+                        <label for="wsUrl">WebSocket地址:</label>
+                        <input type="text" id="wsUrl" value="ws://localhost:8002/ws/device"
+                               placeholder="ws://localhost:8002/ws/device">
+                    </div>
+
+                    <div class="config-item">
+                        <label for="tokenInput">JWT Token:</label>
+                        <input type="text" id="tokenInput"
+                               placeholder="粘贴你的JWT Token...">
+                    </div>
+
+                    <div class="config-item">
+                        <label for="deviceId">设备ID (可选):</label>
+                        <input type="text" id="deviceId" value="1234567890"
+                               placeholder="输入设备ID">
+                    </div>
+
+                    <button onclick="toggleConnection()" id="connectBtn">
+                        🔗 建立连接
+                    </button>
+                    <button onclick="disconnect()" id="disconnectBtn" style="background: #f44336;">
+                        👋 断开连接
+                    </button>
+                </div>
+            </div>
+
+            <!-- 重连配置卡片 -->
+            <div class="card">
+                <h3>🔄 重连策略配置</h3>
+
+                <div class="config-section">
+                    <div class="config-item">
+                        <label>
+                            初始延迟
+                            <span class="range-value" id="initialDelayValue">1s</span>
+                        </label>
+                        <input type="range" id="initialDelay" min="500" max="5000" value="1000" step="500"
+                               oninput="updateConfig()">
+                    </div>
+
+                    <div class="config-item">
+                        <label>
+                            最大延迟
+                            <span class="range-value" id="maxDelayValue">30s</span>
+                        </label>
+                        <input type="range" id="maxDelay" min="10" max="120" value="30" step="5"
+                               oninput="updateConfig()">
+                    </div>
+
+                    <div class="config-item">
+                        <label>
+                            退避因子
+                            <span class="range-value" id="decayValue">2x</span>
+                        </label>
+                        <input type="range" id="decay" min="1.5" max="3" value="2" step="0.1"
+                               oninput="updateConfig()">
+                    </div>
+
+                    <div class="config-item">
+                        <label>
+                            随机抖动
+                            <span class="range-value" id="jitterValue">30%</span>
+                        </label>
+                        <input type="range" id="jitter" min="0" max="50" value="30" step="5"
+                               oninput="updateConfig()">
+                    </div>
+
+                    <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 8px; font-size: 13px;">
+                        💡 <strong>提示:</strong> 调整参数后重新建立连接生效
+                    </div>
+                </div>
+            </div>
+
+            <!-- 消息发送卡片 -->
+            <div class="card">
+                <h3>📤 发送消息</h3>
+
+                <div class="message-input-area">
+                    <textarea id="messageInput" placeholder='输入JSON消息，例如:
+{
+    "type": "status",
+    "data": {
+        "battery": 85,
+        "volume": 60
+    }
+}'></textarea>
+
+                    <button onclick="sendMessage()" id="sendBtn" disabled>
+                        🚀 发送消息
+                    </button>
+
+                    <button onclick="sendTestMessage()" id="testBtn" disabled
+                            style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                        🧪 发送测试消息（每10秒）
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 日志区域 -->
+        <div class="card" style="margin-top: 20px;">
+            <h3>📋 实时日志</h3>
+            <div class="log-container" id="logContainer">
+                <div class="log-entry log-info">[System] 系统就绪，等待连接...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="device-websocket-client.js"></script>
+    <script>
+        // 全局变量
+        let wsClient = null;
+        let testInterval = null;
+        let messageStats = { sent: 0, received: 0 };
+
+        // 日志函数
+        function log(message, type = 'info') {
+            const container = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+
+            // 限制日志条数
+            while (container.children.length > 200) {
+                container.removeChild(container.firstChild);
+            }
+        }
+
+        // 更新UI状态（增强版：修复假死bug + 完整状态同步）
+        function updateStatusUI(state) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            const stateValue = document.getElementById('stateValue');
+
+            console.log(`🎨 [UI] 状态更新: ${document.getElementById('stateValue').textContent} → ${state}`);
+
+            dot.className = `status-dot ${state.toLowerCase()}`;
+
+            const statusMap = {
+                'DISCONNECTED': { text: '❌ 已断开', color: '#f44336' },
+                'CONNECTING': { text: '🔄 连接中...', color: '#ff9800' },
+                'CONNECTED': { text: '✅ 已连接 (在线)', color: '#4caf50' },
+                'RECONNECTING': { text: '🔄 重连中...', color: '#9c27b0' }
+            };
+
+            const info = statusMap[state] || statusMap['DISCONNECTED'];
+            text.textContent = info.text;
+            text.style.color = info.color;
+            stateValue.textContent = state;
+
+            // 添加视觉反馈（闪烁效果）
+            if (state === 'DISCONNECTED') {
+                dot.style.animation = 'pulse 0.5s ease-in-out 3';
+                setTimeout(() => {
+                    dot.style.animation = 'pulse 2s infinite';
+                }, 1500);
+                
+                // 🔴 关键：强制刷新页面布局，确保立即渲染
+                void dot.offsetWidth; // 触发reflow
+            }
+
+            // 更新按钮状态
+            const connectBtn = document.getElementById('connectBtn');
+            const sendBtn = document.getElementById('sendBtn');
+            const testBtn = document.getElementById('testBtn');
+
+            connectBtn.disabled = state === 'CONNECTING' || state === 'RECONNECTING';
+            connectBtn.textContent = state === 'CONNECTED' ? '🔄 重新连接' : '🔗 建立连接';
+            sendBtn.disabled = state !== 'CONNECTED';
+            testBtn.disabled = state !== 'CONNECTED';
+
+            // 更新页面标题（让用户在标签页上也能看到状态）
+            if (state === 'CONNECTED') {
+                document.title = '✅ WebSocket已连接 - 设备演示系统';
+            } else if (state === 'DISCONNECTED') {
+                document.title = '❌ WebSocket已断开 - 设备演示系统';
+            } else if (state === 'RECONNECTING') {
+                document.title = '🔄 正在重连... - 设备演示系统';
+            } else if (state === 'CONNECTING') {
+                document.title = '⏳ 正在连接... - 设备演示系统';
+            }
+
+            // 🔴 关键：使用requestAnimationFrame确保DOM更新完成
+            requestAnimationFrame(() => {
+                console.log(`✅ [UI] 状态渲染完成: ${state}`);
+            });
+        }
+
+        // 更新配置
+        function updateConfig() {
+            const initialDelay = document.getElementById('initialDelay').value / 1000;
+            const maxDelay = document.getElementById('maxDelay').value;
+            const decay = document.getElementById('decay').value;
+            const jitter = document.getElementById('jitter').value / 100;
+
+            document.getElementById('initialDelayValue').textContent = `${initialDelay}s`;
+            document.getElementById('maxDelayValue').textContent = `${maxDelay}s`;
+            document.getElementById('decayValue').textContent = `${decay}x`;
+            document.getElementById('jitterValue').textContent = `${Math.round(jitter * 100)}%`;
+
+            if (wsClient) {
+                wsClient.initialReconnectDelay = initialDelay * 1000;
+                wsClient.maxReconnectDelay = maxDelay * 1000;
+                wsClient.reconnectDecay = parseFloat(decay);
+                wsClient.reconnectJitter = jitter;
+            }
+        }
+
+        // 切换连接
+        function toggleConnection() {
+            if (!wsClient || wsClient.state === 'DISCONNECTED') {
+                connect();
+            } else {
+                disconnect();
+                setTimeout(connect, 500);
+            }
+        }
+
+        // 建立连接
+        function connect() {
+            const url = document.getElementById('wsUrl').value.trim();
+            const token = document.getElementById('tokenInput').value.trim();
+            const deviceId = document.getElementById('deviceId').value.trim();
+
+            if (!token) {
+                alert('请输入JWT Token!');
+                return;
+            }
+
+            log(`📍 正在建立连接到 ${url}...`, 'info');
+            updateStatusUI('CONNECTING');
+            log('📊 [状态机] CONNECTING', 'system'); // 新增状态日志
+
+            // 获取配置参数
+            const initialDelay = document.getElementById('initialDelay').value / 1000;
+            const maxDelay = document.getElementById('maxDelay').value;
+            const decay = parseFloat(document.getElementById('decay').value);
+            const jitter = document.getElementById('jitter').value / 100;
+
+            // 创建客户端实例
+            wsClient = new DeviceWebSocketClient({
+                url: url,
+                token: token,
+                deviceId: deviceId,
+
+                // 重连配置
+                reconnectEnabled: true,
+                maxReconnectAttempts: Infinity,
+                initialReconnectDelay: initialDelay * 1000,
+                maxReconnectDelay: maxDelay * 1000,
+                reconnectDecay: decay,
+                reconnectJitter: jitter,
+
+                // 心跳配置（修复假死问题的核心参数）
+                pingInterval: 15000,   // 15秒发送ping（原来54秒太长）
+                pongTimeout: 30000,    // 30秒等待pong超时（原来60秒太长）
+
+                // 网络检测
+                networkCheckEnabled: true,
+                networkCheckInterval: 5000,
+                networkCheckUrl: 'http://localhost:8002/health',
+
+                // 消息队列
+                messageQueueMaxSize: 1000,
+
+                // 回调函数
+                onOpen: () => {
+                    log('✅ WebSocket连接已建立', 'success');
+                    updateStatusUI('CONNECTED');
+                    log('📊 [状态机] CONNECTED', 'system'); // 新增状态日志
+                },
+
+                onMessage: (data) => {
+                    messageStats.received++;
+                    document.getElementById('messagesReceived').textContent = messageStats.received;
+                    log(`📥 收到消息: ${JSON.stringify(data).substring(0, 100)}...`, 'success');
+                },
+
+                onClose: (event) => {
+                    const time = new Date().toLocaleString();
+                    log(`🔴🔴🔴 连接已关闭 🔴🔴🔴`, 'error');
+                    log(`   时间: ${time}`, 'error');
+                    log(`   Code: ${event.code}`, 'error');
+                    log(`   Reason: ${event.reason || '无原因'}`, 'error');
+
+                    // 根据关闭码判断原因
+                    let reasonText = '';
+                    switch(event.code) {
+                        case 0:
+                            reasonText = '🎨 强制状态更新（心跳超时/健康度检测/离线事件）';
+                            break;
+                        case 4001:
+                            reasonText = '⚠️ Pong超时 (服务端未响应心跳)';
+                            break;
+                        case 4002:
+                            reasonText = '⛑️ 连接健康度检测失败 (长时间静默)';
+                            break;
+                        case 4003:
+                            reasonText = '🌐 浏览器检测到网络离线';
+                            break;
+                        case 1006:
+                            reasonText = '❌ 异常断开 (网络中断)';
+                            break;
+                        default:
+                            reasonText = event.reason || '正常关闭';
+                    }
+                    log(`   原因分析: ${reasonText}`, 'error');
+                    log('', 'info'); // 空行分隔
+
+                    updateStatusUI('DISCONNECTED');
+                    log('📊 [状态机] DISCONNECTED', 'system'); // 新增状态日志
+                },
+
+                onError: (error) => {
+                    log(`❌ 错误发生: ${error}`, 'error');
+                },
+
+                onReconnecting: (info) => {
+                    log(`🔄 准备重连... (第${info.attempt}次, 延迟=${(info.delay/1000).toFixed(1)}s, 缓存=${info.queueSize}条)`, 'reconnect');
+                    updateStatusUI('RECONNECTING');
+                    document.getElementById('reconnectCount').textContent = info.attempt;
+                    document.getElementById('currentDelay').textContent = `${(info.delay/1000).toFixed(1)}s`;
+                    document.getElementById('queueSize').textContent = info.queueSize;
+                    log('📊 [状态机] RECONNECTING', 'system'); // 新增状态日志
+                },
+
+                onReconnected: (info) => {
+                    log(`🎉 重连成功! (共尝试${info.attempts}次)`, 'success');
+                    updateStatusUI('CONNECTED');
+                    log('📊 [状态机] CONNECTED (重连)', 'system'); // 新增状态日志
+                },
+
+                onNetworkChange: (info) => {
+                    const status = info.online ? '在线' : '离线';
+                    document.getElementById('networkStatus').textContent = status;
+                    document.getElementById('networkStatus').style.color = info.online ? '#4caf50' : '#f44336';
+                    log(`🌐 网络状态变化: ${status}`, info.online ? 'success' : 'warning');
+                }
+            });
+
+            // 启动连接
+            wsClient.connect();
+
+            // 定期更新统计信息（增强版：显示心跳和健康度）
+            setInterval(() => {
+                if (wsClient) {
+                    const stats = wsClient.getState();
+                    document.getElementById('queueSize').textContent = stats.messageQueueSize;
+
+                    // 更新最后消息时间
+                    if (stats.lastMessageTime && stats.lastMessageTime !== 'N/A') {
+                        document.getElementById('lastMessageTime').textContent = stats.lastMessageTime;
+                        document.getElementById('lastMessageTime').style.color = '#4caf50';
+                    }
+
+                    // 更新心跳状态
+                    const heartbeatEl = document.getElementById('heartbeatStatus');
+                    if (stats.state === 'CONNECTED') {
+                        heartbeatEl.textContent = '💓 运行中';
+                        heartbeatEl.style.color = '#4caf50';
+                    } else {
+                        heartbeatEl.textContent = '⏹️ 已停止';
+                        heartbeatEl.style.color = '#f44336';
+                    }
+                }
+            }, 1000);
+        }
+
+        // 断开连接
+        function disconnect() {
+            if (testInterval) {
+                clearInterval(testInterval);
+                testInterval = null;
+                document.getElementById('testBtn').textContent = '🧪 发送测试消息（每10秒）';
+            }
+
+            if (wsClient) {
+                log('👋 手动断开连接', 'warning');
+                wsClient.close();
+                updateStatusUI('DISCONNECTED');
+                log('📊 [状态机] DISCONNECTED (手动)', 'system'); // 新增状态日志
+            }
+        }
+
+        // 发送消息
+        function sendMessage() {
+            if (!wsClient || wsClient.state !== 'CONNECTED') {
+                alert('未连接或连接不可用!');
+                return;
+            }
+
+            const messageText = document.getElementById('messageInput').value.trim();
+            if (!messageText) {
+                alert('请输入要发送的消息!');
+                return;
+            }
+
+            try {
+                const message = JSON.parse(messageText);
+                const success = wsClient.send(message);
+
+                if (success) {
+                    messageStats.sent++;
+                    document.getElementById('messagesSent').textContent = messageStats.sent;
+                    log(`📤 消息已${wsClient.state === 'CONNECTED' ? '发送' : '缓存'} (${messageText.substring(0, 50)}...)`, 'success');
+                } else {
+                    log('❌ 消息发送失败且队列已满', 'error');
+                }
+            } catch (error) {
+                alert('JSON格式错误: ' + error.message);
+            }
+        }
+
+        // 发送测试消息
+        function sendTestMessage() {
+            const btn = document.getElementById('testBtn');
+
+            if (testInterval) {
+                clearInterval(testInterval);
+                testInterval = null;
+                btn.textContent = '🧪 发送测试消息（每10秒）';
+                log('⏹️ 停止发送测试消息', 'warning');
+                return;
+            }
+
+            log('▶️ 开始发送测试消息（每10秒）...', 'info');
+            btn.textContent = '⏹️ 停止测试';
+
+            let count = 0;
+            testInterval = setInterval(() => {
+                count++;
+                const testMessage = {
+                    type: 'test_status',
+                    data: {
+                        battery_level: Math.floor(Math.random() * 40 + 60),
+                        volume: Math.floor(Math.random() * 101),
+                        playing: Math.random() > 0.5,
+                        timestamp: Date.now(),
+                        message_number: count
+                    }
+                };
+
+                wsClient.send(testMessage);
+                messageStats.sent++;
+                document.getElementById('messagesSent').textContent = messageStats.sent;
+                log(`📤 测试消息 #${count} 已发送`, 'info');
+            }, 10000);
+        }
+
+        // 页面加载完成后的初始化
+        window.onload = function() {
+            log('✅ 系统初始化完成', 'success');
+            log('💡 提示: 请先输入JWT Token，然后点击"建立连接"', 'info');
+            updateConfig();
+        };
+    </script>
+</body>
+</html>

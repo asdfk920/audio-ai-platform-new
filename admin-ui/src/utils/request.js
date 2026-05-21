@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { MessageBox, Message } from 'element-ui'
 import store from '@/store'
+import router from '@/router'
 import { getToken } from '@/utils/auth'
 import { resolveApiBaseURL } from '@/utils/env-api'
 
@@ -150,10 +151,39 @@ service.interceptors.response.use(
   },
   error => {
     const silent = isSilentRequest(error.config)
+    const path = (router.currentRoute && router.currentRoute.path) || ''
+    const skipOfflineRedirect =
+      error.config && error.config.offlineRedirect === false
+    const canOfflineRedirect =
+      path !== '/offline' &&
+      path !== '/login' &&
+      !silent &&
+      !skipOfflineRedirect
+
     if (error.message === 'Network Error') {
       if (!silent) {
         Message({
-          message: '服务器连接异常，请检查服务器！',
+          message: '服务器连接异常，正在进入断网重连页…',
+          type: 'error',
+          duration: 2800
+        })
+      }
+      if (canOfflineRedirect) {
+        const from = router.currentRoute ? router.currentRoute.fullPath : '/'
+        router
+          .replace({
+            path: '/offline',
+            query: { from: encodeURIComponent(from) }
+          })
+          .catch(() => {})
+      }
+      return Promise.reject(error)
+    }
+
+    if (error.code === 'ECONNABORTED') {
+      if (!silent) {
+        Message({
+          message: '请求超时，请稍后重试',
           type: 'error',
           duration: 5 * 1000
         })

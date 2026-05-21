@@ -195,6 +195,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: contentSearchHandler(serverCtx),
 			},
 			{
+				// 私有格式整包上传（multipart）→ 对象存储 OSS/S3/local
+				Method:  http.MethodPost,
+				Path:    "/upload/private-format",
+				Handler: contentPrivateFormatUploadHandler(serverCtx),
+			},
+			{
 				// 删除歌曲（必须登录，管理员或上传者）
 				Method:  http.MethodDelete,
 				Path:    "/:id",

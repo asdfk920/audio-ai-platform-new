@@ -151,6 +151,101 @@ func (r *DeviceRepo) UpdateLastActive(ctx context.Context, deviceId int64, onlin
 	return nil
 }
 
+// FindBySnForActivation 根据SN查询预录入设备（用于注册/激活流程）
+// 查询条件：SN匹配 + 未删除 + 状态为未激活(DeviceStatusUnregistered=4) 或已激活(DeviceStatusNormal=1)
+// 返回完整设备信息（包含密钥、状态、版本等字段），用于密钥验证和状态检查
+//
+// 参数 ctx context.Context: 请求上下文
+// 参数 sn string: 设备序列号
+// 返回 *model.Device: 设备完整信息指针，如果未找到则返回 nil
+// 返回 error: 查询失败时的错误信息
+func (r *DeviceRepo) FindBySnForActivation(ctx context.Context, sn string) (*model.Device, error) {
+	query := `
+		SELECT id, sn, model, product_key, device_secret, register_signature,
+		       register_timestamp, firmware_version, hardware_version, mac,
+		       ip, online_status, usage_status, status, create_by,
+		       last_active_at, created_at, updated_at, deleted_at
+		FROM public.device
+		WHERE sn = $1 AND deleted_at IS NULL
+		  AND status IN ($2, $3)
+	`
+
+	var device model.Device
+	err := r.db.QueryRowContext(ctx, query, sn,
+		model.DeviceStatusUnregistered,
+		model.DeviceStatusNormal,
+	).Scan(
+		&device.ID, &device.Sn, &device.Model, &device.ProductKey,
+		&device.DeviceSecret, &device.RegisterSignature,
+		&device.RegisterTimestamp, &device.FirmwareVersion,
+		&device.HardwareVersion, &device.Mac, &device.Ip,
+		&device.OnlineStatus, &device.UsageStatus, &device.Status,
+		&device.CreateBy, &device.LastActiveAt, &device.CreatedAt,
+		&device.UpdatedAt, &device.DeletedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("查询预录入设备失败: %v", err)
+	}
+
+	return &device, nil
+}
+
+// ActivateDevice 激活设备（更新状态和激活信息）
+// 将设备从未激活状态(DeviceStatusUnregistered=4)更新为已激活状态(DeviceStatusNormal=1)
+// 同时记录：激活时间、IP地址、固件版本、硬件版本、MAC地址、最后活跃时间
+//
+// 参数 ctx context.Context: 请求上下文
+// 参数 deviceId int64: 设备ID
+// 参数 ip string: 设备当前IP地址
+// 参数 firmwareVersion string: 固件版本号
+// 参数 hardwareVersion string: 硬件版本号
+// 参数 mac string: MAC地址
+// 返回 error: 更新失败时的错误信息
+func (r *DeviceRepo) ActivateDevice(ctx context.Context, deviceId int64, ip string, firmwareVersion string, hardwareVersion string, mac string) error {
+	query := `
+		UPDATE public.device
+		SET status = $1,
+		    ip = $2,
+		    firmware_version = COALESCE(NULLIF($3, ''), firmware_version),
+		    hardware_version = COALESCE(NULLIF($4, ''), hardware_version),
+		    mac = COALESCE(NULLIF($5, ''), mac),
+		    last_active_at = NOW(),
+		    updated_at = NOW()
+		WHERE id = $6
+		  AND deleted_at IS NULL
+		  AND status = $7
+	`
+
+	result, err := r.db.ExecContext(ctx, query,
+		model.DeviceStatusNormal,
+		ip,
+		firmwareVersion,
+		hardwareVersion,
+		mac,
+		deviceId,
+		model.DeviceStatusUnregistered,
+	)
+
+	if err != nil {
+		return fmt.Errorf("激活设备失败: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("获取影响行数失败: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("设备不存在或状态不正确（可能已被激活或已删除）")
+	}
+
+	return nil
+}
+
 // CreateWithFullInfo 创建新设备记录（包含完整信息）
 // 用于设备注册时创建完整的设备记录，包括密钥、签名、时间戳等
 //

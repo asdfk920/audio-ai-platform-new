@@ -8,7 +8,7 @@ import getPageTitle from '@/utils/get-page-title'
 
 NProgress.configure({ showSpinner: false }) // NProgress Configuration
 
-const whiteList = ['/login', '/auth-redirect'] // no redirect whitelist
+const whiteList = ['/login', '/auth-redirect', '/offline'] // no redirect whitelist
 
 /** axios 拒绝体常为 { code, msg } 对象；直接 Message.error(对象) 会显示空白红条 */
 function formatGuardErrorMessage(err, fallback = '加载失败，请重新登录') {

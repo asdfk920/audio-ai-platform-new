@@ -150,7 +150,7 @@ type DeviceCommand struct {
 type WebSocketConfig struct {
 	// Enable 省略或未写 WebSocket 节时默认开启；仅当在配置中显式写 Enable: false 时关闭。
 	// 兼容旧版 device.yaml：曾将「未配置」误当作关闭，导致未注册 /ws/device 而返回 404。
-	Enable             *bool `json:",optional"` // 是否启用 WebSocket 服务
+	Enable             *bool  `json:",optional"` // 是否启用 WebSocket 服务
 	Path               string `json:",optional"` // WebSocket 连接路径，默认 /ws/device
 	ReadBufferSize     int    `json:",optional"` // 读缓冲区大小（字节），默认 10240
 	WriteBufferSize    int    `json:",optional"` // 写缓冲区大小（字节），默认 10240

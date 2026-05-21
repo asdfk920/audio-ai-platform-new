@@ -23,23 +23,31 @@ Database:
   DataSource: host=14.103.202.69 port=5432 user=admin password=admin123 dbname=audio_platform sslmode=disable TimeZone=Asia/Shanghai
 
 Storage:
-  # local：开发默认写入 ./data/content-objects；生产可改为 s3/minio
-  Driver: local
-  Region: us-east-1
-  Endpoint: ""
-  AccessKey: ""
-  SecretKey: ""
-  Bucket: audio-platform-bucket
+  # 为 true 时从 PostgreSQL public.sys_config 读取 upload_storage_*（与后台一致）。
+  # 每项优先级：环境变量 > sys_config > YAML。
+  # 迁移 021 默认 upload_storage_driver=local；若在此处设为 true，须先在后台将该键改为 oss，否则会覆盖本节 Driver。
+  SyncFromSysConfig: false
+  Driver: oss
+  Region: cn-beijing
+  Endpoint: oss-cn-beijing.aliyuncs.com
+  # ⚠️ AK/SK 必须放在这里（Storage下面），不能放在 oss: 子节点下！
+  AccessKey: "LTAI5t86RwbEQ99p4APHRz2N"
+  SecretKey: "rL8Xfkq4kO7EljvPtsfw4blgFOsUTz"
+  Bucket: "220aaa"
   UsePathStyle: true
-  # 写入 DB 的 URL 前缀（不要尾斜杠）。local 时可指向本服务静态源或由网关反代 /static
-  CdnBaseUrl: "http://127.0.0.1:8003/static-media"
+  CdnBaseUrl: ""
+
 
 Local:
+  # OSS 为主时私有格式仍会镜像到此目录（路径与 OSS object_key 一致）
   Root: ./data/content-objects
 
 Upload:
   AudioMaxMB: 100
   CoverMaxMB: 10
+  # 私有格式整包上传上限（MB）；需小于等于 RestConf.MaxBytes
+  PrivateFormatMaxMB: 128
+  PrivateFormatLocalMirror: true
 
 # 内容列表热点缓存（秒，建议 300–600，对应 5～10 分钟）；仅无分类/标签/关键词/会员筛时启用
 List:
