@@ -366,21 +366,62 @@ type LikeListResp struct {
 	PageSize int32          `json:"page_size"`
 }
 
+// ========== 用户收藏相关类型 ==========
+
+// ContentFavoriteReq 用户收藏/取消收藏请求
+type ContentFavoriteReq struct {
+	FavoriteType string `json:"favorite_type" form:"favorite_type"` // 收藏类型：song(默认)/playlist/album
+}
+
+// ContentFavoriteResp 用户收藏/取消收藏响应
+type ContentFavoriteResp struct {
+	Success       bool   `json:"success"`        // 操作是否成功
+	Message       string `json:"message"`        // 提示信息（"收藏成功"/"已收藏"/"取消收藏成功"/"未找到收藏记录"）
+	Favorited     bool   `json:"favorited"`      // 当前收藏状态（true=已收藏，false=未收藏）
+	FavoriteCount int64  `json:"favorite_count"` // 该内容的最新收藏总数
+}
+
+// FavoriteListItem 收藏列表单条数据
+type FavoriteListItem struct {
+	ID           int64  `json:"id"`             // 收藏记录ID
+	ContentID    int64  `json:"content_id"`     // 内容ID
+	Title        string `json:"title"`          // 歌曲名称
+	Artist       string `json:"artist"`         // 歌手名称
+	CoverURL     string `json:"cover_url"`      // 封面图地址
+	Duration     int    `json:"duration"`       // 时长（秒）
+	FavoritedAt  string `json:"favorited_at"`   // 收藏时间
+	VipLevel     int16  `json:"vip_level"`      // 所需会员等级
+	IsVipContent bool   `json:"is_vip_content"` // 是否VIP内容
+	FavoriteType string `json:"favorite_type"`  // 收藏类型
+}
+
+// FavoriteListResp 收藏列表响应
+type FavoriteListResp struct {
+	Total    int64              `json:"total"`
+	List     []FavoriteListItem `json:"list"`
+	Page     int32              `json:"page"`
+	PageSize int32              `json:"page_size"`
+}
+
 // PlaylistCreateReq 创建歌单请求
 type PlaylistCreateReq struct {
-	Name        string `json:"name" form:"name"`               // 歌单名称（必填）
-	Description string `json:"description" form:"description"` // 歌单描述（可选）
+	Name        string `json:"name" form:"name"`               // 歌单名称（必填，1-100字符）
+	Description string `json:"description" form:"description"` // 歌单描述（可选，最多500字符）
 	CoverURL    string `json:"cover_url" form:"cover_url"`     // 封面图片URL（可选）
+	IsPublic    *bool  `json:"is_public" form:"is_public"`     // 权限类型：true=公开(默认), false=私密
 }
 
 // PlaylistCreateResp 创建歌单响应
 type PlaylistCreateResp struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	CoverURL    string `json:"cover_url"`
-	SongCount   int    `json:"song_count"`
-	CreatedAt   string `json:"created_at"`
+	ID          int64  `json:"id"`          // 歌单ID
+	Name        string `json:"name"`        // 歌单名称
+	Description string `json:"description"` // 歌单描述
+	CoverURL    string `json:"cover_url"`   // 封面图片URL
+	SongCount   int    `json:"song_count"`  // 歌曲数量
+	IsPublic    bool   `json:"is_public"`   // 是否公开
+	UserID      int64  `json:"user_id"`     // 创建人ID
+	CreatedAt   string `json:"created_at"`  // 创建时间
+	UpdatedAt   string `json:"updated_at"`  // 更新时间
 }
 
 // PlaylistAddSongReq 添加歌曲到歌单请求
@@ -929,4 +970,95 @@ type QQMusicFavoriteListResp struct {
 	Limit  int                    `json:"limit"`
 	Offset int                    `json:"offset"`
 	Items  []QQMusicFavoriteTrack `json:"items"`
+}
+
+// ========== 设备歌曲下载相关类型 ==========
+
+// DeviceSongDownloadReq 设备歌曲下载请求
+// 用户通过前端点击下载按钮，将歌曲下载到指定设备
+type DeviceSongDownloadReq struct {
+	Sn        string `json:"sn" validate:"required"`         // 目标设备序列号（16位）
+	ContentID int64  `json:"content_id" validate:"required"` // 内容ID（对应content表）
+}
+
+// DeviceSongDownloadResp 设备歌曲下载响应
+type DeviceSongDownloadResp struct {
+	TaskID    string `json:"task_id"`    // 任务ID（用于追踪）
+	ContentID int64  `json:"content_id"` // 内容ID
+	DeviceSN  string `json:"device_sn"`  // 设备SN
+	Status    string `json:"status"`     // 状态：pending/sent/failed
+	Message   string `json:"message"`    // 提示信息
+}
+
+// DeviceDownloadCallbackReq 设备下载回调请求（设备微服务→内容微服务）
+// 设备下载完成后，设备微服务调用此接口通知结果
+type DeviceDownloadCallbackReq struct {
+	TaskID     string  `json:"task_id" validate:"required"`    // 任务ID
+	DeviceSN   string  `json:"device_sn" validate:"required"`  // 设备SN
+	ContentID  int64   `json:"content_id" validate:"required"` // 内容ID
+	Status     string  `json:"status" validate:"required"`     // 状态：success/fail
+	ErrorMsg   string  `json:"error_msg,omitempty"`            // 错误原因（失败时必填）
+	LocalPath  string  `json:"local_path,omitempty"`           // 本地存储路径（成功时返回）
+	FileSize   int64   `json:"file_size,omitempty"`            // 文件大小（字节）
+	DurationMs int64   `json:"duration_ms,omitempty"`          // 下载耗时（毫秒）
+	Progress   float64 `json:"progress,omitempty"`             // 进度百分比（0-100，可选）
+}
+
+// DeviceDownloadCallbackResp 设备下载回调响应
+type DeviceDownloadCallbackResp struct {
+	Success bool   `json:"success"` // 是否成功
+	Message string `json:"message"` // 消息
+}
+
+// DeviceDownloadStatusQueryReq 查询设备下载状态请求
+type DeviceDownloadStatusQueryReq struct {
+	TaskID string `form:"task_id" validate:"required"` // 任务ID
+}
+
+// DeviceDownloadStatusQueryResp 查询设备下载状态响应
+type DeviceDownloadStatusQueryResp struct {
+	TaskID     string  `json:"task_id"`               // 任务ID
+	ContentID  int64   `json:"content_id"`            // 内容ID
+	SongName   string  `json:"song_name"`             // 歌曲名称
+	DeviceSN   string  `json:"device_sn"`             // 设备SN
+	Status     string  `json:"status"`                // pending/downloading/success/failed/cancelled
+	Progress   float64 `json:"progress"`              // 进度百分比（0-100）
+	Message    string  `json:"message"`               // 状态描述
+	CreatedAt  string  `json:"created_at"`            // 创建时间
+	UpdatedAt  string  `json:"updated_at"`            // 最后更新时间
+	FinishedAt string  `json:"finished_at,omitempty"` // 完成时间
+}
+
+// DeviceDownloadListReq 设备下载历史列表请求
+type DeviceDownloadListReq struct {
+	Page     int32  `form:"page"`                // 页码（默认1）
+	PageSize int32  `form:"page_size"`           // 每页数量（默认20，最大50）
+	DeviceSN string `form:"sn,omitempty"`        // 设备SN过滤（可选）
+	Status   string `form:"status,omitempty"`    // 状态过滤（可选：pending/downloading/success/failed）
+	SongName string `form:"song_name,omitempty"` // 歌曲名称模糊查询（可选）
+	Artist   string `form:"artist,omitempty"`    // 艺术家模糊查询（可选）
+}
+
+// DeviceDownloadListItem 设备下载列表（device_song_downloads ∪ user_downloads + content / 统计）
+type DeviceDownloadListItem struct {
+	DownloadID   int64  `json:"download_id"`             // 下载记录ID（主键）
+	ContentID    int64  `json:"content_id"`              // 歌曲ID
+	SongName     string `json:"song_name"`               // 歌曲名
+	Artist       string `json:"artist"`                  // 歌手名称
+	CoverURL     string `json:"cover_url,omitempty"`     // 封面图地址
+	DurationSec  int    `json:"duration"`                // 时长（秒）
+	Status       string `json:"status"`                  // 下载状态（success/failed/downloading）
+	LocalPath    string `json:"local_path,omitempty"`    // 设备本地存储路径
+	FileSize     int64  `json:"file_size"`               // 文件大小（字节）
+	ErrorMsg     string `json:"error_msg,omitempty"`     // 错误信息
+	DownloadTime string `json:"download_time,omitempty"` // 最后下载时间
+}
+
+// DeviceDownloadListResp 设备下载列表响应
+type DeviceDownloadListResp struct {
+	Total      int64                    `json:"total"`       // 总记录数
+	List       []DeviceDownloadListItem `json:"list"`        // 当前页数据
+	Page       int32                    `json:"page"`        // 当前页码
+	PageSize   int32                    `json:"page_size"`   // 每页数量
+	TotalPages int32                    `json:"total_pages"` // 总页数
 }

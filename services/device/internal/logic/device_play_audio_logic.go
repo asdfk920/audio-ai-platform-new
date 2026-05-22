@@ -40,6 +40,11 @@ func (l *DevicePlayAudioLogic) DevicePlayAudio(req *types.DevicePlayAudioReq) (*
 		return nil, fmt.Errorf("请先登录")
 	}
 
+	// sn 优先；兼容 JSON 字段 device_sn
+	if strings.TrimSpace(req.Sn) == "" && strings.TrimSpace(req.DeviceSn) != "" {
+		req.Sn = req.DeviceSn
+	}
+
 	if err := validateDevicePlayAudioReq(req); err != nil {
 		return nil, fmt.Errorf("参数校验失败: %v", err)
 	}

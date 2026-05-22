@@ -129,6 +129,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: contentPlaylistAddSongHandler(serverCtx),
 			},
 			{
+				// 订阅艺术家（必须登录；须写在 /:id/subscribe 之前，否则 artists 会被当成 content id）
+				Method:  http.MethodPost,
+				Path:    "/artists/subscribe",
+				Handler: artistSubscribeHandler(serverCtx),
+			},
+			{
+				// 取消订阅艺术家（必须登录）
+				Method:  http.MethodPost,
+				Path:    "/artists/unsubscribe",
+				Handler: artistUnsubscribeHandler(serverCtx),
+			},
+			{
 				// 订阅音频（必须登录）
 				Method:  http.MethodPost,
 				Path:    "/:id/subscribe",
@@ -217,6 +229,42 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/:id/like",
 				Handler: contentLikeHandler(serverCtx),
+			},
+			{
+				// 收藏（必须登录，若已收藏则返回提示）
+				Method:  http.MethodPost,
+				Path:    "/:id/favorite",
+				Handler: contentFavoriteHandler(serverCtx),
+			},
+			{
+				// 取消收藏（必须登录，若未收藏则返回提示）
+				Method:  http.MethodDelete,
+				Path:    "/:id/favorite",
+				Handler: contentUnfavoriteHandler(serverCtx),
+			},
+			{
+				// 设备歌曲下载（必须登录，创建记录并调用设备服务下发指令）
+				Method:  http.MethodPost,
+				Path:    "/device/download",
+				Handler: deviceSongDownloadHandler(serverCtx),
+			},
+			{
+				// 设备下载回调（设备微服务调用，更新下载结果）
+				Method:  http.MethodPost,
+				Path:    "/device/download/callback",
+				Handler: deviceDownloadCallbackHandler(serverCtx),
+			},
+			{
+				// 查询设备下载状态（必须登录）
+				Method:  http.MethodGet,
+				Path:    "/device/download/status",
+				Handler: deviceDownloadStatusHandler(serverCtx),
+			},
+			{
+				// 设备下载历史列表（必须登录）
+				Method:  http.MethodGet,
+				Path:    "/device/downloads",
+				Handler: deviceDownloadListHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/content"),

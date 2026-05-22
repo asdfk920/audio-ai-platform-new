@@ -106,26 +106,21 @@ VALUES ($1, $2, $3, $4, 0, 1, 1, CURRENT_TIMESTAMP)
 }
 
 // UpsertBind 插入或更新绑定记录（支持重新绑定已解绑的设备）
-// 解决唯一约束冲突问题：用户解绑后可再次绑定同一设备
 func (r *UserDeviceBindRepo) UpsertBind(ctx context.Context, userID, deviceID int64, sn, deviceName string) error {
-	alias := deviceName
-	if len([]rune(alias)) > 32 {
-		alias = string([]rune(deviceName)[:32])
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
 	}
-	_, err := r.db.ExecContext(ctx, `
-INSERT INTO public.user_device_bind
-  (user_id, device_id, sn, alias, is_default, bind_type, status, bound_at)
-VALUES ($1, $2, $3, $4, 0, 1, 1, CURRENT_TIMESTAMP)
-ON CONFLICT (user_id, device_id)
-DO UPDATE SET
-    sn = EXCLUDED.sn,
-    alias = EXCLUDED.alias,
-    status = 1,
-    bound_at = CURRENT_TIMESTAMP,
-    unbound_at = NULL,
-    updated_at = CURRENT_TIMESTAMP
-`, userID, deviceID, sn, alias)
-	return err
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+	if ierr := bindUpsertInTx(ctx, tx, userID, deviceID, sn, deviceName); ierr != nil {
+		err = ierr
+		return err
+	}
+	return tx.Commit()
 }
 
 // UnbindForUser 将当前用户对某设备的活跃绑定标记为解绑（status=0，不删行）。
@@ -224,26 +219,8 @@ func (r *UserDeviceBindRepo) BindDeviceWithTransaction(ctx context.Context, user
 		}
 	}()
 
-	alias := deviceName
-	if len([]rune(alias)) > 32 {
-		alias = string([]rune(deviceName)[:32])
-	}
-
-	_, err = tx.ExecContext(ctx, `
-INSERT INTO public.user_device_bind
-  (user_id, device_id, sn, alias, is_default, bind_type, status, bound_at)
-VALUES ($1, $2, $3, $4, 0, 1, 1, CURRENT_TIMESTAMP)
-ON CONFLICT (user_id, device_id)
-DO UPDATE SET
-    sn = EXCLUDED.sn,
-    alias = EXCLUDED.alias,
-    status = 1,
-    bound_at = CURRENT_TIMESTAMP,
-    unbound_at = NULL,
-    updated_at = CURRENT_TIMESTAMP
-`, userID, deviceID, sn, alias)
-
-	if err != nil {
+	if ierr := bindUpsertInTx(ctx, tx, userID, deviceID, sn, deviceName); ierr != nil {
+		err = ierr
 		return err
 	}
 
@@ -261,6 +238,43 @@ UPDATE public.device
 	}
 
 	return tx.Commit()
+}
+
+// bindUpsertInTx 先按 (user_id, device_id) 复活历史行（解绑后 status=0），否则插入。
+// 不使用 ON CONFLICT：部分库未建好 uk_user_device_bind 时会报 42P10，导致「解绑后无法再绑定」。
+func bindUpsertInTx(ctx context.Context, tx *sql.Tx, userID, deviceID int64, sn, deviceName string) error {
+	alias := deviceName
+	if len([]rune(alias)) > 32 {
+		alias = string([]rune(deviceName)[:32])
+	}
+
+	res, err := tx.ExecContext(ctx, `
+UPDATE public.user_device_bind
+   SET sn = $3,
+       alias = $4,
+       status = 1,
+       bound_at = CURRENT_TIMESTAMP,
+       unbound_at = NULL,
+       updated_at = CURRENT_TIMESTAMP
+ WHERE user_id = $1 AND device_id = $2
+`, userID, deviceID, sn, alias)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+
+	_, err = tx.ExecContext(ctx, `
+INSERT INTO public.user_device_bind
+  (user_id, device_id, sn, alias, is_default, bind_type, status, bound_at)
+VALUES ($1, $2, $3, $4, 0, 1, 1, CURRENT_TIMESTAMP)
+`, userID, deviceID, sn, alias)
+	return err
 }
 
 // ListActiveByUserID 用户当前绑定中的设备列表；nameSub/snSub/modelSub 非空时在库内做子串匹配（AND）。

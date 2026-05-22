@@ -35,6 +35,15 @@ type ServiceContext struct {
 	DeviceRegister     *repository.DeviceRegisterRepo
 	DeviceShadowRepo   *repository.DeviceShadowRepo
 
+	// DeviceSongDownloadRepo 设备歌曲下载记录仓储
+	DeviceSongDownloadRepo *repository.DeviceSongDownloadRepo
+
+	// ContentDownloadStatsRepo 内容下载统计仓储
+	ContentDownloadStatsRepo *repository.ContentDownloadStatsRepo
+
+	// UserDownloadsRepo 用户下载记录仓储
+	UserDownloadsRepo *repository.UserDownloadsRepo
+
 	// HeartbeatMonitor 心跳超时检测定时任务（双重保障机制）
 	HeartbeatMonitor *heartbeat.HeartbeatMonitor
 
@@ -67,17 +76,27 @@ func NewServiceContext(c config.Config, db *sql.DB, rdb *redis.Client) *ServiceC
 	)
 
 	svcCtx := &ServiceContext{
-		Config:              c,
-		DB:                  db,
-		Redis:               rdb,
-		DeviceRepo:          deviceRepo,
-		UserDeviceBindRepo:  repository.NewUserDeviceBindRepo(db),
-		PlaylistRepo:        repository.NewPlaylistRepo(db),
-		PlaylistItemRepo:    repository.NewPlaylistItemRepo(db),
-		AudioResourceRepo:   repository.NewAudioResourceRepo(db),
-		ContentFileRepo:     repository.NewContentFileRepo(db),
-		DeviceRegister:      repository.NewDeviceRegisterRepo(db),
-		DeviceShadowRepo:    repository.NewDeviceShadowRepo(db),
+		Config:             c,
+		DB:                 db,
+		Redis:              rdb,
+		DeviceRepo:         deviceRepo,
+		UserDeviceBindRepo: repository.NewUserDeviceBindRepo(db),
+		PlaylistRepo:       repository.NewPlaylistRepo(db),
+		PlaylistItemRepo:   repository.NewPlaylistItemRepo(db),
+		AudioResourceRepo:  repository.NewAudioResourceRepo(db),
+		ContentFileRepo:    repository.NewContentFileRepo(db),
+		DeviceRegister:     repository.NewDeviceRegisterRepo(db),
+		DeviceShadowRepo:   repository.NewDeviceShadowRepo(db),
+
+		// DeviceSongDownloadRepo 设备歌曲下载记录仓储
+		DeviceSongDownloadRepo: repository.NewDeviceSongDownloadRepo(db),
+
+		// ContentDownloadStatsRepo 内容下载统计仓储
+		ContentDownloadStatsRepo: repository.NewContentDownloadStatsRepo(db),
+
+		// UserDownloadsRepo 用户下载记录仓储
+		UserDownloadsRepo: repository.NewUserDownloadsRepo(db),
+
 		HeartbeatMonitor:    heartbeatMonitor,
 		RegisterTrustedNets: trusted,
 	}

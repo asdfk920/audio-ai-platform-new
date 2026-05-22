@@ -109,6 +109,12 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 			Path:    "/api/device/cmd/play_audio",
 			Handler: devicePlayAudioHandler(svcCtx),
 		})
+		// OpenAPI/BasePath /api/v1 下的别名路径（与同 handler 完全一致）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/v1/device/play/audio",
+			Handler: devicePlayAudioHandler(svcCtx),
+		})
 		// 进度条跳转（command_code=seek）
 		routes = append(routes, rest.Route{
 			Method:  http.MethodPost,
@@ -192,6 +198,38 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 			Method:  http.MethodPost,
 			Path:    "/api/device/diagnose",
 			Handler: deviceDiagnoseHandler(svcCtx),
+		})
+		// 歌曲下载接口（用户通过前端发起下载请求，后端下发指令到设备，需 JWT 鉴权）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/v1/song/download",
+			Handler: SongDownloadHandler(svcCtx),
+		})
+
+		// ========== 设备下载完整流程接口（端口8002） ==========
+		// 设备下载接口（用户点击下载按钮，创建记录并下发指令到设备，需 JWT 鉴权）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/v1/device/download",
+			Handler: DeviceDownloadHandler(svcCtx),
+		})
+		// 设备下载回调接口（设备下载完成后上报结果）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/v1/device/download/callback",
+			Handler: DeviceDownloadCallbackHandler(svcCtx),
+		})
+		// 查询设备下载状态（需 JWT 鉴权）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/api/v1/device/download/status",
+			Handler: DeviceDownloadStatusHandler(svcCtx),
+		})
+		// 设备下载历史列表（需 JWT 鉴权）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/api/v1/device/downloads",
+			Handler: DeviceDownloadListHandler(svcCtx),
 		})
 	}
 	server.AddRoutes(routes)

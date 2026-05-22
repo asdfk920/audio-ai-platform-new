@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jacklau/audio-ai-platform/common/httpresp"
+	"github.com/jacklau/audio-ai-platform/services/content/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/pkg/util/auth"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/content/internal/types"
@@ -999,9 +1000,9 @@ func downloadCompleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		svcCtx.DB.Table("content_download_stats").
 			Where("content_id = ?", req.ContentID).
 			Updates(map[string]interface{}{
-				"total_downloads":    gorm.Expr("COALESCE(total_downloads, 0) + 0"),
-				"last_download_time": now,
-				"updated_at":         now,
+				"total_downloads":  gorm.Expr("COALESCE(total_downloads, 0) + 0"),
+				"last_download_at": now,
+				"updated_at":       now,
 			})
 
 		logx.Infof("确认下载完成: userID=%d, contentID=%d, recordID=%d, fileSize=%d",
@@ -1021,11 +1022,11 @@ func recordDownloadEvent(svcCtx *svc.ServiceContext, userID, contentID int64, ti
 	svcCtx.DB.Table("content_download_stats").
 		Where("content_id = ?", contentID).
 		Updates(map[string]interface{}{
-			"total_downloads":    gorm.Expr("COALESCE(total_downloads, 0) + 1"),
-			"today_downloads":    gorm.Expr("COALESCE(today_downloads, 0) + 1"),
-			"week_downloads":     gorm.Expr("COALESCE(week_downloads, 0) + 1"),
-			"last_download_time": time.Now(),
-			"updated_at":         time.Now(),
+			"total_downloads":  gorm.Expr("COALESCE(total_downloads, 0) + 1"),
+			"today_downloads":  gorm.Expr("COALESCE(today_downloads, 0) + 1"),
+			"week_downloads":   gorm.Expr("COALESCE(week_downloads, 0) + 1"),
+			"last_download_at": time.Now(),
+			"updated_at":       time.Now(),
 		})
 
 	var existingCount int64
@@ -1059,6 +1060,7 @@ func recordDownloadEvent(svcCtx *svc.ServiceContext, userID, contentID int64, ti
 // contentLikeHandler 点赞/取消点赞处理器
 // POST /api/v1/content/:id/like
 // 必须登录，切换点赞状态（已点赞则取消，未点赞则点赞）
+// 优化版本：使用事务保证数据一致性，业务逻辑抽取到Logic层
 func contentLikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -1085,85 +1087,28 @@ func contentLikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		var content struct {
-			ID        int64
-			Title     string
-			Status    int16
-			IsDeleted int16
-		}
-		err = svcCtx.DB.Table("content").
-			Select("id, title, status, is_deleted").
-			Where("id = ? AND status = 1 AND is_deleted = 0", contentID).
-			First(&content).Error
+		logx.Infof("[Like Handler] 收到请求: userID=%d, contentID=%d", bearerCtx.UserID, contentID)
+
+		l := logic.NewContentLikeLogic(r.Context(), svcCtx)
+		resp, err := l.ToggleLike(contentID, bearerCtx.UserID)
+
 		if err != nil {
-			logx.Errorf("查询内容失败: %v", err)
-			httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), "歌曲不存在或已下架"), nil)
+			logx.Errorf("[Like Handler] 处理失败: error=%v", err)
+
+			switch err.Error() {
+			case "歌曲不存在或已下架":
+				httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), err.Error()), nil)
+			case "用户未登录":
+				httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), err.Error()), nil)
+			default:
+				httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), err.Error()), nil)
+			}
 			return
 		}
 
-		var likeRecord struct {
-			ID int64
-		}
-		likeErr := svcCtx.DB.Table("user_likes").
-			Select("id").
-			Where("user_id = ? AND content_id = ?", bearerCtx.UserID, contentID).
-			First(&likeRecord).Error
+		logx.Infof("[Like Handler] ✅ 处理成功: liked=%v, likeCount=%d", resp.Liked, resp.LikeCount)
 
-		isLiked := likeErr == nil && likeRecord.ID > 0
-
-		if isLiked {
-			deleteResult := svcCtx.DB.Table("user_likes").
-				Where("user_id = ? AND content_id = ?", bearerCtx.UserID, contentID).
-				Delete(&struct{}{})
-			if deleteResult.Error != nil {
-				logx.Errorf("取消点赞失败: %v", deleteResult.Error)
-				httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "取消点赞失败"), nil)
-				return
-			}
-
-			svcCtx.DB.Table("content").
-				Where("id = ?", contentID).
-				Update("like_count", gorm.Expr("GREATEST(like_count - 1, 0)"))
-
-			logx.Infof("取消点赞: userID=%d, contentID=%d, title=%s", bearerCtx.UserID, contentID, content.Title)
-
-			var likeCount int64
-			svcCtx.DB.Table("content").Select("like_count").Where("id = ?", contentID).Scan(&likeCount)
-
-			httpresp.WriteSuccessMsg(w, "取消点赞成功", map[string]interface{}{
-				"success":    true,
-				"message":    "取消点赞成功",
-				"liked":      false,
-				"like_count": likeCount,
-			})
-		} else {
-			createResult := svcCtx.DB.Table("user_likes").Create(map[string]interface{}{
-				"user_id":    bearerCtx.UserID,
-				"content_id": contentID,
-				"created_at": time.Now(),
-			})
-			if createResult.Error != nil {
-				logx.Errorf("点赞失败: %v", createResult.Error)
-				httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "点赞失败"), nil)
-				return
-			}
-
-			svcCtx.DB.Table("content").
-				Where("id = ?", contentID).
-				Update("like_count", gorm.Expr("COALESCE(like_count, 0) + 1"))
-
-			logx.Infof("点赞成功: userID=%d, contentID=%d, title=%s", bearerCtx.UserID, contentID, content.Title)
-
-			var likeCount int64
-			svcCtx.DB.Table("content").Select("like_count").Where("id = ?", contentID).Scan(&likeCount)
-
-			httpresp.WriteSuccessMsg(w, "点赞成功", map[string]interface{}{
-				"success":    true,
-				"message":    "点赞成功",
-				"liked":      true,
-				"like_count": likeCount,
-			})
-		}
+		httpresp.WriteSuccessMsg(w, resp.Message, resp)
 	}
 }
 
@@ -1272,6 +1217,7 @@ func contentLikeListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 // contentPlaylistCreateHandler 创建歌单处理器
 // POST /api/v1/content/playlists
 // 必须登录，创建用户歌单
+// 优化版本：支持权限类型（公开/私密）、名称去重检查、详细日志
 func contentPlaylistCreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -1299,86 +1245,42 @@ func contentPlaylistCreateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			req.Name = r.FormValue("name")
 			req.Description = r.FormValue("description")
 			req.CoverURL = r.FormValue("cover_url")
+
+			isPublicStr := r.FormValue("is_public")
+			if isPublicStr == "true" || isPublicStr == "1" {
+				isPublic := true
+				req.IsPublic = &isPublic
+			} else if isPublicStr == "false" || isPublicStr == "0" {
+				isPublic := false
+				req.IsPublic = &isPublic
+			}
 		}
 
-		name := strings.TrimSpace(req.Name)
-		if name == "" {
-			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单名称不能为空"), nil)
+		logx.Infof("[Playlist Create Handler] 收到请求: userID=%d, name=%s", bearerCtx.UserID, req.Name)
+
+		l := logic.NewPlaylistCreateLogic(r.Context(), svcCtx)
+		resp, err := l.Create(&req, bearerCtx.UserID)
+
+		if err != nil {
+			logx.Errorf("[Playlist Create Handler] 处理失败: error=%v", err)
+
+			errMsg := err.Error()
+			switch {
+			case strings.Contains(errMsg, "未登录"):
+				httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), errMsg), nil)
+			case strings.Contains(errMsg, "不能为空") || strings.Contains(errMsg, "长度必须在") || strings.Contains(errMsg, "不能超过"):
+				httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), errMsg), nil)
+			case strings.Contains(errMsg, "已达到最大"):
+				httpresp.Write(w, http.StatusForbidden, httpresp.WithDetail(httpresp.MsgForbidden, errMsg), nil)
+			default:
+				httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), errMsg), nil)
+			}
 			return
 		}
 
-		if len(name) < 1 || len(name) > 100 {
-			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "歌单名称长度必须在1-100个字符之间"), nil)
-			return
-		}
+		logx.Infof("[Playlist Create Handler] ✅ 处理成功: playlistID=%d, name=%s", resp.ID, resp.Name)
 
-		var playlistCount int64
-		svcCtx.DB.Table("playlists").
-			Where("user_id = ? AND deleted_at IS NULL", bearerCtx.UserID).
-			Count(&playlistCount)
-
-		const maxPlaylists = 100
-		if playlistCount >= maxPlaylists {
-			httpresp.Write(w, http.StatusForbidden, httpresp.WithDetail(httpresp.MsgForbidden, fmt.Sprintf("已达到最大歌单数量限制（%d个）", maxPlaylists)), nil)
-			return
-		}
-
-		description := strings.TrimSpace(req.Description)
-		coverURL := strings.TrimSpace(req.CoverURL)
-		if coverURL == "" {
-			coverURL = "/static/default-playlist-cover.png"
-		}
-
-		now := time.Now()
-		playlist := struct {
-			ID          int64
-			Name        string
-			Description string
-			CoverURL    string
-			SongCount   int
-			CreatedAt   time.Time
-		}{
-			Name:        name,
-			Description: description,
-			CoverURL:    coverURL,
-			SongCount:   0,
-			CreatedAt:   now,
-		}
-
-		result := svcCtx.DB.Table("playlists").Create(map[string]interface{}{
-			"user_id":     bearerCtx.UserID,
-			"name":        name,
-			"description": description,
-			"cover_url":   coverURL,
-			"song_count":  0,
-			"is_public":   1,
-			"status":      1,
-			"created_at":  now,
-			"updated_at":  now,
-		})
-
-		if result.Error != nil {
-			logx.Errorf("创建歌单失败: %v", result.Error)
-			httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), "创建歌单失败"), nil)
-			return
-		}
-
-		svcCtx.DB.Table("playlists").
-			Select("id, name, description, cover_url, song_count, created_at").
-			Where("id = ?", result.RowsAffected).
-			First(&playlist)
-
-		logx.Infof("创建歌单成功: userID=%d, playlistID=%d, name=%s",
-			bearerCtx.UserID, playlist.ID, playlist.Name)
-
-		httpresp.WriteSuccess(w, map[string]interface{}{
-			"id":          playlist.ID,
-			"name":        playlist.Name,
-			"description": playlist.Description,
-			"cover_url":   playlist.CoverURL,
-			"song_count":  playlist.SongCount,
-			"created_at":  playlist.CreatedAt.Format("2006-01-02 15:04:05"),
-		})
+		httpresp.WriteSuccess(w, resp)
 	}
 }
 
@@ -2776,5 +2678,122 @@ func contentDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			"title":      content.Title,
 			"deleted_at": now.Format("2006-01-02 15:04:05"),
 		})
+	}
+}
+
+// POST /api/v1/content/:id/favorite
+// 必须登录，添加收藏（若已收藏则返回提示）
+func contentFavoriteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 POST"), nil)
+			return
+		}
+
+		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
+		if bearerCtx.UserID <= 0 {
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
+			return
+		}
+
+		path := r.URL.Path
+		parts := strings.Split(strings.Trim(path, "/"), "/")
+		if len(parts) < 4 {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空"), nil)
+			return
+		}
+
+		contentID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
+		if err != nil || contentID <= 0 {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 格式错误"), nil)
+			return
+		}
+
+		var req types.ContentFavoriteReq
+		if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+			body, _ := io.ReadAll(r.Body)
+			json.Unmarshal(body, &req)
+		} else {
+			r.ParseForm()
+			req.FavoriteType = r.FormValue("favorite_type")
+		}
+
+		logx.Infof("[Favorite Handler] 收到收藏请求: userID=%d, contentID=%d, type=%s",
+			bearerCtx.UserID, contentID, req.FavoriteType)
+
+		l := logic.NewContentFavoriteLogic(r.Context(), svcCtx)
+		resp, err := l.AddFavorite(contentID, bearerCtx.UserID, req.FavoriteType)
+
+		if err != nil {
+			logx.Errorf("[Favorite Handler] 处理失败: error=%v", err)
+
+			switch err.Error() {
+			case "歌曲不存在或已下架":
+				httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), err.Error()), nil)
+			case "用户未登录":
+				httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), err.Error()), nil)
+			default:
+				httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), err.Error()), nil)
+			}
+			return
+		}
+
+		logx.Infof("[Favorite Handler] ✅ 处理成功: favorited=%v, favoriteCount=%d", resp.Favorited, resp.FavoriteCount)
+
+		httpresp.WriteSuccessMsg(w, resp.Message, resp)
+	}
+}
+
+// DELETE /api/v1/content/:id/favorite
+// 必须登录，取消收藏（若未收藏则返回提示）
+func contentUnfavoriteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			httpresp.Write(w, http.StatusMethodNotAllowed, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusMethodNotAllowed), "仅支持 DELETE"), nil)
+			return
+		}
+
+		bearerCtx := auth.ParseBearer(r, svcCtx.Config.Auth.AccessSecret)
+		if bearerCtx.UserID <= 0 {
+			httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), "请先登录"), nil)
+			return
+		}
+
+		path := r.URL.Path
+		parts := strings.Split(strings.Trim(path, "/"), "/")
+		if len(parts) < 4 {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空"), nil)
+			return
+		}
+
+		contentID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
+		if err != nil || contentID <= 0 {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 格式错误"), nil)
+			return
+		}
+
+		logx.Infof("[Unfavorite Handler] 收到取消收藏请求: userID=%d, contentID=%d",
+			bearerCtx.UserID, contentID)
+
+		l := logic.NewContentFavoriteLogic(r.Context(), svcCtx)
+		resp, err := l.RemoveFavorite(contentID, bearerCtx.UserID)
+
+		if err != nil {
+			logx.Errorf("[Unfavorite Handler] 处理失败: error=%v", err)
+
+			switch err.Error() {
+			case "歌曲不存在":
+				httpresp.Write(w, http.StatusNotFound, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusNotFound), err.Error()), nil)
+			case "用户未登录":
+				httpresp.Write(w, http.StatusUnauthorized, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusUnauthorized), err.Error()), nil)
+			default:
+				httpresp.Write(w, http.StatusInternalServerError, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusInternalServerError), err.Error()), nil)
+			}
+			return
+		}
+
+		logx.Infof("[Unfavorite Handler] ✅ 处理成功: favorited=%v, favoriteCount=%d", resp.Favorited, resp.FavoriteCount)
+
+		httpresp.WriteSuccessMsg(w, resp.Message, resp)
 	}
 }

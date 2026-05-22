@@ -373,13 +373,13 @@ func (l *ContentDownloadLogic) updateDownloadStats(contentID int64, downloadTime
 	}
 
 	l.svcCtx.DB.Exec(`
-		INSERT INTO content_download_stats (content_id, total_downloads, today_downloads, week_downloads, last_download_time, updated_at)
-		VALUES (?, 1, 1, 1, ?, NOW())
+		INSERT INTO content_download_stats (content_id, total_downloads, today_downloads, week_downloads, last_download_at, created_at, updated_at)
+		VALUES (?, 1, 1, 1, ?, NOW(), NOW())
 		ON CONFLICT (content_id) DO UPDATE SET
 			total_downloads = content_download_stats.total_downloads + 1,
 			today_downloads = content_download_stats.today_downloads + 1,
 			week_downloads = content_download_stats.week_downloads + 1,
-			last_download_time = EXCLUDED.last_download_time,
+			last_download_at = EXCLUDED.last_download_at,
 			updated_at = NOW()
 	`, contentID, downloadTime)
 }

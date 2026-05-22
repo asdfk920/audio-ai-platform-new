@@ -30,6 +30,7 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/handler"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/logic"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/rabbitmq"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/redisexpire"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/shadowsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/statuspersist"
@@ -143,8 +144,9 @@ func main() {
 	defer bgStop()
 	if rdb != nil {
 		logic.SetWsRelayRedis(rdb)
-		go logic.StartWsRelaySubscriber(bgCtx)
+		go logic.StartWsRelaySubscriber(bgCtx, rdb)
 	}
+	startRabbitMQConsumer(bgCtx, ctx)
 	startCommandWorker(bgCtx, ctx)
 
 	var persist *statuspersist.Pool
@@ -226,6 +228,29 @@ func postgresLogTarget(dsn string) string {
 		db = db[:i]
 	}
 	return u.Host + "/" + db
+}
+
+// startRabbitMQConsumer 启动 RabbitMQ 订阅：仅当配置了 URL 并成功 Connect 后才消费队列并走 ProcessCommandFromQueue → WebSocket。
+// 若不启动消费者，仅靠 Publish 会令指令永远在队列里，设备的 WS 永远不会收到 MQTT 侧的异步指令。
+func startRabbitMQConsumer(ctx context.Context, svcCtx *svc.ServiceContext) {
+	if svcCtx == nil || svcCtx.RabbitMQMgr == nil {
+		return
+	}
+	if err := svcCtx.InitRabbitMQ(); err != nil {
+		logx.Errorf("[device] RabbitMQ 连接失败（将仅同步 WebSocket 下发）: %v", err)
+		return
+	}
+	cmdSvc := commandsvc.New(svcCtx)
+	handler := rabbitmq.CommandHandler(func(c context.Context, m *rabbitmq.CommandMessage) error {
+		return cmdSvc.ProcessCommandFromQueue(c, m)
+	})
+	cons := rabbitmq.NewConsumer(svcCtx.RabbitMQMgr, handler, nil)
+	go func() {
+		if err := cons.Start(ctx); err != nil && err != context.Canceled {
+			logx.Errorf("[device] RabbitMQ consumer 退出: %v", err)
+		}
+	}()
+	logx.Infof("[device] RabbitMQ 指令消费者已在后台启动")
 }
 
 func startCommandWorker(ctx context.Context, svcCtx *svc.ServiceContext) {

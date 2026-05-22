@@ -190,7 +190,11 @@ type ScheduleListFilter struct {
 }
 
 func New(svcCtx *svc.ServiceContext) *Service {
-	return &Service{svcCtx: svcCtx}
+	s := &Service{svcCtx: svcCtx}
+	if svcCtx != nil {
+		s.rabbitMQMgr = svcCtx.RabbitMQMgr
+	}
+	return s
 }
 
 func (s *Service) CreateImmediateInstructionFromDesired(ctx context.Context, in CreateImmediateInstructionInput) (*CreateImmediateInstructionResult, error) {
@@ -278,7 +282,34 @@ RETURNING id`,
 		CommandCode:     commandCode,
 	}
 
-	if s.rabbitMQMgr != nil && s.rabbitMQMgr.IsConnected() {
+	// 1) 设备判在线时，优先即时经 WebSocket 下发（多副本依赖 SendCmd 内 Redis relay + Worker 兜底）
+	pushed := 0
+	if s.isDeviceOnline(ctx, in.DeviceSN) {
+		var dErr error
+		pushed, dErr = s.DispatchPendingInstructions(ctx, in.DeviceID, in.DeviceSN)
+		if dErr != nil {
+			logx.Errorf("commandsvc CreateImmediateInstruction: DispatchPendingInstructions err=%v", dErr)
+		}
+		if pushed == 0 {
+			time.Sleep(100 * time.Millisecond)
+			n2, dErr2 := s.DispatchPendingInstructions(ctx, in.DeviceID, in.DeviceSN)
+			if dErr2 != nil {
+				logx.Errorf("commandsvc CreateImmediateInstruction: retry Dispatch err=%v", dErr2)
+			} else {
+				pushed += n2
+			}
+		}
+	}
+
+	switch {
+	case pushed > 0:
+		result.Status = "dispatched"
+	default:
+		result.Status = "queued"
+	}
+
+	// 2) 仅在同步仍未送达时再入 RabbitMQ（需在 device 进程中启动 Consumer，否则会积压）
+	if pushed == 0 && s.rabbitMQMgr != nil && s.rabbitMQMgr.IsConnected() {
 		cmdMsg := &rabbitmq.CommandMessage{
 			MessageID:      uuid.New().String(),
 			InstructionID:  instructionID,
@@ -299,23 +330,11 @@ RETURNING id`,
 		}
 
 		if err := s.rabbitMQMgr.PublishCommand(ctx, cmdMsg); err != nil {
-			logx.Errorf("commandsvc: Failed to publish to RabbitMQ, fallback to sync mode: %v", err)
-			result.Status = "queued"
+			logx.Errorf("commandsvc: publish RabbitMQ failed (instruction stays pending for redrive/worker): %v", err)
 		} else {
 			result.Status = "queued_mq"
-			logx.Infof("commandsvc: Instruction published to RabbitMQ: id=%d, device_sn=%s, cmd=%s",
+			logx.Infof("commandsvc: Instruction async-queued RabbitMQ id=%d device_sn=%s cmd=%s",
 				instructionID, in.DeviceSN, commandCode)
-		}
-	} else if s.isDeviceOnline(ctx, in.DeviceSN) {
-		pushed, derr := s.DispatchPendingInstructions(ctx, in.DeviceID, in.DeviceSN)
-		if derr != nil {
-			logx.Errorf("commandsvc CreateImmediateInstruction: DispatchPendingInstructions err=%v", derr)
-		}
-		switch {
-		case pushed > 0:
-			result.Status = "dispatched"
-		default:
-			result.Status = "queued"
 		}
 	}
 	return result, nil

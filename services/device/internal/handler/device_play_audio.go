@@ -13,6 +13,7 @@ import (
 )
 
 // POST /api/device/cmd/play_audio
+// POST /api/v1/device/play/audio（同上）
 // 点播：创建 play_audio 指令并通过 WebSocket 下发（与同服务 pause/play 链路一致）。
 func devicePlayAudioHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return jwt.JwtMiddleware(svcCtx.Config.Auth.AccessSecret)(func(w http.ResponseWriter, r *http.Request) {

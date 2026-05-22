@@ -39,20 +39,30 @@ func relayPublishWsPush(ctx context.Context, deviceIDStr string, data interface{
 }
 
 // StartWsRelaySubscriber 在每个 device 实例上启动；收到消息后仅在本机 deviceConnMap 命中时投递。
-func StartWsRelaySubscriber(ctx context.Context) {
-	if wsRelayRedis == nil {
+// Pub/Sub 会占用 Redis 底层连接：使用独立 Client（与 Publish 共用同一 Addr/密码/DB），避免与指令 GET/SET 争用导致订阅异常。
+func StartWsRelaySubscriber(ctx context.Context, pub *redis.Client) {
+	if pub == nil {
 		return
 	}
 
-	sub := wsRelayRedis.Subscribe(ctx, wsRelayPubSubChannel)
+	o := pub.Options()
+	subCli := redis.NewClient(&redis.Options{
+		Addr:     o.Addr,
+		Password: o.Password,
+		DB:       o.DB,
+	})
+
 	go func() {
 		<-ctx.Done()
-		_ = sub.Close()
+		_ = subCli.Close()
 	}()
 
-	logx.Infof("ws relay: subscriber ready channel=%s", wsRelayPubSubChannel)
+	sub := subCli.Subscribe(ctx, wsRelayPubSubChannel)
 
-	for msg := range sub.Channel() {
+	logx.Infof("ws relay: subscriber ready channel=%s (dedicated Redis client)", wsRelayPubSubChannel)
+
+	ch := sub.Channel()
+	for msg := range ch {
 		if msg == nil {
 			continue
 		}
@@ -89,5 +99,6 @@ func StartWsRelaySubscriber(ctx context.Context) {
 		}
 	}
 
+	_ = sub.Close()
 	logx.Infof("ws relay: subscriber exited")
 }

@@ -74,6 +74,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: BindDeviceHandler(serverCtx),
 			},
 			{
+				// 解绑设备（body: sn）
+				Method:  http.MethodPost,
+				Path:    "/device/unbind",
+				Handler: UnbindDeviceHandler(serverCtx),
+			},
+			{
 				// 当前用户已绑定设备列表（支持查询参数筛选分页）
 				Method:  http.MethodGet,
 				Path:    "/device/list",

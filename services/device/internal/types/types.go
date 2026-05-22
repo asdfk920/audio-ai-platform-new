@@ -230,35 +230,36 @@ type DevicePauseResp struct {
 // DevicePlayAudioReq 点播/URL 播放（与 media-processing 点播参数对齐）
 // WebSocket 下行与暂停等指令一致：type=cmd，command_code=play_audio，payload 中包含以下业务字段。
 type DevicePlayAudioReq struct {
-	Sn        string  `json:"sn"`                       // 设备序列号（16 位）
-	ContentID int64   `json:"content_id"`               // 内容 ID（正整数）
-	AudioURL  string  `json:"audio_url"`                // 可播放音频 URL
-	StartPos  float64 `json:"start_pos,omitempty"`      // 起始进度（秒）
-	Volume    int     `json:"volume,omitempty"`         // 音量 0–100（0 或未传服务端按默认处理）
-	PlayMode  string  `json:"play_mode,omitempty"`      // sequential/list_loop/single_loop/random
+	Sn        string  `json:"sn"`                  // 设备序列号（16 位）；与 device_sn 二选一
+	DeviceSn  string  `json:"device_sn,omitempty"` // 同上，兼容 Apifox 等使用 device_sn 的客户端
+	ContentID int64   `json:"content_id"`          // 内容 ID（正整数）
+	AudioURL  string  `json:"audio_url"`           // 可播放音频 URL
+	StartPos  float64 `json:"start_pos,omitempty"` // 起始进度（秒）
+	Volume    int     `json:"volume,omitempty"`    // 音量 0–100（0 或未传服务端按默认处理）
+	PlayMode  string  `json:"play_mode,omitempty"` // sequential/list_loop/single_loop/random
 }
 
 // DevicePlayAudioResp 点播指令响应
 type DevicePlayAudioResp struct {
-	TaskID          string `json:"task_id"`          // 与设备侧载荷中的 task_id 一致，便于对账
-	InstructionID   int64  `json:"instruction_id"`   // 指令 ID
-	Status          string `json:"status"`           // delivered / queued / cached 等
-	Message         string `json:"message"`          // 人类可读提示
+	TaskID        string `json:"task_id"`        // 与设备侧载荷中的 task_id 一致，便于对账
+	InstructionID int64  `json:"instruction_id"` // 指令 ID
+	Status        string `json:"status"`         // delivered / queued / cached 等
+	Message       string `json:"message"`        // 人类可读提示
 }
 
 // DeviceSeekReq 进度条跳转（与 media-processing seek 对齐）
 type DeviceSeekReq struct {
-	Sn       string  `json:"sn"`               // 设备序列号（16 位）
-	Position float64 `json:"position"`         // 跳转目标秒数
+	Sn       string  `json:"sn"`                // 设备序列号（16 位）
+	Position float64 `json:"position"`          // 跳转目标秒数
 	TaskID   string  `json:"task_id,omitempty"` // 可选：与当前点播任务对齐
 }
 
 // DeviceSeekResp 进度跳转指令响应
 type DeviceSeekResp struct {
-	TaskID          string `json:"task_id"`
-	InstructionID   int64  `json:"instruction_id"`
-	Status          string `json:"status"`
-	Message         string `json:"message"`
+	TaskID        string `json:"task_id"`
+	InstructionID int64  `json:"instruction_id"`
+	Status        string `json:"status"`
+	Message       string `json:"message"`
 }
 
 // DeviceResumeReq 设备继续播放指令请求
@@ -661,4 +662,168 @@ type WillMessageReq struct {
 type WillMessageResp struct {
 	Code    int    `json:"code"`    // 状态码：200-成功
 	Message string `json:"message"` // 消息内容
+}
+
+// ========== 歌曲下载相关类型 ==========
+
+// SongDownloadReq 歌曲下载请求（前端调用）
+// 用户通过前端页面点击下载按钮，向后端发起下载请求
+type SongDownloadReq struct {
+	Sn       string `json:"sn" validate:"required"`      // 目标设备序列号（16位）
+	SongID   int64  `json:"song_id" validate:"required"` // 歌曲唯一编号
+	SongName string `json:"song_name,omitempty"`         // 歌曲名称（可选，用于日志）
+}
+
+// SongDownloadResp 歌曲下载响应
+// 后端接收请求后，校验权限并下发指令给设备
+type SongDownloadResp struct {
+	TaskID        string `json:"task_id"`                  // 下载任务ID（用于追踪）
+	SongID        int64  `json:"song_id"`                  // 歌曲ID
+	DeviceSN      string `json:"device_sn"`                // 设备SN
+	Status        string `json:"status"`                   // 状态：pending/delivered/failed
+	Message       string `json:"message"`                  // 提示信息
+	InstructionID *int64 `json:"instruction_id,omitempty"` // 指令ID
+}
+
+// WSSongDownloadInstruction WebSocket下行-歌曲下载指令
+// 后端通过WebSocket下发给设备的下载指令
+type WSSongDownloadInstruction struct {
+	Cmd         string `json:"cmd"`          // 固定值："download_song"
+	TaskID      string `json:"task_id"`      // 任务ID（UUID）
+	SongID      int64  `json:"song_id"`      // 歌曲ID
+	SongName    string `json:"song_name"`    // 歌曲名称
+	DownloadURL string `json:"download_url"` // CDN下载地址
+	Token       string `json:"token"`        // 设备鉴权Token（可选）
+	Timestamp   int64  `json:"timestamp"`    // 服务端时间戳（Unix秒）
+}
+
+// WSDownloadProgressReport WebSocket上行-下载进度上报（可选）
+// 设备在下载过程中可实时上报进度
+type WSDownloadProgressReport struct {
+	Event          string  `json:"event"`                     // 固定值："download_progress"
+	TaskID         string  `json:"task_id"`                   // 任务ID
+	SongID         int64   `json:"song_id"`                   // 歌曲ID
+	Percent        float64 `json:"percent"`                   // 进度百分比（0-100）
+	DownloadedSize int64   `json:"downloaded_size,omitempty"` // 已下载大小（字节）
+	TotalSize      int64   `json:"total_size,omitempty"`      // 总大小（字节）
+	Timestamp      int64   `json:"timestamp"`                 // 上报时间戳
+}
+
+// WSDownloadResultReport WebSocket上行-下载结果上报
+// 设备下载完成或失败后上报结果
+type WSDownloadResultReport struct {
+	Event      string `json:"event"`                 // 固定值："download_finish"
+	TaskID     string `json:"task_id"`               // 任务ID
+	SongID     int64  `json:"song_id"`               // 歌曲ID
+	Status     string `json:"status"`                // 状态："success" 或 "fail"
+	ErrorMsg   string `json:"error_msg,omitempty"`   // 失败原因（status=fail时必填）
+	LocalPath  string `json:"local_path,omitempty"`  // 本地存储路径（成功时返回）
+	FileSize   int64  `json:"file_size,omitempty"`   // 文件大小（字节）
+	DurationMs int64  `json:"duration_ms,omitempty"` // 下载耗时（毫秒）
+	Timestamp  int64  `json:"timestamp"`             // 上报时间戳
+}
+
+// DownloadStatusQueryReq 查询下载状态请求
+// 前端轮询查询某个下载任务的状态
+type DownloadStatusQueryReq struct {
+	TaskID string `json:"task_id" validate:"required"` // 任务ID
+}
+
+// DownloadStatusQueryResp 查询下载状态响应
+type DownloadStatusQueryResp struct {
+	TaskID    string  `json:"task_id"`    // 任务ID
+	SongID    int64   `json:"song_id"`    // 歌曲ID
+	SongName  string  `json:"song_name"`  // 歌曲名称
+	DeviceSN  string  `json:"device_sn"`  // 设备SN
+	Status    string  `json:"status"`     // pending/downloading/success/failed
+	Progress  float64 `json:"progress"`   // 进度百分比（0-100）
+	Message   string  `json:"message"`    // 状态描述
+	CreatedAt string  `json:"created_at"` // 创建时间
+	UpdatedAt string  `json:"updated_at"` // 最后更新时间
+}
+
+// ========== 设备下载完整流程相关类型 ==========
+
+// DeviceDownloadReq 设备下载请求（前端调用设备服务8002）
+// 用户通过前端点击下载按钮，将歌曲下载到指定设备
+type DeviceDownloadReq struct {
+	Sn        string `json:"sn" validate:"required"`         // 目标设备序列号（16位）
+	ContentID int64  `json:"content_id" validate:"required"` // 内容ID（对应content表）
+}
+
+// DeviceDownloadResp 设备下载响应
+type DeviceDownloadResp struct {
+	TaskID        string `json:"task_id"`                  // 任务ID（用于追踪）
+	ContentID     int64  `json:"content_id"`               // 内容ID
+	DeviceSN      string `json:"device_sn"`                // 设备SN
+	Status        string `json:"status"`                   // 状态：pending/sent/failed
+	Message       string `json:"message"`                  // 提示信息
+	InstructionID *int64 `json:"instruction_id,omitempty"` // 指令ID
+}
+
+// DeviceDownloadCallbackReq 设备下载回调请求（设备→设备服务）
+// 设备下载完成后上报结果给后端
+type DeviceDownloadCallbackReq struct {
+	TaskID    string `json:"task_id" validate:"required"`    // 任务ID（下发给设备的）
+	DeviceSN  string `json:"device_sn" validate:"required"`  // 设备编号
+	ContentID int64  `json:"content_id" validate:"required"` // 歌曲ID/内容ID
+	Status    string `json:"status" validate:"required"`     // 状态：success / fail
+	ErrorMsg  string `json:"error_msg,omitempty"`            // 失败原因（status=fail 时必填）
+}
+
+// DeviceDownloadCallbackResp 设备下载回调响应
+type DeviceDownloadCallbackResp struct {
+	Success bool   `json:"success"` // 是否成功
+	Message string `json:"message"` // 消息
+}
+
+// DeviceDownloadStatusQueryReq 查询设备下载状态请求
+type DeviceDownloadStatusQueryReq struct {
+	TaskID string `form:"task_id" validate:"required"` // 任务ID
+}
+
+// DeviceDownloadStatusQueryResp 查询设备下载状态响应
+type DeviceDownloadStatusQueryResp struct {
+	TaskID     string  `json:"task_id"`               // 任务ID
+	ContentID  int64   `json:"content_id"`            // 内容ID
+	SongName   string  `json:"song_name"`             // 歌曲名称
+	DeviceSN   string  `json:"device_sn"`             // 设备SN
+	Status     string  `json:"status"`                // pending/downloading/success/failed/cancelled
+	Progress   float64 `json:"progress"`              // 进度百分比（0-100）
+	Message    string  `json:"message"`               // 状态描述
+	CreatedAt  string  `json:"created_at"`            // 创建时间
+	UpdatedAt  string  `json:"updated_at"`            // 最后更新时间
+	FinishedAt string  `json:"finished_at,omitempty"` // 完成时间
+}
+
+// DeviceDownloadListReq 设备下载历史列表请求
+type DeviceDownloadListReq struct {
+	Page     int32  `form:"page"`             // 页码（默认1）
+	PageSize int32  `form:"page_size"`        // 每页数量（默认20，最大50）
+	DeviceSN string `form:"sn,omitempty"`     // 设备SN过滤（可选）
+	Status   string `form:"status,omitempty"` // 状态过滤（可选）
+}
+
+// DeviceDownloadListItem 设备下载列表项
+type DeviceDownloadListItem struct {
+	TaskID     string  `json:"task_id"`               // 任务ID
+	ContentID  int64   `json:"content_id"`            // 内容ID
+	SongName   string  `json:"song_name"`             // 歌曲名称
+	DeviceSN   string  `json:"device_sn"`             // 设备SN
+	Status     string  `json:"status"`                // 状态
+	Progress   float64 `json:"progress"`              // 进度百分比
+	FileSize   int64   `json:"file_size"`             // 文件大小
+	ErrorMsg   string  `json:"error_msg"`             // 错误信息
+	CreatedAt  string  `json:"created_at"`            // 创建时间
+	UpdatedAt  string  `json:"updated_at"`            // 更新时间
+	FinishedAt string  `json:"finished_at,omitempty"` // 完成时间
+}
+
+// DeviceDownloadListResp 设备下载列表响应
+type DeviceDownloadListResp struct {
+	Total      int64                    `json:"total"`       // 总记录数
+	List       []DeviceDownloadListItem `json:"list"`        // 当前页数据
+	Page       int32                    `json:"page"`        // 当前页码
+	PageSize   int32                    `json:"page_size"`   // 每页数量
+	TotalPages int32                    `json:"total_pages"` // 总页数
 }

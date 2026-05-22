@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -37,6 +39,9 @@ func ParseBearer(r *http.Request, accessSecret string) BearerContext {
 		return out
 	}
 	out.UserID = claimInt64(claims["userId"])
+	if out.UserID == 0 {
+		out.UserID = claimInt64(claims["user_id"])
+	}
 	if v, ok := claims["vip_level"]; ok {
 		out.VipLevel = toInt32(v)
 		out.HasVipClaim = true
@@ -53,13 +58,28 @@ func claimInt64(v interface{}) int64 {
 	switch x := v.(type) {
 	case float64:
 		return int64(x)
+	case json.Number:
+		n, err := x.Int64()
+		if err == nil {
+			return n
+		}
+		f, err2 := x.Float64()
+		if err2 == nil {
+			return int64(f)
+		}
 	case int64:
 		return x
 	case int:
 		return int64(x)
+	case string:
+		n, err := strconv.ParseInt(strings.TrimSpace(x), 10, 64)
+		if err == nil {
+			return n
+		}
 	default:
 		return 0
 	}
+	return 0
 }
 
 func toInt32(v interface{}) int32 {
