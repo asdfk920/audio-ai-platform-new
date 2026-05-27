@@ -124,15 +124,8 @@ func (l *DeviceRegisterLogic) validateRegisterRequest(sn string, deviceSecret st
 		return fmt.Errorf("设备序列号不能为空")
 	}
 
-	sn = strings.TrimSpace(sn)
-	if len(sn) != 16 {
-		return fmt.Errorf("设备序列号长度错误: 期望16位, 实际%d位", len(sn))
-	}
-
-	for _, c := range sn {
-		if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z')) {
-			return fmt.Errorf("设备序列号格式错误: 只允许字母和数字")
-		}
+	if err := validateReqSN(sn); err != nil {
+		return err
 	}
 
 	if strings.TrimSpace(deviceSecret) == "" {

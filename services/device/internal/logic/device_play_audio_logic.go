@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -49,7 +48,7 @@ func (l *DevicePlayAudioLogic) DevicePlayAudio(req *types.DevicePlayAudioReq) (*
 		return nil, fmt.Errorf("参数校验失败: %v", err)
 	}
 
-	sn := strings.ToUpper(strings.TrimSpace(req.Sn))
+	sn := strings.TrimSpace(req.Sn)
 	audioURL := strings.TrimSpace(req.AudioURL)
 
 	startPos := req.StartPos
@@ -125,13 +124,8 @@ func validateDevicePlayAudioReq(req *types.DevicePlayAudioReq) error {
 		return fmt.Errorf("请求不能为空")
 	}
 
-	sn := strings.TrimSpace(req.Sn)
-	if sn == "" {
-		return fmt.Errorf("设备序列号不能为空")
-	}
-	matched, _ := regexp.MatchString(`^[A-Za-z0-9]{16}$`, sn)
-	if !matched {
-		return fmt.Errorf("设备序列号格式错误，必须为16位字母数字组合")
+	if err := validateReqSN(req.Sn); err != nil {
+		return err
 	}
 
 	if req.ContentID <= 0 {

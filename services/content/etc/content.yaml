@@ -78,6 +78,11 @@ Auth:
   AccessSecret: audio-ai-platform-user-secret
   AccessExpire: 3600
 
+# 调用设备服务的 HTTP 根地址（内容与设备分进程部署时必填与真实设备 WS 同属一台或可 Redis relay）。
+# Apifox 在 14.x 连 WS、却在 localhost 调 download 时会把指令下到本机，云端 WS 永远收不到。
+Device:
+  BaseURL: "http://127.0.0.1:8002"
+
 # Spotify OAuth 配置（需要在 Spotify Developer Dashboard 创建应用）
 Spotify:
   ClientID: "your-spotify-client-id"

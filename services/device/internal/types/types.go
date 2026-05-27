@@ -1,5 +1,7 @@
 package types
 
+import "time"
+
 // EnumItem 枚举项
 // 用于下拉选项、列表等场景
 type EnumItem struct {
@@ -714,6 +716,8 @@ type WSDownloadProgressReport struct {
 type WSDownloadResultReport struct {
 	Event      string `json:"event"`                 // 固定值："download_finish"
 	TaskID     string `json:"task_id"`               // 任务ID
+	Sn         string `json:"sn,omitempty"`          // 设备 SN（HTTP 回调鉴权用）
+	DeviceID   int64  `json:"device_id,omitempty"`   // 设备 ID（可选，与凭证校验）
 	SongID     int64  `json:"song_id"`               // 歌曲ID
 	Status     string `json:"status"`                // 状态："success" 或 "fail"
 	ErrorMsg   string `json:"error_msg,omitempty"`   // 失败原因（status=fail时必填）
@@ -742,12 +746,90 @@ type DownloadStatusQueryResp struct {
 	UpdatedAt string  `json:"updated_at"` // 最后更新时间
 }
 
+// DeviceUpdateReq 设备信息更新请求（PUT /api/v1/user/device/upd）
+type DeviceUpdateReq struct {
+	Sn         string `json:"sn" validate:"required"`
+	DeviceName string `json:"device_name,omitempty"`
+	Location   string `json:"location,omitempty"`
+	GroupName  string `json:"group_name,omitempty"`
+	Scene      string `json:"scene,omitempty"`
+}
+
+// DeviceUpdateResp 设备信息更新响应
+type DeviceUpdateResp struct {
+	Sn         string `json:"sn"`
+	DeviceName string `json:"device_name"`
+	Location   string `json:"location"`
+	GroupName  string `json:"group_name"`
+	Scene      string `json:"scene"`
+	UpdatedAt  string `json:"updated_at"`
+}
+
 // ========== 设备下载完整流程相关类型 ==========
+
+// DeviceDownloadSongReq 下载歌曲到设备（HTTP/WS）
+type DeviceDownloadSongReq struct {
+	DeviceID  int64  `json:"device_id,omitempty"`
+	Sn        string `json:"sn" validate:"required"`
+	ContentID int64  `json:"content_id" validate:"required"`
+	SongName  string `json:"song_name,omitempty"`
+	Quality   string `json:"quality,omitempty"`
+	SourceURL string `json:"source_url,omitempty"`
+	EnableDRM *bool  `json:"enable_drm,omitempty"`
+}
+
+// DeviceDownloadSongResp 下载歌曲指令响应
+type DeviceDownloadSongResp struct {
+	TaskID        string `json:"task_id"`
+	InstructionID *int64 `json:"instruction_id,omitempty"`
+	Status        string `json:"status"`
+	Message       string `json:"message"`
+}
+
+// DRMMetadata DRM 元数据（来自 media-processing 响应头）
+type DRMMetadata struct {
+	DRMType     string `json:"drm_type,omitempty"`
+	ContentID   string `json:"content_id,omitempty"`
+	KeyID       string `json:"key_id,omitempty"`
+	PSSH        string `json:"pssh,omitempty"`
+	LicenseURL  string `json:"license_url,omitempty"`
+	AuthToken   string `json:"auth_token,omitempty"`
+	Copyright   string `json:"copyright,omitempty"`
+	UsagePolicy string `json:"usage_policy,omitempty"`
+	Signature   string `json:"signature,omitempty"`
+}
+
+// DRMDownloadResponse 设备侧 DRM 下载处理结果
+type DRMDownloadResponse struct {
+	TaskID       string `json:"task_id"`
+	Status       string `json:"status"`
+	Message      string `json:"message"`
+	RequestTime  string `json:"request_time,omitempty"`
+	LocalPath    string `json:"local_path,omitempty"`
+	DRMFilePath  string `json:"drm_file_path,omitempty"`
+	FileSize     int64  `json:"file_size,omitempty"`
+	DRMSignature string `json:"drm_signature,omitempty"`
+	CompletedAt  string `json:"completed_at,omitempty"`
+	ErrorCode    string `json:"error_code,omitempty"`
+	ErrorMessage string `json:"error_message,omitempty"`
+}
+
+// DRMLogRecord DRM 操作审计日志（内存/落库追溯用）
+type DRMLogRecord struct {
+	TaskID       string    `json:"task_id"`
+	SongID       int64     `json:"song_id"`
+	Action       string    `json:"action"`
+	DRMType      string    `json:"drm_type"`
+	ContentID    string    `json:"content_id"`
+	Status       string    `json:"status"`
+	ErrorMessage string    `json:"error_message,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+}
 
 // DeviceDownloadReq 设备下载请求（前端调用设备服务8002）
 // 用户通过前端点击下载按钮，将歌曲下载到指定设备
 type DeviceDownloadReq struct {
-	Sn        string `json:"sn" validate:"required"`         // 目标设备序列号（16位）
+	Sn        string `json:"sn" validate:"required"`         // 目标设备序列号
 	ContentID int64  `json:"content_id" validate:"required"` // 内容ID（对应content表）
 }
 

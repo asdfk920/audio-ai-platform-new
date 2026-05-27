@@ -98,6 +98,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: UpdateDeviceHandler(serverCtx),
 			},
 			{
+				// 更新设备信息（与 /device/update 相同，兼容 Apifox 文档路径）
+				Method:  http.MethodPut,
+				Path:    "/device/upd",
+				Handler: UpdateDeviceHandler(serverCtx),
+			},
+			{
 				// 发起设备共享邀请
 				Method:  http.MethodPost,
 				Path:    "/device/share/create",

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -158,9 +157,8 @@ func (l *DeviceLogReportLogic) writeDeviceLog(sn string, deviceID int64, req *ty
 // 参数 req *types.DeviceLogReportReq: 设备日志上报请求
 // 返回 error: 校验失败时的错误信息
 func validateDeviceLogReportReq(req *types.DeviceLogReportReq) error {
-	snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
-	if !snRegex.MatchString(req.Sn) {
-		return fmt.Errorf("SN 格式错误，必须为 16 位字母数字组合")
+	if err := validateReqSN(req.Sn); err != nil {
+		return err
 	}
 
 	// 校验 log_type

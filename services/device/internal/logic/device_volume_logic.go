@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -250,14 +249,8 @@ func validateDeviceVolumeReq(req *types.DeviceVolumeReq) error {
 		return fmt.Errorf("Request cannot be empty")
 	}
 
-	sn := strings.TrimSpace(req.Sn)
-	if sn == "" {
-		return fmt.Errorf("Device serial number cannot be empty")
-	}
-
-	matched, _ := regexp.MatchString(`^[A-Za-z0-9]{16}$`, sn)
-	if !matched {
-		return fmt.Errorf("Device serial number format error, must be 16 alphanumeric characters")
+	if err := validateReqSN(req.Sn); err != nil {
+		return err
 	}
 
 	action := strings.ToLower(strings.TrimSpace(req.Action))

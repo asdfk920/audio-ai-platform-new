@@ -12,6 +12,24 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	// 与 OpenAPI 文档路径一致：/api/v1/playlist/...
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodDelete,
+				Path:    "/song/remove",
+				Handler: playlistSongRemoveHandler(serverCtx),
+			},
+			{
+				// 须在 /song/remove 之后注册，避免 segment "song" 误匹配为 :id
+				Method:  http.MethodDelete,
+				Path:    "/:id/remove",
+				Handler: playlistSongRemoveByPlaylistPathHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/playlist"),
+	)
+
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -227,44 +245,20 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				// 点赞/取消点赞（必须登录，切换点赞状态）
 				Method:  http.MethodPost,
-				Path:    "/:id/like",
+				Path:    "/like",
 				Handler: contentLikeHandler(serverCtx),
 			},
 			{
 				// 收藏（必须登录，若已收藏则返回提示）
 				Method:  http.MethodPost,
-				Path:    "/:id/favorite",
+				Path:    "/favorite",
 				Handler: contentFavoriteHandler(serverCtx),
 			},
 			{
 				// 取消收藏（必须登录，若未收藏则返回提示）
 				Method:  http.MethodDelete,
-				Path:    "/:id/favorite",
+				Path:    "/favorite",
 				Handler: contentUnfavoriteHandler(serverCtx),
-			},
-			{
-				// 设备歌曲下载（必须登录，创建记录并调用设备服务下发指令）
-				Method:  http.MethodPost,
-				Path:    "/device/download",
-				Handler: deviceSongDownloadHandler(serverCtx),
-			},
-			{
-				// 设备下载回调（设备微服务调用，更新下载结果）
-				Method:  http.MethodPost,
-				Path:    "/device/download/callback",
-				Handler: deviceDownloadCallbackHandler(serverCtx),
-			},
-			{
-				// 查询设备下载状态（必须登录）
-				Method:  http.MethodGet,
-				Path:    "/device/download/status",
-				Handler: deviceDownloadStatusHandler(serverCtx),
-			},
-			{
-				// 设备下载历史列表（必须登录）
-				Method:  http.MethodGet,
-				Path:    "/device/downloads",
-				Handler: deviceDownloadListHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/content"),

@@ -42,6 +42,17 @@ type Config struct {
 	WebSocket WebSocketConfig `json:",optional"`
 	// RabbitMQ 消息队列配置（指令异步下发、削峰填谷）
 	RabbitMQ RabbitMQ `json:",optional"`
+	// Content 内容服务（download_song 按 content_id 拉 play_url）
+	Content Content `json:",optional"`
+	// MediaProcessingServiceURL media-processing 基址（DRM 代理等）
+	MediaProcessingServiceURL string `json:",optional"`
+	// DRMPublicKeyPEM 平台 DRM 元数据验签公钥（PEM，可选）
+	DRMPublicKeyPEM string `json:",optional"`
+}
+
+// Content 内容服务连接配置
+type Content struct {
+	BaseURL string `json:",optional"`
 }
 
 // StatusReportHTTP 设备 HTTP 状态上报限流配置结构体

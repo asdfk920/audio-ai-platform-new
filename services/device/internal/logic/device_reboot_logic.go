@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -160,9 +159,8 @@ func (l *DeviceRebootLogic) DeviceReboot(req *types.DeviceRebootReq) (*types.Dev
 // 参数 req *types.DeviceRebootReq: 设备重启指令请求
 // 返回 error: 校验失败时的错误信息
 func validateDeviceRebootReq(req *types.DeviceRebootReq) error {
-	snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
-	if !snRegex.MatchString(req.Sn) {
-		return fmt.Errorf("SN 格式错误，必须为 16 位字母数字组合")
+	if err := validateReqSN(req.Sn); err != nil {
+		return err
 	}
 
 	if req.Action != "reboot" {

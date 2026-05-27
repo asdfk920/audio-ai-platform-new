@@ -74,17 +74,17 @@ func (l *UpdateDeviceLogic) UpdateDevice(req *types.UpdateDeviceReq) (*types.Upd
 		return nil, errorx.NewCodeError(errorx.CodeDeviceNoPermission, "无权限操作该设备")
 	}
 
-	normalizedAlias := normalizeString(req.Alias, 50)
+	normalizedDeviceName := normalizeString(req.DeviceName, 50)
 	normalizedLocation := normalizeString(req.Location, 100)
 	normalizedGroupName := normalizeString(req.GroupName, 100)
 	normalizedScene := normalizeString(req.Scene, 200)
 
-	l.Logger.Infof("UpdateDevice: 准备更新设备信息, userId=%d, sn=%s, alias=%s, location=%s, group=%s, scene=%s",
-		userId, req.Sn, normalizedAlias, normalizedLocation, normalizedGroupName, normalizedScene)
+	l.Logger.Infof("UpdateDevice: 准备更新设备信息, userId=%d, sn=%s, device_name=%s, location=%s, group=%s, scene=%s",
+		userId, req.Sn, normalizedDeviceName, normalizedLocation, normalizedGroupName, normalizedScene)
 
 	affected, err := l.svcCtx.DeviceBind.UpdateDeviceAuxiliaryInfo(
 		l.ctx, userId, req.Sn,
-		normalizedAlias, normalizedLocation, normalizedGroupName, normalizedScene,
+		normalizedDeviceName, normalizedLocation, normalizedGroupName, normalizedScene,
 	)
 
 	if err != nil {
@@ -102,16 +102,37 @@ func (l *UpdateDeviceLogic) UpdateDevice(req *types.UpdateDeviceReq) (*types.Upd
 		return nil, errorx.NewCodeError(errorx.CodeInternalError, "更新失败：未找到匹配的绑定记录")
 	}
 
-	l.Logger.Infof("UpdateDevice: 设备信息更新成功, userId=%d, sn=%s, alias=%s, location=%s",
-		userId, req.Sn, normalizedAlias, normalizedLocation)
+	l.Logger.Infof("UpdateDevice: 设备信息更新成功, userId=%d, sn=%s, device_name=%s, location=%s",
+		userId, req.Sn, normalizedDeviceName, normalizedLocation)
+
+	deviceName, location, groupName, scene := normalizedDeviceName, normalizedLocation, normalizedGroupName, normalizedScene
+	if refreshedName, refreshedLocation, refreshedGroup, refreshedScene, qErr := l.svcCtx.DeviceBind.FindActiveBindAuxiliaryBySN(l.ctx, userId, req.Sn); qErr == nil {
+		if strings.TrimSpace(refreshedName) != "" {
+			deviceName = refreshedName
+		}
+		if strings.TrimSpace(refreshedLocation) != "" {
+			location = refreshedLocation
+		}
+		if strings.TrimSpace(refreshedGroup) != "" {
+			groupName = refreshedGroup
+		}
+		if strings.TrimSpace(refreshedScene) != "" {
+			scene = refreshedScene
+		}
+	} else if qErr != nil {
+		l.Logger.Errorf("UpdateDevice: 回查设备信息失败, userId=%d, sn=%s, err=%v", userId, req.Sn, qErr)
+	}
+	if deviceName == "" {
+		deviceName = strings.TrimSpace(bindRow.DeviceName)
+	}
 
 	resp := &types.UpdateDeviceResp{
-		Sn:        req.Sn,
-		Alias:     normalizedAlias,
-		Location:  normalizedLocation,
-		GroupName: normalizedGroupName,
-		Scene:     normalizedScene,
-		UpdatedAt: time.Now().Format(time.RFC3339),
+		Sn:         req.Sn,
+		DeviceName: deviceName,
+		Location:   location,
+		GroupName:  groupName,
+		Scene:      scene,
+		UpdatedAt:  time.Now().Format(time.RFC3339),
 	}
 
 	return resp, nil
@@ -131,9 +152,9 @@ func (l *UpdateDeviceLogic) validateRequestParams(req *types.UpdateDeviceReq) er
 
 	hasUpdateField := false
 
-	if req.Alias != "" {
-		req.Alias = strings.TrimSpace(req.Alias)
-		if len([]rune(req.Alias)) > 50 {
+	if req.DeviceName != "" {
+		req.DeviceName = strings.TrimSpace(req.DeviceName)
+		if len([]rune(req.DeviceName)) > 50 {
 			return errorx.NewCodeError(errorx.CodeInvalidParam, "设备备注名长度不能超过50字符")
 		}
 		hasUpdateField = true

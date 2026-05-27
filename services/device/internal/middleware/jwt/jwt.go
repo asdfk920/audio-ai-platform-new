@@ -99,6 +99,11 @@ func JwtMiddleware(secret string) func(http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// WithUserID 将 user_id 写入 context（WebSocket 握手后使用）
+func WithUserID(ctx context.Context, userID int64) context.Context {
+	return context.WithValue(ctx, contextKey{}, userID)
+}
+
 // GetUserIdFromContext 从 context 中获取 user_id
 func GetUserIdFromContext(ctx context.Context) (int64, bool) {
 	userId, ok := ctx.Value(contextKey{}).(int64)

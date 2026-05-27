@@ -13,6 +13,7 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/model"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/util"
 )
 
 const (
@@ -107,19 +108,8 @@ func (l *DeviceAuthLogic) DeviceAuth(req *types.DeviceAuthReq) (*types.DeviceAut
 }
 
 func (l *DeviceAuthLogic) validateAuthRequest(sn string, deviceSecret string) error {
-	if strings.TrimSpace(sn) == "" {
-		return fmt.Errorf("设备序列号不能为空")
-	}
-
-	sn = strings.TrimSpace(sn)
-	if len(sn) != 16 {
-		return fmt.Errorf("设备序列号长度错误: 期望16位, 实际%d位", len(sn))
-	}
-
-	for _, c := range sn {
-		if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z')) {
-			return fmt.Errorf("设备序列号格式错误: 只允许字母和数字")
-		}
+	if err := util.ValidateDeviceSN(sn); err != nil {
+		return err
 	}
 
 	if strings.TrimSpace(deviceSecret) == "" {

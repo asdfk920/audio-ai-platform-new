@@ -280,16 +280,16 @@ VALUES ($1, $2, $3, $4, 0, 1, 1, CURRENT_TIMESTAMP)
 // ListActiveByUserID 用户当前绑定中的设备列表；nameSub/snSub/modelSub 非空时在库内做子串匹配（AND）。
 func (r *UserDeviceBindRepo) ListActiveByUserID(ctx context.Context, userID int64, nameSub, snSub, modelSub string) ([]UserDeviceListItem, error) {
 	rows, err := r.db.QueryContext(ctx, `
-SELECT d.sn,
+SELECT COALESCE(NULLIF(d.sn, ''), udb.sn),
        COALESCE(udb.alias,''),
        COALESCE(d.model,''),
        COALESCE(d.firmware_version,''),
        udb.bound_at
   FROM public.user_device_bind udb
-  JOIN public.device d ON d.id = udb.device_id
+  LEFT JOIN public.device d ON d.id = udb.device_id
  WHERE udb.user_id = $1 AND udb.status = 1
    AND ($2::text = '' OR strpos(lower(COALESCE(udb.alias,'')), lower($2::text)) > 0)
-   AND ($3::text = '' OR strpos(lower(d.sn), lower($3::text)) > 0)
+   AND ($3::text = '' OR strpos(lower(COALESCE(NULLIF(d.sn, ''), udb.sn)), lower($3::text)) > 0)
    AND ($4::text = '' OR strpos(lower(COALESCE(d.model,'')), lower($4::text)) > 0)
  ORDER BY udb.bound_at DESC
 `, userID, nameSub, snSub, modelSub)
@@ -398,6 +398,20 @@ INSERT INTO public.user_device_bind_log
 VALUES ($1, $2, $3, $4, $5, $6)
 `, userID, deviceID, sn, operator, action, actionTime)
 	return err
+}
+
+// FindActiveBindAuxiliaryBySN 查询绑定记录的别名与辅助信息（更新接口回显用）。
+func (r *UserDeviceBindRepo) FindActiveBindAuxiliaryBySN(ctx context.Context, userID int64, sn string) (deviceName, location, groupName, scene string, err error) {
+	err = r.db.QueryRowContext(ctx, `
+SELECT COALESCE(alias,''), COALESCE(location,''), COALESCE(group_name,''), COALESCE(scene,'')
+  FROM public.user_device_bind
+ WHERE user_id = $1 AND sn = $2 AND status = 1
+ LIMIT 1
+`, userID, sn).Scan(&deviceName, &location, &groupName, &scene)
+	if err == sql.ErrNoRows {
+		return "", "", "", "", nil
+	}
+	return deviceName, location, groupName, scene, err
 }
 
 // UpdateDeviceAuxiliaryInfo 更新用户设备的辅助信息（备注名、位置、分组、场景）

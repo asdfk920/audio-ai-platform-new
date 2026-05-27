@@ -98,14 +98,14 @@ func (h *DownloadReportHandler) saveDownloadResultToDB(report *types.WSDownloadR
 		report.TaskID, report.SongID, report.Status)
 
 	recordJSON, _ := json.Marshal(map[string]interface{}{
-		"task_id":      report.TaskID,
-		"song_id":      report.SongID,
-		"status":       report.Status,
-		"error_msg":    report.ErrorMsg,
-		"local_path":   report.LocalPath,
-		"file_size":    report.FileSize,
-		"duration_ms":  report.DurationMs,
-		"finished_at":  timestamp,
+		"task_id":     report.TaskID,
+		"song_id":     report.SongID,
+		"status":      report.Status,
+		"error_msg":   report.ErrorMsg,
+		"local_path":  report.LocalPath,
+		"file_size":   report.FileSize,
+		"duration_ms": report.DurationMs,
+		"finished_at": timestamp,
 	})
 
 	logx.Debugf("[DownloadDB] 下载记录JSON: %s", string(recordJSON))

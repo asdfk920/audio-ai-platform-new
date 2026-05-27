@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -270,9 +269,8 @@ func (l *DeviceShadowReportLogic) updateOnlineStatus(sn string) error {
 // 参数 req *types.DeviceShadowReportReq: 设备影子上报请求
 // 返回 error: 校验失败时的错误信息
 func validateDeviceShadowReportReq(req *types.DeviceShadowReportReq) error {
-	snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
-	if !snRegex.MatchString(req.Sn) {
-		return fmt.Errorf("SN 格式错误，必须为 16 位字母数字组合")
+	if err := validateReqSN(req.Sn); err != nil {
+		return err
 	}
 
 	if req.Battery < 0 || req.Battery > 100 {

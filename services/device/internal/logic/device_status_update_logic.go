@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -120,9 +119,8 @@ func (l *DeviceStatusUpdateLogic) DeviceStatusUpdate(req *types.DeviceStatusUpda
 // 参数 req *types.DeviceStatusUpdateReq: 设备状态更新请求
 // 返回 error: 校验失败时的错误信息
 func validateDeviceStatusUpdateReq(req *types.DeviceStatusUpdateReq) error {
-	snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
-	if !snRegex.MatchString(req.Sn) {
-		return fmt.Errorf("SN 格式错误，必须为 16 位字母数字组合")
+	if err := validateReqSN(req.Sn); err != nil {
+		return err
 	}
 
 	if req.OnlineStatus != 0 && req.OnlineStatus != 1 {

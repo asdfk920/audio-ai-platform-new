@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -160,10 +159,5 @@ func (l *DeviceBindLogic) isDeviceOnline(sn string) bool {
 // 参数 req *types.DeviceBindReq: 设备绑定请求
 // 返回 error: 校验失败时的错误信息
 func validateDeviceBindReq(req *types.DeviceBindReq) error {
-	snPatternShort := regexp.MustCompile(`^[A-Z0-9]{2,3}-[A-Z0-9]{2}-\d{3,5}$`)
-	if !snPatternShort.MatchString(strings.ToUpper(req.Sn)) {
-		return fmt.Errorf("SN 格式错误，应为短格式（如：SN-X1-001）")
-	}
-
-	return nil
+	return validateReqSN(req.Sn)
 }

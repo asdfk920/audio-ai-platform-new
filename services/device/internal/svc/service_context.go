@@ -14,6 +14,7 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 
 	"github.com/jacklau/audio-ai-platform/services/device/internal/config"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/device/shadowv2"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/heartbeat"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/pkg/ip"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/rabbitmq"
@@ -56,6 +57,13 @@ type ServiceContext struct {
 
 	// RabbitMQMgr RabbitMQ 消息队列管理器（指令异步下发、削峰填谷）
 	RabbitMQMgr *rabbitmq.Manager
+
+	redisShadowStore *shadowv2.RedisShadowStore
+}
+
+// GetRedisShadowStore 设备影子 V2（Redis）
+func (s *ServiceContext) GetRedisShadowStore() *shadowv2.RedisShadowStore {
+	return s.redisShadowStore
 }
 
 // NewServiceContext 创建并初始化服务上下文实例
@@ -105,6 +113,15 @@ func NewServiceContext(c config.Config, db *sql.DB, rdb *redis.Client) *ServiceC
 		rabbitMgr := rabbitmq.NewManager(context.Background(), c.RabbitMQ)
 		svcCtx.RabbitMQMgr = rabbitMgr
 		logx.Infof("[ServiceContext] RabbitMQ manager created (URL configured)")
+	}
+
+	if rdb != nil {
+		ttl := c.DeviceShadow.SeedTTLSeconds
+		if ttl <= 0 {
+			ttl = 86400
+		}
+		svcCtx.redisShadowStore = shadowv2.NewRedisShadowStore(rdb, ttl)
+		logx.Infof("[ServiceContext] RedisShadowStore V2 initialized (TTL=%ds)", ttl)
 	}
 
 	return svcCtx

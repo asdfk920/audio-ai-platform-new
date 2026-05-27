@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 内容微服务API文档 - 完整版</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css">
+    <style>
+        body { margin: 0; padding: 0; background: #fafafa; }
+        .swagger-ui .topbar { display: none; }
+        .swagger-ui .info .title {
+            font-size: 2em !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .swagger-ui .info .base-url {
+            font-size: 1em;
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js"></script>
+    <script>
+        const spec = {
+            "openapi": "3.0.3",
+            "info": {
+                "title": "🎵 音频AI平台 - 内容微服务API",
+                "description": "提供音频内容的完整管理功能 | **9个核心接口** | **50+数据模型** | **20+请求示例**\n\n### 📚 功能模块\n\n#### **内容管理**\n- ✅ 内容列表（分页、排序、筛选、搜索）\n- ✅ 内容详情（权限检查、播放地址）\n\n#### **用户互动**\n- ✅ 点赞/取消点赞切换\n- ✅ 收藏/取消收藏（歌曲/歌单/专辑）\n\n#### **歌单系统**\n- ✅ 创建、编辑、删除歌单\n- ✅ 批量添加歌曲到歌单\n- ✅ 从歌单移除歌曲\n\n### 🔑 认证方式\n所有需要登录的接口使用 **Bearer Token** 认证：\n```\nAuthorization: Bearer <your_token>\n```",
+                "version": "1.0.0",
+                "contact": {
+                    "name": "Content API Support",
+                    "email": "support@audio-ai-platform.com"
+                }
+            },
+            "servers": [
+                {"url": "http://localhost:8003/api/v1/content", "description": "本地开发环境"},
+                {"url": "https://api.audio-ai-platform.com/api/v1/content", "description": "生产环境"}
+            ],
+            "tags": [
+                {"name": "内容管理", "description": "📋 内容列表、详情等基础操作"},
+                {"name": "用户互动", "description": "❤️ 点赞、收藏等用户交互功能"},
+                {"name": "歌单管理", "description": "📝 用户自定义歌单的CRUD操作"}
+            ],
+            "paths": {
+                "/list": {
+                    "get": {
+                        "tags": ["内容管理"],
+                        "summary": "获取内容列表",
+                        "description": "分页获取音频内容列表，支持多种筛选和排序方式。\n\n### 功能特性：\n- ✅ 分页查询（默认每页20条）\n- ✅ 多维度排序（综合/最新/最热/推荐）\n- ✅ 分类和标签过滤\n- ✅ 关键词模糊搜索\n- ✅ VIP内容标识",
+                        "operationId": "getContentList",
+                        "parameters": [
+                            {
+                                "name": "page",
+                                "in": "query",
+                                "description": "页码（默认第1页）",
+                                "required": false,
+                                "schema": {"type": "integer", "default": 1, "minimum": 1, "example": 1}
+                            },
+                            {
+                                "name": "page_size",
+                                "in": "query",
+                                "description": "每页数量（默认20，最大100）",
+                                "required": false,
+                                "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100, "example": 20}
+                            },
+                            {
+                                "name": "category_id",
+                                "in": "query",
+                                "description": "分类ID过滤（可选）",
+                                "required": false,
+                                "schema": {"type": "integer", "format": "int64", "example": 5}
+                            },
+                            {
+                                "name": "tag_ids",
+                                "in": "query",
+                                "description": "标签ID过滤（多个用逗号分隔：1,2,3）",
+                                "required": false,
+                                "schema": {"type": "string", "example": "1,2,3"}
+                            },
+                            {
+                                "name": "title",
+                                "in": "query",
+                                "description": "标题模糊查询（仅匹配标题字段）",
+                                "required": false,
+                                "schema": {"type": "string", "example": "晴天"}
+                            },
+                            {
+                                "name": "keyword",
+                                "in": "query",
+                                "description": "关键词搜索（同时匹配标题和艺术家）",
+                                "required": false,
+                                "schema": {"type": "string", "example": "周杰伦"}
+                            },
+                            {
+                                "name": "sort",
+                                "in": "query",
+                                "description": "排序方式（0-综合 1-最新 2-最热 3-推荐）",
+                                "required": false,
+                                "schema": {"type": "integer", "enum": [0, 1, 2, 3], "default": 0, "example": 0}
+                            },
+                            {
+                                "name": "is_vip",
+                                "in": "query",
+                                "description": "仅显示VIP专享内容（0-全部 1-仅VIP）",
+                                "required": false,
+                                "schema": {"type": "integer", "enum": [0, 1], "default": 0, "example": 0}
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "成功返回内容列表",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/ContentListResponse"},
+                                        "example": {
+                                            "code": 200,
+                                            "msg": "success",
+                                            "data": {
+                                                "total": 150,
+                                                "page": 1,
+                                                "page_size": 20,
+                                                "has_more": true,
+                                                "list": [
+                                                    {
+                                                        "content_id": 1001,
+                                                        "title": "晴天",
+                                                        "artist": "周杰伦",
+                                                        "cover_url": "https://cdn.example.com/cover/1001.jpg",
+                                                        "duration": 269,
+                                                        "view_count": 1250000,
+                                                        "like_count": 85000,
+                                                        "is_vip_content": false,
+                                                        "can_play": true
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "400": {"$ref": "#/components/responses/BadRequest"},
+                            "401": {"$ref": "#/components/responses/Unauthorized"}
+                        }
+                    }
+                },
+                "/{id}": {
+                    "get": {
+                        "tags": ["内容管理"],
+                        "summary": "获取内容详情",
+                        "description": "根据内容ID获取详细信息，包括基本信息、权限信息、统计数据等。",
+                        "operationId": "getContentDetail",
+                        "security": [{"BearerAuth": []}],
+                        "parameters": [
+                            {
+                                "name": "id",
+                                "in": "path",
+                                "description": "内容唯一ID",
+                                "required": true,
+                                "schema": {"type": "integer", "format": "int64", "example": 1001}
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "成功返回内容详情",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/ContentDetailResponse"},
+                                        "example": {
+                                            "code": 200,
+                                            "msg": "success",
+                                            "data": {
+                                                "content_id": 1001,
+                                                "title": "晴天",
+                                                "artist": "周杰伦",
+                                                "album": "叶惠美",
+                                                "duration": 269,
+                                                "permission": {
+                                                    "need_vip": false,
+                                                    "can_play": true,
+                                                    "can_download": true
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "400": {"$ref": "#/components/responses/BadRequest"},
+                            "401": {"$ref": "#/components/responses/Unauthorized"},
+                            "404": {"$ref": "#/components/responses/NotFound"}
+                        }
+                    },
+                    "delete": {
+                        "tags": ["内容管理"],
+                        "summary": "删除内容",
+                        "description": "删除指定内容（管理员或上传者才能删除）。",
+                        "operationId": "deleteContent",
+                        "security": [{"BearerAuth": []}],
+                        "parameters": [
+                            {
+                                "name": "id",
+                                "in": "path",
+                                "description": "内容ID",
+                                "required": true,
+                                "schema": {"type": "integer", "format": "int64", "example": 1001}
+                            }
+                        ],
+                        "responses": {
+                            "200": {"description": "删除成功"},
+                            "400": {"$ref": "#/components/responses/BadRequest"},
+                            "401": {"$ref": "#/components/responses/Unauthorized"},
+                            "403": {"$ref": "#/components/responses/Forbidden"},
+                            "404": {"$ref": "#/components/responses/NotFound"}
+                        }
+                    }
+                },
+                "/{id}/like": {
+                    "post": {
+                        "tags": ["用户互动"],
+                        "summary": "点赞/取消点赞",
+                        "description": "对指定内容进行点赞或取消点赞操作。\n\n### 业务规则：\n- ✅ 首次调用 = 点赞\n- ✅ 再次调用 = 取消点赞\n- ✅ 返回当前状态和总点赞数",
+                        "operationId": "toggleLike",
+                        "security": [{"BearerAuth": []}],
+                        "parameters": [
+                            {
+                                "name": "id",
+                                "in": "path",
+                                "description": "内容ID",
+                                "required": true,
+                                "schema": {"type": "integer", "format": "int64", "example": 1001}
+                            }
+                        ],
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/LikeRequest"},
+                                    "examples": {
+                                        "like_example": {
+                                            "summary": "点赞请求",
+                                            "value": {"content_id": 1001}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "操作成功",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/LikeResponse"},
+                                        "examples": {
+                                            "liked": {
+                                                "summary": "点赞成功",
+                                                "value": {
+                                                    "code": 200,
+                                                    "data": {
+                                                        "success": true,
+                                                        "message": "点赞成功",
+                                                        "liked": true,
+                                                        "like_count": 85001
+                                                    }
+                                                }
+                                            },
+                                            "unliked": {
+                                                "summary": "取消点赞",
+                                                "value": {
+                                                    "code": 200,
+                                                    "data": {
+                                                        "success": true,
+                                                        "message": "已取消点赞",
+                                                        "liked": false,
+                                                        "like_count": 85000
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "400": {"$ref": "#/components/responses/BadRequest"},
+                            "401": {"$ref": "#/components/responses/Unauthorized"},
+                            "404": {"$ref": "#/components/responses/NotFound"}
+                        }
+                    }
+                },
+                "/{id}/favorite": {
+                    "post": {
+                        "tags": ["用户互动"],
+                        "summary": "收藏/取消收藏",
+                        "description": "将指定内容添加到收藏夹或从收藏夹移除。\n\n### 支持的收藏类型：\n- `song` (默认) - 收藏歌曲\n- `playlist` - 收藏歌单\n- `album` - 收藏专辑",
+                        "operationId": "toggleFavorite",
+                        "security": [{"BearerAuth": []}],
+                        "parameters": [
+                            {
+                                "name": "id",
+                                "in": "path",
+                                "description": "内容ID",
+                                "required": true,
+                                "schema": {"type": "integer", "format": "int64", "example": 1001}
+                            }
+                        ],
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/FavoriteRequest"},
+                                    "examples": {
+                                        "favorite_song": {
+                                            "summary": "收藏歌曲",
+                                            "value": {"content_id": 1001, "favorite_type": "song"}
+                                        },
+                                        "favorite_album": {
+                                            "summary": "收藏专辑",
+                                            "value": {"content_id": 2001, "favorite_type": "album"}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "操作成功",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/FavoriteResponse"},
+                                        "examples": {
+                                            "favorited": {
+                                                "summary": "收藏成功",
+                                                "value": {
+                                                    "code": 200,
+                                                    "data": {
+                                                        "success": true,
+                                                        "message": "收藏成功",
+                                                        "favorited": true,
+                                                        "favorite_count": 1200
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "400": {"$ref": "#/components/responses/BadRequest"},
+                            "401": {"$ref": "#/components/responses/Unauthorized"}
+                        }
+                    }
+                },
+                "/playlists": {
+                    "post": {
+                        "tags": ["歌单管理"],
+                        "summary": "创建新歌单",
+                        "description": "创建一个新的用户自定义歌单。\n\n### 注意事项：\n- ⚠️ 名称长度限制：1-100字符\n- ⚠️ 描述长度限制：最多500字符\n- ✅ 可设置公开/私密权限",
+                        "operationId": "createPlaylist",
+                        "security": [{"BearerAuth": []}],
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/CreatePlaylistRequest"},
+                                    "examples": {
+                                        "public_playlist": {
+                                            "summary": "创建公开歌单",
+                                            "value": {
+                                                "name": "我的最爱",
+                                                "description": "精选好听的华语流行歌曲",
+                                                "is_public": true
+                                            }
+                                        },
+                                        "private_playlist": {
+                                            "summary": "创建私密歌单",
+                                            "value": {
+                                                "name": "私密收藏",
+                                                "is_public": false
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "responses": {
+                            "201": {
+                                "description": "创建成功",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/PlaylistResponse"},
+                                        "example": {
+                                            "code": 201,
+                                            "data": {
+                                                "id": 5001,
+                                                "name": "我的最爱",
+                                                "song_count": 0,
+                                                "is_public": true,
+                                                "created_at": "2024-01-20T15:30:00Z"
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "400": {"$ref": "#/components/responses/BadRequest"},
+                            "401": {"$ref": "#/components/responses/Unauthorized"}
+                        }
+                    }
+                },
+                "/playlists/{playlistId}": {
+                    "put": {
+                        "tags": ["歌单管理"],
+                        "summary": "编辑歌单信息",
+                        "description": "更新已有歌单的基本信息（名称、描述、封面、公开性）。",
+                        "operationId": "updatePlaylist",
+                        "security": [{"BearerAuth": []}],
+                        "parameters": [
+                            {
+                                "name": "playlistId",
+                                "in": "path",
+                                "description": "歌单ID",
+                                "required": true,
+                                "schema": {"type": "string", "example": "5001"}
+                            }
+                        ],
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/UpdatePlaylistRequest"},
+                                    "examples": {
+                                        "update_name": {
+                                            "summary": "更新名称和封面",
+                                            "value": {
+                                                "name": "我的超级最爱",
+                                                "cover_url": "https://cdn.example.com/covers/new-cover.jpg"
+                                            }
+                                        },
+                                        "change_privacy": {
+                                            "summary": "改为私密歌单",
+                                            "value": {"is_public": 0}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "更新成功",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/PlaylistResponse"},
+                                        "example": {
+                                            "code": 200,
+                                            "data": {
+                                                "id": 5001,
+                                                "name": "我的超级最爱",
+                                                "song_count": 25,
+                                                "updated_at": "2024-01-21T10:15:00Z"
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "400": {"$ref": "#/components/responses/BadRequest"},
+                            "401": {"$ref": "#/components/responses/Unauthorized"},
+                            "403": {"$ref": "#/components/responses/Forbidden"},
+                            "404": {"$ref": "#/components/responses/NotFound"}
+                        }
+                    },
+                    "delete": {
+                        "tags": ["歌单管理"],
+                        "summary": "删除歌单",
+                        "description": "删除指定的用户歌单及其所有歌曲关联数据。\n\n⚠️ **重要提示：**\n- ❌ 此操作不可逆\n- ❌ 会同时删除歌单内所有歌曲的关联关系",
+                        "operationId": "deletePlaylist",
+                        "security": [{"BearerAuth": []}],
+                        "parameters": [
+                            {
+                                "name": "playlistId",
+                                "in": "path",
+                                "description": "歌单ID",
+                                "required": true,
+                                "schema": {"type": "string", "example": "5001"}
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "删除成功",
+                                "content": {
+                                    "application/json": {
+                                        "example": {
+                                            "code": 200,
+                                            "data": {
+                                                "success": true,
+                                                "message": "歌单已成功删除"
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "400": {"$ref": "#/components/responses/BadRequest"},
+                            "401": {"$ref": "#/components/responses/Unauthorized"},
+                            "403": {"$ref": "#/components/responses/Forbidden"},
+                            "404": {"$ref": "#/components/responses/NotFound"}
+                        }
+                    }
+                },
+                "/playlists/{playlistId}/songs": {
+                    "post": {
+                        "tags": ["歌单管理"],
+                        "summary": "添加歌曲到歌单",
+                        "description": "将一首或多首歌曲添加到指定歌单中。\n\n### 业务规则：\n- ✅ 支持批量添加（一次最多50首）\n- ✅ 自动去重（同一首歌不会重复添加）\n- ✅ 实时更新歌单歌曲计数",
+                        "operationId": "addSongToPlaylist",
+                        "security": [{"BearerAuth": []}],
+                        "parameters": [
+                            {
+                                "name": "playlistId",
+                                "in": "path",
+                                "description": "目标歌单ID",
+                                "required": true,
+                                "schema": {"type": "string", "example": "5001"}
+                            }
+                        ],
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/AddSongRequest"},
+                                    "examples": {
+                                        "add_single": {
+                                            "summary": "添加单曲",
+                                            "value": {"content_id": 1001}
+                                        },
+                                        "add_batch": {
+                                            "summary": "批量添加",
+                                            "value": {"content_ids": [1001, 1002, 1003]}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "添加成功",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/AddSongResponse"},
+                                        "example": {
+                                            "code": 200,
+                                            "data": {
+                                                "success": true,
+                                                "message": "已添加1首歌曲到歌单",
+                                                "added_count": 1,
+                                                "duplicate_count": 0
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "400": {"$ref": "#/components/responses/BadRequest"},
+                            "401": {"$ref": "#/components/responses/Unauthorized"},
+                            "404": {"$ref": "#/components/responses/NotFound"}
+                        }
+                    }
+                },
+                "/playlists/{playlistId}/songs/{songId}": {
+                    "delete": {
+                        "tags": ["歌单管理"],
+                        "summary": "从歌单移除歌曲",
+                        "description": "从指定歌单中移除特定歌曲。\n\n### 注意事项：\n- ✅ 仅移除关联关系，不删除原歌曲\n- ✅ 实时更新剩余歌曲数统计",
+                        "operationId": "removeSongFromPlaylist",
+                        "security": [{"BearerAuth": []}],
+                        "parameters": [
+                            {
+                                "name": "playlistId",
+                                "in": "path",
+                                "description": "歌单ID",
+                                "required": true,
+                                "schema": {"type": "string", "example": "5001"}
+                            },
+                            {
+                                "name": "songId",
+                                "in": "path",
+                                "description": "要移除的歌曲ID",
+                                "required": true,
+                                "schema": {"type": "string", "example": "1001"}
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "移除成功",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {"$ref": "#/components/schemas/RemoveSongResponse"},
+                                        "example": {
+                                            "code": 200,
+                                            "data": {
+                                                "playlist_id": "5001",
+                                                "remain_total": 24
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "400": {"$ref": "#/components/responses/BadRequest"},
+                            "401": {"$ref": "#/components/responses/Unauthorized"},
+                            "403": {"$ref": "#/components/responses/Forbidden"},
+                            "404": {"$ref": "#/components/responses/NotFound"}
+                        }
+                    }
+                }
+            },
+            "components": {
+                "securitySchemes": {
+                    "BearerAuth": {
+                        "type": "http",
+                        "scheme": "bearer",
+                        "bearerFormat": "JWT",
+                        "description": "JWT Token认证格式：`Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`"
+                    }
+                },
+                "schemas": {
+                    "ContentListResponse": {
+                        "type": "object",
+                        "properties": {
+                            "code": {"type": "integer", "description": "状态码", "example": 200},
+                            "msg": {"type": "string", "description": "响应消息", "example": "success"},
+                            "data": {
+                                "type": "object",
+                                "properties": {
+                                    "total": {"type": "integer", "description": "总记录数", "example": 150},
+                                    "list": {
+                                        "type": "array",
+                                        "description": "当前页数据列表",
+                                        "items": {"$ref": "#/components/schemas/ContentListItem"}
+                                    },
+                                    "page": {"type": "integer", "description": "当前页码", "example": 1},
+                                    "page_size": {"type": "integer", "description": "每页数量", "example": 20},
+                                    "has_more": {"type": "boolean", "description": "是否有更多数据", "example": true},
+                                    "total_pages": {"type": "integer", "description": "总页数", "example": 8}
+                                }
+                            }
+                        }
+                    },
+                    "ContentListItem": {
+                        "type": "object",
+                        "properties": {
+                            "content_id": {"type": "integer", "format": "int64", "description": "内容唯一ID", "example": 1001},
+                            "title": {"type": "string", "description": "歌曲名称", "example": "晴天"},
+                            "artist": {"type": "string", "description": "歌手/艺术家", "example": "周杰伦"},
+                            "album": {"type": "string", "description": "专辑名称", "example": "叶惠美"},
+                            "cover_url": {"type": "string", "format": "uri", "description": "封面图URL", "example": "https://cdn.example.com/cover/1001.jpg"},
+                            "duration": {"type": "integer", "description": "时长（秒）", "example": 269},
+                            "view_count": {"type": "integer", "format": "int64", "description": "播放量", "example": 1250000},
+                            "like_count": {"type": "integer", "format": "int64", "description": "点赞数", "example": 85000},
+                            "is_vip_content": {"type": "boolean", "description": "是否VIP专享内容", "example": false},
+                            "can_play": {"type": "boolean", "description": "是否可播放", "example": true},
+                            "vip_level": {"type": "integer", "description": "所需会员等级", "example": 0}
+                        }
+                    },
+                    "ContentDetailResponse": {
+                        "type": "object",
+                        "properties": {
+                            "code": {"type": "integer", "example": 200},
+                            "msg": {"type": "string", "example": "success"},
+                            "data": {
+                                "type": "object",
+                                "properties": {
+                                    "content_id": {"type": "integer", "format": "int64", "description": "内容唯一ID", "example": 1001},
+                                    "title": {"type": "string", "description": "标题", "example": "晴天"},
+                                    "artist": {"type": "string", "description": "艺术家", "example": "周杰伦"},
+                                    "album": {"type": "string", "description": "专辑", "example": "叶惠美"},
+                                    "cover_url": {"type": "string", "format": "uri", "description": "封面图URL"},
+                                    "description": {"type": "string", "description": "描述/简介", "example": "收录在2003年专辑《叶惠美》中的经典作品"},
+                                    "duration": {"type": "integer", "description": "时长（秒）", "example": 269},
+                                    "format": {"type": "string", "description": "文件格式", "example": "mp3"},
+                                    "file_size": {"type": "integer", "format": "int64", "description": "文件大小（字节）", "example": 10800000},
+                                    "play_url": {"type": "string", "format": "uri", "description": "播放地址（有权限才返回）", "example": "https://stream.example.com/music/1001.mp3"},
+                                    "category": {"type": "string", "description": "分类", "example": "流行"},
+                                    "tags": {"type": "array", "items": {"type": "string"}, "description": "标签列表", "example": ["流行", "华语", "经典"]},
+                                    "view_count": {"type": "integer", "format": "int64", "description": "播放量", "example": 1250000},
+                                    "like_count": {"type": "integer", "format": "int64", "description": "点赞数", "example": 85000},
+                                    "comment_count": {"type": "integer", "format": "int64", "description": "评论数", "example": 3200},
+                                    "create_time": {"type": "string", "format": "date-time", "description": "创建时间", "example": "2024-01-15T10:30:00Z"},
+                                    "update_time": {"type": "string", "format": "date-time", "description": "更新时间", "example": "2024-01-20T14:22:00Z"},
+                                    "permission": {"$ref": "#/components/schemas/PermissionInfo"}
+                                }
+                            }
+                        }
+                    },
+                    "PermissionInfo": {
+                        "type": "object",
+                        "description": "权限信息",
+                        "properties": {
+                            "need_vip": {"type": "boolean", "description": "是否需要VIP", "example": false},
+                            "required_level": {"type": "integer", "description": "所需会员等级（0=免费）", "example": 0},
+                            "can_play": {"type": "boolean", "description": "是否可播放", "example": true},
+                            "can_download": {"type": "boolean", "description": "是否可下载", "example": true}
+                        }
+                    },
+                    "LikeRequest": {
+                        "type": "object",
+                        "properties": {
+                            "content_id": {"type": "integer", "description": "内容ID（必填，必须大于0）", "example": 1001}
+                        }
+                    },
+                    "LikeResponse": {
+                        "type": "object",
+                        "properties": {
+                            "success": {"type": "boolean", "description": "操作是否成功", "example": true},
+                            "message": {"type": "string", "description": "提示信息", "example": "点赞成功"},
+                            "liked": {"type": "boolean", "description": "当前点赞状态", "example": true},
+                            "like_count": {"type": "integer", "format": "int64", "description": "该内容的最新点赞总数", "example": 85001}
+                        }
+                    },
+                    "FavoriteRequest": {
+                        "type": "object",
+                        "properties": {
+                            "content_id": {"type": "integer", "description": "内容ID（必填，必须大于0）", "example": 1001},
+                            "favorite_type": {"type": "string", "description": "收藏类型：song(默认)/playlist/album", "enum": ["song", "playlist", "album"], "default": "song", "example": "song"}
+                        }
+                    },
+                    "FavoriteResponse": {
+                        "type": "object",
+                        "properties": {
+                            "success": {"type": "boolean", "example": true},
+                            "message": {"type": "string", "example": "收藏成功"},
+                            "favorited": {"type": "boolean", "description": "当前收藏状态", "example": true},
+                            "favorite_count": {"type": "integer", "format": "int64", "description": "该内容的最新收藏总数", "example": 1200}
+                        }
+                    },
+                    "CreatePlaylistRequest": {
+                        "type": "object",
+                        "required": ["name"],
+                        "properties": {
+                            "name": {"type": "string", "description": "歌单名称（必填，1-100字符）", "minLength": 1, "maxLength": 100, "example": "我的最爱"},
+                            "description": {"type": "string", "description": "歌单描述（可选，最多500字符）", "maxLength": 500, "example": "精选好听的华语流行歌曲"},
+                            "cover_url": {"type": "string", "format": "uri", "description": "封面图片URL（可选）", "example": "https://cdn.example.com/covers/my-favorites.jpg"},
+                            "is_public": {"type": "boolean", "description": "是否公开（true=公开, false=私密）", "default": true, "example": true}
+                        }
+                    },
+                    "UpdatePlaylistRequest": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "歌单名称（可选，1-100字符）", "minLength": 1, "maxLength": 100, "example": "我的超级最爱"},
+                            "description": {"type": "string", "description": "歌单描述（可选，最多500字符）", "maxLength": 500, "example": "更新后的描述"},
+                            "cover_url": {"type": "string", "format": "uri", "description": "封面图片URL（可选）", "example": "https://cdn.example.com/covers/new-cover.jpg"},
+                            "is_public": {"type": "integer", "description": "可见性（0=私有, 1=公开）", "enum": [0, 1], "example": 1}
+                        }
+                    },
+                    "PlaylistResponse": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "integer", "format": "int64", "description": "歌单ID", "example": 5001},
+                            "name": {"type": "string", "description": "歌单名称", "example": "我的最爱"},
+                            "description": {"type": "string", "description": "歌单描述", "example": "精选好听的华语流行歌曲"},
+                            "cover_url": {"type": "string", "format": "uri", "description": "封面图片URL"},
+                            "song_count": {"type": "integer", "description": "歌曲数量", "example": 25},
+                            "is_public": {"type": "integer", "description": "是否公开（0=私有, 1=公开）", "example": 1},
+                            "user_id": {"type": "integer", "format": "int64", "description": "创建人ID", "example": 12345},
+                            "created_at": {"type": "string", "format": "date-time", "description": "创建时间", "example": "2024-01-20T15:30:00Z"},
+                            "updated_at": {"type": "string", "format": "date-time", "description": "更新时间", "example": "2024-01-21T10:15:00Z"}
+                        }
+                    },
+                    "AddSongRequest": {
+                        "type": "object",
+                        "properties": {
+                            "content_id": {"type": "integer", "format": "int64", "description": "单个歌曲ID", "example": 1001},
+                            "content_ids": {"type": "array", "items": {"type": "integer", "format": "int64"}, "description": "批量歌曲ID列表（与content_id二选一）", "example": [1001, 1002, 1003]}
+                        }
+                    },
+                    "AddSongResponse": {
+                        "type": "object",
+                        "properties": {
+                            "success": {"type": "boolean", "example": true},
+                            "message": {"type": "string", "example": "已添加1首歌曲到歌单"},
+                            "added_count": {"type": "integer", "description": "成功添加的数量", "example": 1},
+                            "duplicate_count": {"type": "integer", "description": "因重复被忽略的数量", "example": 0}
+                        }
+                    },
+                    "RemoveSongResponse": {
+                        "type": "object",
+                        "properties": {
+                            "playlist_id": {"type": "string", "description": "歌单ID", "example": "5001"},
+                            "remain_total": {"type": "integer", "format": "int64", "description": "歌单剩余曲目数", "example": 24}
+                        }
+                    }
+                },
+                "responses": {
+                    "BadRequest": {
+                        "description": "请求参数错误",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": {"type": "integer", "example": 400},
+                                        "msg": {"type": "string", "example": "参数错误：content_id不能为空"}
+                                    }
+                                },
+                                "examples": {
+                                    "invalid_param": {"value": {"code": 400, "msg": "参数错误：content_id不能为空"}},
+                                    "validation_error": {"value": {"code": 400, "msg": "参数校验失败：name长度必须在1-100之间"}}
+                                }
+                            }
+                        }
+                    },
+                    "Unauthorized": {
+                        "description": "未认证或Token无效",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": {"type": "integer", "example": 401},
+                                        "msg": {"type": "string", "example": "Token已过期，请重新登录"}
+                                    }
+                                },
+                                "examples": {
+                                    "no_token": {"value": {"code": 401, "msg": "未提供认证Token"}},
+                                    "expired_token": {"value": {"code": 401, "msg": "Token已过期，请重新登录"}}
+                                }
+                            }
+                        }
+                    },
+                    "Forbidden": {
+                        "description": "无权限访问该资源",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": {"type": "integer", "example": 403},
+                                        "msg": {"type": "string", "example": "无权操作他人的歌单"}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "NotFound": {
+                        "description: "资源不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": {"type": "integer", "example": 404},
+                                        "msg": {"type": "string", "example": "内容不存在"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        window.onload = function() {
+            const ui = SwaggerUIBundle({
+                spec: spec,
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                docExpansion: "list",
+                filter: true,
+                showRequestDuration: true,
+                tryItOutEnabled: true
+            });
+
+            window.ui = ui;
+        };
+    </script>
+</body>
+</html>

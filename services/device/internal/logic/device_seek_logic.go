@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -60,9 +59,9 @@ func (l *DeviceSeekLogic) DeviceSeek(req *types.DeviceSeekReq) (*types.DeviceSee
 	}
 
 	params := map[string]interface{}{
-		"task_id":        corrID,
-		"position":       req.Position,
-		"playback_cmd":   "seek",
+		"task_id":      corrID,
+		"position":     req.Position,
+		"playback_cmd": "seek",
 	}
 
 	cmdSvc := commandsvc.New(l.svcCtx)
@@ -96,13 +95,8 @@ func validateDeviceSeekReq(req *types.DeviceSeekReq) error {
 		return fmt.Errorf("请求不能为空")
 	}
 
-	sn := strings.TrimSpace(req.Sn)
-	if sn == "" {
-		return fmt.Errorf("设备序列号不能为空")
-	}
-	matched, _ := regexp.MatchString(`^[A-Za-z0-9]{16}$`, sn)
-	if !matched {
-		return fmt.Errorf("设备序列号格式错误，必须为16位字母数字组合")
+	if err := validateReqSN(req.Sn); err != nil {
+		return err
 	}
 
 	if req.Position < 0 {

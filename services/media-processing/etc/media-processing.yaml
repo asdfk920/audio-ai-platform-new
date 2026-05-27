@@ -3,17 +3,40 @@ Host: 0.0.0.0
 Port: 8004
 
 CORS:
+  # 浏览器跨域（Vite 前端默认 http://localhost:5173，控制台页面 http://localhost:8080）。
   AllowCredentials: false
   AllowOrigins:
+    - "http://localhost:5173"
+    - "http://127.0.0.1:5173"
+    - "http://localhost:4173"
+    - "http://localhost:3000"
+    - "http://localhost:8080"
+    - "http://127.0.0.1:8080"
     - "*"
   AllowMethods:
     - GET
     - POST
     - PUT
+    - PATCH
     - DELETE
     - OPTIONS
   AllowHeaders:
-    - "*"
+    - Origin
+    - Content-Type
+    - Accept
+    - Authorization
+    - X-Requested-With
+  ExposeHeaders:
+    - Content-Length
+    - Content-Type
+  MaxAge: 86400
+
+# DRM / 版权声明头透传 + 可选平台 RSA-PSS 签名（不落密钥、不解密）。
+# openssl genrsa -out drm_proxy.pem 2048
+DRMPass:
+  AttestSigning: false
+  Issuer: "audio-ai-media-processing"
+  # SigningKeyPath: drm_proxy.pem
 
 # PostgreSQL（pgx/sql）：必须使用 libpq 关键字或 postgres:// URL，勿写成 MySQL 风格 user@tcp(...)
 Postgres:
@@ -56,4 +79,35 @@ Log:
   ServiceName: media-processing-api
   Mode: console
   Level: info
+
+# Spotify 第三方音频源配置（用于获取第三方音频流地址）
+Spotify:
+  ClientID: "your-spotify-client-id"
+  ClientSecret: "your-spotify-client-secret"
+  BaseURL: "https://api.spotify.com/v1"
+  MockMode: true  # 开发测试模式，使用模拟数据（生产环境请设为false）
+
+# 第三方音乐 API（网易云音乐 IoT 开放平台）
+ThirdPartyMusic:
+  BaseURL: "https://music.163.com"
+  # 网易云音乐 IoT 应用凭证（从开放平台获取）
+  AppID: "b3010d0000000005cc68494a0f7df68"
+  AppSecret: "dea61dddf1bc3c9dc32abb1f9d03129c"
+  PrivateKey: |
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDVAneEAW4FuOmbavPCLSlXmgfE0XnO1wQAcXEfJ38eGRFqDOFAfrjBGPr
+    Ez9gunvnXekqUtRbeaedXYigMPpyzOqmOtgL6quG5ciY6rSTyAypu4fV9aLqJ+E2LraMfDg59vyeEU3DenZBKCmt64DFzqhrgr1TiSW5mJlcEeXBQLi5
+    LeHgpFvP9zMfvR5PzFsDTvgJ03PmQljaYQMTZSN/bzq6/BOqJopLoSoxtADxmWsNmmqMfMOKuzevlzXBECo4JJVQRj/gbS9Pen5h7sdH1cPMkh
+    el4YhT6yXelVXEiSd9Dxv1fyU0xpWuxTjlh1rBoQdRtbZDndm22mY2AcvAgMBAAECggEAYTPjezM11FmgDNi1DLalUMul55ThjzV26qlIOWNgvNh9w
+    TpMvk6GIsgP2XrcIVEw1M0at6s+whaO7ujLK6nrNLDxwv7BRtM57ukDv6msGAgfYYHxUrRE9/GISsmrBWMCzbCZ70sUST/S4VuQISEFJA m5jWkil9Z
+    HPy85yWmnWaSV9DzbJo0SLMtXwCd4FVJLKhsJGECh0pJufnjAT8Bl8iz/nHzCl3Trkj1w7TOhLg6bUiur2Aaepy/DLCmY3JwRtHsjy6XcHnWrRRa
+    g/oA1JNGlTvIlcb2++sPBieUQalq8FTfr4wsn/TusQAJ4+lUhltFe9glgspt3llNv7XJp8vQKBgQDWZUn5viX5VE4WOQAZhNP9EUcik8bqAqPE6ZsA01W
+    Kb7E59zNSFJpfs2hVm1VZY+BnkWCqR1hkQ1KRGWzIJI AV9iQkTk714zT8GtSqGSrOuMJ4pn4lsEOibZs9hhEIQU3I/morlrxXYD87SVamH1N36wZH68
+    QAAS7LJoHu16OClaOai74Zpot5R3siFwDKR7v3+f0VIceEgOH6Hcn+agJ1/4N7oFGIbwclvKbqQ0UvOKBqQCfl96R9eyW/ulmqrtXKW iQ2nRF/or71
+    V2HCMK1DDJPn9sqLWyLBNqhSgpiyZ76AA6BYWsmHCwqRKdOHZTwxt/4IQVISgTa1qZxWOng+q+0vjSe7P9+vp5mMyz1xueH6Vl9BDXsWExnO
+    +0+I9LthFRFp1W3U1vNUXovtla9jociwKBgE42bhwc hawUf7sfvGTljC1ct+MWfV1zzuH/fqhAPKpa5KY+KoXytAy2yGTVLhvgTEUX0pWVPRgvG
+    F5dLMWLvweq80mz7WWzZDEU+hXVILgYKqv hjMXIW0IXEl2EnzMsa+kAxQXhn3ZzS1ssEzeWLgQDCvPY2lYr+DRbY+jatAoGBAK+OI73GiOlRIM
+    FYc9JfpaK/51CuE5IBsr81MrTkaSelxVKPcgUL4DcQqQ95zot6rH3bkPwssXckDOBwQrHfk IQVSXKQifk+XBwL+09xwH2kZ+UDIRuhRxGyRN52+W
+    WfnL68DTv7ulBetNOa+yhdGqoNM9il6IPly349Ze1LJaRO
+  TimeoutSec: 10
+  EnableMock: false
 

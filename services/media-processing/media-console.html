@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 流媒体服务控制台 - Audio AI Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            animation: fadeInDown 1s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .server-info {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            backdrop-filter: blur(10px);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            margin-top: 25px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+        }
+
+        .card-header {
+            padding: 25px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+        }
+
+        .card-header.stream-proxy {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .card-header.protocol-convert {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .card-header.drm-passthrough {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .card-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            position: relative;
+            z-index: 1;
+            margin-bottom: 5px;
+        }
+
+        .card-description {
+            font-size: 0.95em;
+            opacity: 0.95;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-body {
+            padding: 25px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95em;
+        }
+
+        input[type="text"],
+        input[type="url"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        button:active::after {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102,126,234,0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(240,147,251,0.4);
+        }
+
+        .response-container {
+            margin-top: 20px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .response-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e1e8ed;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s ease;
+            border-right: 1px solid #e1e8ed;
+        }
+
+        .tab:last-child {
+            border-right: none;
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .response-content {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-loading {
+            background: #fff3cd;
+            color: #856404;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-top: 15px;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #43e97b;
+            font-weight: bold;
+        }
+
+        .api-endpoint {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85em;
+            color: #667eea;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .method-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .method-get {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .method-post {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            padding: 20px;
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+
+        .token-input-wrapper {
+            position: relative;
+        }
+
+        .token-hint {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8em;
+            color: #999;
+            pointer-events: none;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+            
+            .card-title {
+                font-size: 1.2em;
+            }
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #1565C0;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #FFA000;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #F57C00;
+        }
+
+        .success-box {
+            background: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #2E7D32;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎵 流媒体服务控制台</h1>
+            <p class="subtitle">Audio AI Platform - Media Processing Service</p>
+            <div class="server-info">
+                🖥️ 服务端口: <strong>8004</strong> | 
+                🌐 地址: <strong>http://localhost:8004</strong> | 
+                🚀 状态: <span style="color: #43e97b;">● 运行中</span>
+            </div>
+        </header>
+
+        <div class="grid">
+            <!-- 卡片1: 音频流代理 -->
+            <div class="card" style="animation-delay: 0.1s;">
+                <div class="card-header stream-proxy">
+                    <div class="card-icon">🔄</div>
+                    <div class="card-title">音频流代理</div>
+                    <div class="card-description">从第三方拉取音频流，支持实时代理转发与Range断点续播</div>
+                </div>
+                <div class="card-body">
+                    <div class="api-endpoint">
+                        <span class="method-badge method-get">GET</span>/api/v1/thirdparty/stream/play
+                        <br>
+                        <span class="method-badge method-get">GET</span>/api/v1/thirdparty/stream/url
+                    </div>
+
+                    <ul class="feature-list">
+                        <li>第三方音频流URL获取</li>
+                        <li>HTTP流式代理转发</li>
+                        <li>支持Range断点续播</li>
+                        <li>自动处理跨域问题</li>
+                    </ul>
+
+                    <div class="form-group">
+                        <label for="proxy-url">第三方音频源地址</label>
+                        <input type="url" id="proxy-url" placeholder="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">
+                    </div>
+
+                    <button class="btn-primary" onclick="testStreamProxy()">
+                        🔍 获取流地址
+                    </button>
+                    <button class="btn-secondary" onclick="playStreamProxy()">
+                        ▶️ 直接播放
+                    </button>
+
+                    <div class="response-container" id="proxy-response" style="display:none;">
+                        <div class="response-tabs">
+                            <div class="tab active" onclick="switchTab(this, 'proxy', 'response')">响应结果</div>
+                            <div class="tab" onclick="switchTab(this, 'proxy', 'headers')">响应头</div>
+                            <div class="tab" onclick="switchTab(this, 'proxy', 'request')">请求信息</div>
+                        </div>
+                        <div class="response-content" id="proxy-response-content"></div>
+                        <div class="response-content" id="proxy-headers-content" style="display:none;"></div>
+                        <div class="response-content" id="proxy-request-content" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片2: 协议转换 -->
+            <div class="card" style="animation-delay: 0.2s;">
+                <div class="card-header protocol-convert">
+                    <div class="card-icon">⚡</div>
+                    <div class="card-title">协议转换 (MVP)</div>
+                    <div class="card-description">将HLS/MP3流转换为WebSocket或HTTP分块传输，全程流式处理</div>
+                </div>
+                <div class="card-body">
+                    <div class="api-endpoint">
+                        <span class="method-badge method-get">GET</span>/api/v1/protocol/convert
+                    </div>
+
+                    <ul class="feature-list">
+                        <li>HLS(m3u8) → HTTP分块/WebSocket</li>
+                        <li>MP3流 → HTTP分块/WebSocket</li>
+                        <li>TS分片解封装处理</li>
+                        <li>内存友好，不缓存完整文件</li>
+                    </ul>
+
+                    <div class="form-group">
+                        <label for="convert-source">源流地址 (HLS/MP3)</label>
+                        <input type="url" id="convert-source" placeholder="https://example.com/stream.m3u8 或 https://example.com/audio.mp3" value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="convert-output">输出协议</label>
+                        <select id="convert-output">
+                            <option value="http_chunked">HTTP 分块传输 (推荐)</option>
+                            <option value="websocket">WebSocket 长连接</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="convert-chunksize">分块大小 (字节)</label>
+                        <input type="text" id="convert-chunksize" placeholder="默认: 8192" value="8192">
+                    </div>
+
+                    <button class="btn-primary" onclick="testProtocolConvert()">
+                        ⚡ 开始转换
+                    </button>
+
+                    <div class="info-box">
+                        💡 提示：协议转换会建立长连接进行流式传输，请保持页面打开
+                    </div>
+
+                    <div class="response-container" id="convert-response" style="display:none;">
+                        <div class="response-tabs">
+                            <div class="tab active" onclick="switchTab(this, 'convert', 'response')">转换状态</div>
+                            <div class="tab" onclick="switchTab(this, 'convert', 'stats')">传输统计</div>
+                            <div class="tab" onclick="switchTab(this, 'convert', 'log')">实时日志</div>
+                        </div>
+                        <div class="response-content" id="convert-response-content"></div>
+                        <div class="response-content" id="convert-stats-content" style="display:none;"></div>
+                        <div class="response-content" id="convert-log-content" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片3: DRM透传 -->
+            <div class="card" style="animation-delay: 0.3s;">
+                <div class="card-header drm-passthrough">
+                    <div class="card-icon">🔒</div>
+                    <div class="card-title">DRM 版权透传</div>
+                    <div class="card-description">原样透传加密音频流+DRM信息，不解密、不破解、合规安全</div>
+                </div>
+                <div class="card-body">
+                    <div class="api-endpoint">
+                        <span class="method-badge method-get">GET</span>/api/v1/song/play
+                        <br>
+                        <span class="method-badge method-post">POST</span>/api/v1/song/play
+                    </div>
+
+                    <ul class="feature-list">
+                        <li>加密音频流原样透传</li>
+                        <li>DRM元数据完整保留</li>
+                        <li>RSA-PSS签名防篡改</li>
+                        <li>合规：不碰密钥、不存储明文</li>
+                    </ul>
+
+                    <div class="success-box">
+                        ✅ 合规保证：不解密 | 不破解 | 不转码 | 原样透传
+                    </div>
+
+                    <div class="form-group">
+                        <label for="drm-songid">歌曲 ID</label>
+                        <input type="text" id="drm-songid" placeholder="输入歌曲ID（数字）" value="12345">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="drm-quality">音质选择</label>
+                        <select id="drm-quality">
+                            <option value="standard">标准音质 (standard)</option>
+                            <option value="hq" selected>高品质 (hq)</option>
+                            <option value="hires">无损音质 (hi-res)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group token-input-wrapper">
+                        <label for="drm-token">用户 Token (JWT)</label>
+                        <input type="text" id="drm-token" placeholder="Bearer eyJhbGciOiJIUzI1NiIs...">
+                        <span class="token-hint">必填</span>
+                    </div>
+
+                    <button class="btn-primary" onclick="testDRMPassthrough()">
+                        🔒 获取DRM保护流
+                    </button>
+                    <button class="btn-secondary" onclick="simulateDRMResponse()">
+                        🧪 模拟响应
+                    </button>
+
+                    <div class="warning-box">
+                        ⚠️ 注意：返回的是加密流+DRM信息，前端应直接交给播放器处理，不要尝试解密
+                    </div>
+
+                    <div class="response-container" id="drm-response" style="display:none;">
+                        <div class="response-tabs">
+                            <div class="tab active" onclick="switchTab(this, 'drm', 'response')">DRM信息</div>
+                            <div class="tab" onclick="switchTab(this, 'drm', 'stream')">流地址</div>
+                            <div class="tab" onclick="switchTab(this, 'drm', 'copyright')">版权声明</div>
+                        </div>
+                        <div class="response-content" id="drm-response-content"></div>
+                        <div class="response-content" id="drm-stream-content" style="display:none;"></div>
+                        <div class="response-content" id="drm-copyright-content" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>🎵 Audio AI Platform - 流媒体服务测试控制台</p>
+            <p style="margin-top: 5px; font-size: 0.85em;">
+                端口: 8004 | 版本: v1.0.0 | 合规等级: ★★★★★
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:8004';
+        
+        let currentToken = '';
+
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${BASE_URL}/health`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+                
+                if (response.ok) {
+                    updateServerStatus(true, '✅ 服务运行中');
+                    return true;
+                } else {
+                    updateServerStatus(false, '⚠️ 服务异常');
+                    return false;
+                }
+            } catch (error) {
+                console.error('服务状态检测失败:', error);
+                updateServerStatus(false, '❌ 无法连接到服务 (端口8004)');
+                showCORSWarning();
+                return false;
+            }
+        }
+
+        function updateServerStatus(isOnline, message) {
+            const statusEl = document.querySelector('.server-info');
+            if (statusEl) {
+                const statusIcon = isOnline ? '<span style="color: #43e97b;">● 运行中</span>' : '<span style="color: #f5576c;">● 离线</span>';
+                statusEl.innerHTML = `🖥️ 服务端口: <strong>8004</strong> | 🌐 地址: <strong>http://localhost:8004</strong> | 🚀 状态: ${statusIcon}`;
+            }
+        }
+
+        function showCORSWarning() {
+            const warningDiv = document.createElement('div');
+            warningDiv.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+                color: white;
+                padding: 20px;
+                text-align: center;
+                z-index: 10000;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+                animation: slideDown 0.3s ease-out;
+            `;
+            warningDiv.innerHTML = `
+                <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">
+                    ⚠️ 检测到 CORS 跨域问题或服务未启动
+                </div>
+                <div style="font-size: 14px; opacity: 0.95;">
+                    请确保：<br>
+                    1. 流媒体服务已启动（端口8004）<br>
+                    2. 已在 etc/media-processing.yaml 中添加 localhost:8080 到 AllowOrigins<br>
+                    3. 重启流媒体服务使配置生效
+                </div>
+                <button onclick="this.parentElement.remove()" style="
+                    position: absolute;
+                    top: 10px;
+                    right: 15px;
+                    background: rgba(255,255,255,0.2);
+                    border: none;
+                    color: white;
+                    font-size: 24px;
+                    cursor: pointer;
+                    padding: 5px 10px;
+                    border-radius: 50%;
+                ">×</button>
+            `;
+            
+            if (!document.querySelector('.cors-warning')) {
+                warningDiv.className = 'cors-warning';
+                document.body.insertBefore(warningDiv, document.body.firstChild);
+            }
+
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideDown {
+                    from { transform: translateY(-100%); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        async function fetchWithFallback(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    }
+                });
+                return response;
+            } catch (corsError) {
+                console.warn('CORS请求失败，尝试使用no-cors模式:', corsError);
+                
+                try {
+                    const response = await fetch(url, {
+                        ...options,
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...options.headers
+                        }
+                    });
+                    
+                    if (response.type === 'opaque') {
+                        throw new Error('CORS策略阻止了请求。请检查：\n1. 流媒体服务是否运行在端口8004\n2. 是否已在media-processing.yaml的CORS配置中添加http://localhost:8080\n3. 是否已重启流媒体服务\n\n详细错误信息：' + corsError.message);
+                    }
+                    
+                    return response;
+                } catch (fallbackError) {
+                    throw new Error('无法连接到流媒体服务。请确保：\n✅ 服务已启动：go run main.go -f etc/media-processing.yaml\n✅ 端口8004可访问\n✅ CORS配置已更新并重启服务\n\n技术细节：' + fallbackError.message);
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkServerStatus();
+            
+            setInterval(checkServerStatus, 30000);
+
+            console.log('%c🎵 流媒体服务控制台已加载', 'color: #667eea; font-size: 16px; font-weight: bold;');
+            console.log('%c服务地址: http://localhost:8004', 'color: #43e97b;');
+            console.log('%c控制台地址: http://localhost:8080/media-console.html', 'color: #f5576c;');
+        });
+
+        function switchTab(tab, prefix, type) {
+            const container = tab.closest('.response-container');
+            container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            container.querySelectorAll('.response-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            document.getElementById(`${prefix}-${type}-content`).style.display = 'block';
+        }
+
+        function showResponse(containerId, data, status) {
+            const container = document.getElementById(containerId);
+            container.style.display = 'block';
+            
+            const responseContent = document.getElementById(`${containerId.replace('-response', '')}-response-content`);
+            responseContent.innerHTML = formatJSON(data);
+        }
+
+        function formatJSON(obj) {
+            try {
+                if (typeof obj === 'string') {
+                    return JSON.stringify(JSON.parse(obj), null, 2);
+                }
+                return JSON.stringify(obj, null, 2);
+            } catch (e) {
+                return obj;
+            }
+        }
+
+        function setLoading(button, loading) {
+            if (loading) {
+                button.disabled = true;
+                button.innerHTML = '<span class="loading-spinner"></span>处理中...';
+            } else {
+                button.disabled = false;
+                button.innerHTML = button.dataset.originalText || button.innerHTML.replace(/<span class="loading-spinner"><\/span>.*/, button.dataset.originalText || '提交');
+            }
+        }
+
+        async function testStreamProxy() {
+            const url = document.getElementById('proxy-url').value;
+            const btn = event.target;
+            btn.dataset.originalText = btn.innerHTML;
+            setLoading(btn, true);
+
+            try {
+                const response = await fetchWithFallback(`${BASE_URL}/api/v1/thirdparty/stream/url?url=${encodeURIComponent(url)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${document.getElementById('drm-token').value || 'test-token'}`
+                    }
+                });
+
+                const data = await response.json();
+                
+                document.getElementById('proxy-response-content').innerHTML = formatJSON(data);
+                document.getElementById('proxy-headers-content').innerHTML = formatHeaders(response.headers);
+                document.getElementById('proxy-request-content').innerHTML = `GET ${BASE_URL}/api/v1/thirdparty/stream/url?url=${url}\nAuthorization: Bearer ***`;
+                
+                showResponse('proxy-response', data, response.status);
+                
+                if (data.success) {
+                    showToast('✅ 成功获取流地址！', 'success');
+                } else {
+                    showToast(`❌ ${data.message || '获取失败'}`, 'error');
+                }
+            } catch (error) {
+                document.getElementById('proxy-response-content').innerHTML = `错误: ${error.message}`;
+                showResponse('proxy-response', {error: error.message}, 500);
+                showToast('❌ 请求失败: ' + error.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        async function playStreamProxy() {
+            const url = document.getElementById('proxy-url').value;
+            window.open(`${BASE_URL}/api/v1/thirdparty/stream/play?url=${encodeURIComponent(url)}`, '_blank');
+            showToast('▶️ 正在新窗口播放...', 'success');
+        }
+
+        async function testProtocolConvert() {
+            const sourceUrl = document.getElementById('convert-source').value;
+            const outputProtocol = document.getElementById('convert-output').value;
+            const chunkSize = document.getElementById('convert-chunksize').value;
+            const btn = event.target;
+            btn.dataset.originalText = btn.innerHTML;
+            setLoading(btn, true);
+
+            try {
+                const convertUrl = `${BASE_URL}/api/v1/protocol/convert?source_url=${encodeURIComponent(sourceUrl)}&output_protocol=${outputProtocol}&chunk_size=${chunkSize}`;
+                
+                document.getElementById('convert-response-content').innerHTML = `正在建立连接...\n源地址: ${sourceUrl}\n输出协议: ${outputProtocol}\n分块大小: ${chunkSize} bytes\n\n⏳ 等待响应...`;
+                document.getElementById('convert-stats-content').innerHTML = `传输统计:\n━━━━━━━━━━━━━━━\n已传输: 0 bytes\n分块数: 0\n耗时: 0s\n速度: 0 KB/s`;
+                document.getElementById('convert-log-content').innerHTML = `[${new Date().toLocaleTimeString()}] 开始协议转换请求...`;
+                
+                showResponse('convert-response', {}, 200);
+
+                const startTime = Date.now();
+                let receivedLength = 0;
+                let chunkCount = 0;
+
+                const response = await fetchWithFallback(convertUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${document.getElementById('drm-token').value || 'test-token'}`
+                    }
+                });
+
+                const reader = response.body.getReader();
+                const logs = [];
+
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    
+                    receivedLength += value.length;
+                    chunkCount++;
+                    
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    const speed = (receivedLength / elapsed / 1024).toFixed(2);
+                    
+                    document.getElementById('convert-response-content').innerHTML = 
+                        `✅ 流式传输中...\n` +
+                        `状态: 已接收 ${chunkCount} 个数据块\n` +
+                        `当前块大小: ${value.length} bytes\n` +
+                        `总接收: ${(receivedLength/1024).toFixed(2)} KB`;
+                    
+                    document.getElementById('convert-stats-content').innerHTML = 
+                        `传输统计:\n━━━━━━━━━━━━━━━\n` +
+                        `已传输: ${(receivedLength/1024).toFixed(2)} KB\n` +
+                        `分块数: ${chunkCount}\n` +
+                        `耗时: ${elapsed.toFixed(2)}s\n` +
+                        `速度: ${speed} KB/s`;
+                    
+                    const logEntry = `[${new Date().toLocaleTimeString()}] 接收第${chunkCount}块 (${value.length} bytes)`;
+                    logs.push(logEntry);
+                    document.getElementById('convert-log-content').innerHTML = logs.join('\n');
+                }
+
+                const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+                document.getElementById('convert-response-content').innerHTML = 
+                    `✅ 协议转换完成！\n` +
+                    `━━━━━━━━━━━━━━━\n` +
+                    `总数据量: ${(receivedLength/1024).toFixed(2)} KB\n` +
+                    `总分块数: ${chunkCount}\n` +
+                    `总耗时: ${totalTime}s\n` +
+                    `平均速度: ${(receivedLength/totalTime/1024).toFixed(2)} KB/s`;
+                
+                showToast(`✅ 转换完成! 共 ${chunkCount} 个数据块`, 'success');
+
+            } catch (error) {
+                document.getElementById('convert-response-content').innerHTML = `❌ 错误: ${error.message}`;
+                showResponse('convert-response', {error: error.message}, 500);
+                showToast('❌ 转换失败: ' + error.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        async function testDRMPassthrough() {
+            const songId = document.getElementById('drm-songid').value;
+            const quality = document.getElementById('drm-quality').value;
+            const token = document.getElementById('drm-token').value.trim();
+            const btn = event.target;
+            btn.dataset.originalText = btn.innerHTML;
+            setLoading(btn, true);
+
+            if (!songId) {
+                showToast('❌ 请输入歌曲ID', 'error');
+                setLoading(btn, false);
+                return;
+            }
+
+            if (!token) {
+                showToast('❌ 请输入用户Token', 'error');
+                setLoading(btn, false);
+                return;
+            }
+
+            try {
+                const url = `${BASE_URL}/api/v1/song/play?song_id=${songId}&quality=${quality}`;
+                
+                const response = await fetchWithFallback(url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                document.getElementById('drm-response-content').innerHTML = formatJSON({
+                    success: data.success,
+                    message: data.message,
+                    song_id: data.song_id,
+                    song_name: data.song_name,
+                    encrypted: data.encrypted,
+                    quality: data.quality,
+                    drm_info: data.drm_info
+                });
+
+                document.getElementById('drm-stream-content').innerHTML = 
+                    `🎵 加密音频流地址:\n━━━━━━━━━━━━━━━━━━━━\n\n${data.stream_url}\n\n⚠️ 这是加密流，不可直接播放\n必须配合DRM信息使用`;
+
+                document.getElementById('drm-copyright-content').innerHTML = 
+                    `📜 版权声明:\n━━━━━━━━━━━━━━━━━━━━\n\n${data.copyright}\n\n🔒 DRM类型: ${data.drm_info?.drm_type || 'N/A'}\n` +
+                    `📋 内容ID: ${data.drm_info?.content_id || 'N/A'}\n` +
+                    `🔑 许可证地址: ${data.drm_info?.license_url || 'N/A'}`;
+
+                showResponse('drm-response', data, response.status);
+
+                if (data.success) {
+                    showToast(`✅ 获取成功! 歌曲: ${data.song_name}`, 'success');
+                } else {
+                    showToast(`❌ ${data.message || '获取失败'}`, 'error');
+                }
+
+            } catch (error) {
+                document.getElementById('drm-response-content').innerHTML = `错误: ${error.message}`;
+                showResponse('drm-response', {error: error.message}, 500);
+                showToast('❌ 请求失败: ' + error.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        function simulateDRMResponse() {
+            const mockData = {
+                "success": true,
+                "message": "获取成功（DRM保护，原样透传）",
+                "song_id": parseInt(document.getElementById('drm-songid').value) || 12345,
+                "song_name": "夜曲 - 周杰伦",
+                "stream_url": "https://cdn.music-platform.com/audio/encrypted/song_12345_v2.flac",
+                "drm_info": {
+                    "drm_type": "widevine",
+                    "content_id": "uuid-song-12345-v2",
+                    "key_id": "base64-encoded-key-id-abc123xyz",
+                    "pssh": "base64-encoded-pssh-box-data-here",
+                    "license_url": "https://license.music-platform.com/widevine/license",
+                    "auth_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "copyright": "©2026 杰威尔音乐有限公司. All Rights Reserved.",
+                    "usage_policy": "personal-only,exp=2026-12-31,no-redistribute",
+                    "signature": "base64-rsa-pss-signature-for-tamper-proof"
+                },
+                "copyright": "©2026 杰威尔音乐有限公司. All Rights Reserved.",
+                "encrypted": true,
+                "quality": document.getElementById('drm-quality').value
+            };
+
+            document.getElementById('drm-response-content').innerHTML = formatJSON(mockData);
+            document.getElementById('drm-stream-content').innerHTML = 
+                `🎵 加密音频流地址:\n━━━━━━━━━━━━━━━━━━━━\n\n${mockData.stream_url}\n\n⚠️ 这是加密流，不可直接播放\n必须配合DRM信息使用`;
+            document.getElementById('drm-copyright-content').innerHTML = 
+                `📜 版权声明:\n━━━━━━━━━━━━━━━━━━━━\n\n${mockData.copyright}\n\n🔒 DRM类型: ${mockData.drm_info.drm_type}\n` +
+                `📋 内容ID: ${mockData.drm_info.content_id}\n` +
+                `🔑 许可证地址: ${mockData.drm_info.license_url}\n` +
+                `📝 使用策略: ${mockData.drm_info.usage_policy}`;
+
+            showResponse('drm-response', mockData, 200);
+            showToast('🧪 模拟响应已生成!', 'success');
+        }
+
+        function formatHeaders(headers) {
+            const result = {};
+            headers.forEach((value, key) => {
+                result[key] = value;
+            });
+            return formatJSON(result);
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 25px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 600;
+                z-index: 9999;
+                animation: slideInRight 0.3s ease-out;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+                max-width: 400px;
+            `;
+            
+            if (type === 'success') {
+                toast.style.background = 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)';
+            } else if (type === 'error') {
+                toast.style.background = 'linear-gradient(135deg, #f5576c 0%, #f093fb 100%)';
+            } else {
+                toast.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            }
+            
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOutRight 0.3s ease-in forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes slideOutRight {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('%c🎵 流媒体服务控制台已加载', 'color: #667eea; font-size: 16px; font-weight: bold;');
+            console.log('%c服务地址: http://localhost:8004', 'color: #43e97b;');
+        });
+    </script>
+</body>
+</html>

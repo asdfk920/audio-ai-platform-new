@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -358,9 +357,8 @@ func validateShadowQuerySn(sn string) error {
 		return fmt.Errorf("sn 参数不能为空")
 	}
 
-	snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
-	if !snRegex.MatchString(sn) {
-		return fmt.Errorf("SN 格式错误，必须为 16 位字母数字组合")
+	if err := validateReqSN(sn); err != nil {
+		return err
 	}
 
 	return nil

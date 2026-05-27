@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 流媒体服务控制台 - 代理版 (无CORS问题)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            animation: fadeInDown 1s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+
+        .subtitle { font-size: 1.1em; opacity: 0.9; margin-bottom: 5px; }
+
+        .server-info {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            backdrop-filter: blur(10px);
+        }
+
+        .mode-badge {
+            display: inline-block;
+            background: #43e97b;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin-left: 10px;
+            font-weight: bold;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            margin-top: 25px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+        }
+
+        .card-header {
+            padding: 25px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+        }
+
+        .card-header.stream-proxy { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .card-header.protocol-convert { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .card-header.drm-passthrough { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+
+        .card-icon { font-size: 3em; margin-bottom: 10px; position: relative; z-index: 1; }
+        .card-title { font-size: 1.5em; font-weight: bold; position: relative; z-index: 1; margin-bottom: 5px; }
+        .card-description { font-size: 0.95em; opacity: 0.95; position: relative; z-index: 1; }
+
+        .card-body { padding: 25px; }
+
+        .form-group { margin-bottom: 18px; }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95em;
+        }
+
+        input[type="text"], input[type="url"], select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        button:active::after { width: 300px; height: 300px; }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102,126,234,0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            margin-top: 10px;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            margin-top: 10px;
+        }
+
+        .response-container {
+            margin-top: 20px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .response-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e1e8ed;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s ease;
+            border-right: 1px solid #e1e8ed;
+        }
+
+        .tab:last-child { border-right: none; }
+        .tab.active { background: white; color: #667eea; border-bottom: 3px solid #667eea; }
+
+        .response-content {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .feature-list { list-style: none; margin-top: 15px; }
+        .feature-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+            color: #555;
+            font-size: 0.9em;
+        }
+        .feature-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #43e97b;
+            font-weight: bold;
+        }
+
+        .api-endpoint {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85em;
+            color: #667eea;
+            margin: 10px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .method-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .method-get { background: #d4edda; color: #155724; }
+        .method-post { background: #cce5ff; color: #004085; }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            padding: 20px;
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #1565C0;
+        }
+
+        .success-box {
+            background: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #2E7D32;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #FFA000;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #F57C00;
+        }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            h1 { font-size: 1.8em; }
+            .card-title { font-size: 1.2em; }
+        }
+
+        .token-input-wrapper { position: relative; }
+        .token-hint {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8em;
+            color: #999;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎵 流媒体服务控制台</h1>
+            <p class="subtitle">Audio AI Platform - Media Processing Service (代理版)</p>
+            <div class="server-info">
+                🖥️ 服务端口: <strong>8004</strong> | 
+                🌐 代理地址: <strong>http://localhost:8080</strong> | 
+                🚀 状态: <span id="server-status" style="color: #43e97b;">● 检测中...</span>
+                <span class="mode-badge" style="background: #FFA000;">PROXY MODE</span>
+            </div>
+        </header>
+
+        <div class="grid">
+            <!-- 卡片1: 音频流代理 -->
+            <div class="card" style="animation-delay: 0.1s;">
+                <div class="card-header stream-proxy">
+                    <div class="card-icon">🔄</div>
+                    <div class="card-title">音频流代理</div>
+                    <div class="card-description">从第三方拉取音频流，支持实时代理转发与Range断点续播</div>
+                </div>
+                <div class="card-body">
+                    <div class="api-endpoint">
+                        <span class="method-badge method-get">GET</span>/api/v1/thirdparty/stream/play
+                        <br><span class="method-badge method-get">GET</span>/api/v1/thirdparty/stream/url
+                    </div>
+
+                    <ul class="feature-list">
+                        <li>第三方音频流URL获取</li>
+                        <li>HTTP流式代理转发</li>
+                        <li>支持Range断点续播</li>
+                        <li>自动处理跨域问题 ✅</li>
+                    </ul>
+
+                    <div class="form-group">
+                        <label for="proxy-url">第三方音频源地址</label>
+                        <input type="url" id="proxy-url" placeholder="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">
+                    </div>
+
+                    <button class="btn-primary" onclick="testStreamProxy()">🔍 获取流地址 (通过代理)</button>
+                    <button class="btn-success" onclick="simulateStreamResponse()">🧪 模拟响应数据</button>
+
+                    <div class="response-container" id="proxy-response" style="display:none;">
+                        <div class="response-tabs">
+                            <div class="tab active" onclick="switchTab(this, 'proxy', 'response')">响应结果</div>
+                            <div class="tab" onclick="switchTab(this, 'proxy', 'info')">请求信息</div>
+                            <div class="tab" onclick="switchTab(this, 'proxy', 'cors')">CORS状态</div>
+                        </div>
+                        <div class="response-content" id="proxy-response-content"></div>
+                        <div class="response-content" id="proxy-info-content" style="display:none;"></div>
+                        <div class="response-content" id="proxy-cors-content" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片2: 协议转换 -->
+            <div class="card" style="animation-delay: 0.2s;">
+                <div class="card-header protocol-convert">
+                    <div class="card-icon">⚡</div>
+                    <div class="card-title">协议转换 (MVP)</div>
+                    <div class="card-description">将HLS/MP3流转换为WebSocket或HTTP分块传输，全程流式处理</div>
+                </div>
+                <div class="card-body">
+                    <div class="api-endpoint">
+                        <span class="method-badge method-get">GET</span>/api/v1/protocol/convert
+                    </div>
+
+                    <ul class="feature-list">
+                        <li>HLS(m3u8) → HTTP分块/WebSocket</li>
+                        <li>MP3流 → HTTP分块/WebSocket</li>
+                        <li>TS分片解封装处理</li>
+                        <li>内存友好，不缓存完整文件</li>
+                    </ul>
+
+                    <div class="form-group">
+                        <label for="convert-source">源流地址 (HLS/MP3)</label>
+                        <input type="url" id="convert-source" placeholder="https://example.com/stream.m3u8 或 https://example.com/audio.mp3" value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="convert-output">输出协议</label>
+                        <select id="convert-output">
+                            <option value="http_chunked">HTTP 分块传输 (推荐)</option>
+                            <option value="websocket">WebSocket 长连接</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="convert-chunksize">分块大小 (字节)</label>
+                        <input type="text" id="convert-chunksize" placeholder="默认: 8192" value="8192">
+                    </div>
+
+                    <button class="btn-primary" onclick="testProtocolConvert()">⚡ 开始转换 (通过代理)</button>
+                    <button class="btn-success" onclick="simulateConvertResponse()">🧪 模拟转换过程</button>
+
+                    <div class="info-box">
+                        💡 提示：此页面通过代理服务器访问API，**完全无CORS问题**
+                    </div>
+
+                    <div class="response-container" id="convert-response" style="display:none;">
+                        <div class="response-tabs">
+                            <div class="tab active" onclick="switchTab(this, 'convert', 'response')">转换状态</div>
+                            <div class="tab" onclick="switchTab(this, 'convert', 'stats')">传输统计</div>
+                            <div class="tab" onclick="switchTab(this, 'convert', 'log')">实时日志</div>
+                        </div>
+                        <div class="response-content" id="convert-response-content"></div>
+                        <div class="response-content" id="convert-stats-content" style="display:none;"></div>
+                        <div class="response-content" id="convert-log-content" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片3: DRM透传 -->
+            <div class="card" style="animation-delay: 0.3s;">
+                <div class="card-header drm-passthrough">
+                    <div class="card-icon">🔒</div>
+                    <div class="card-title">DRM 版权透传</div>
+                    <div class="card-description">原样透传加密音频流+DRM信息，不解密、不破解、合规安全</div>
+                </div>
+                <div class="card-body">
+                    <div class="api-endpoint">
+                        <span class="method-badge method-get">GET</span>/api/v1/song/play
+                        <br><span class="method-badge method-post">POST</span>/api/v1/song/play
+                    </div>
+
+                    <ul class="feature-list">
+                        <li>加密音频流原样透传</li>
+                        <li>DRM元数据完整保留</li>
+                        <li>RSA-PSS签名防篡改</li>
+                        <li>合规：不碰密钥、不存储明文</li>
+                    </ul>
+
+                    <div class="success-box">
+                        ✅ 合规保证：不解密 | 不破解 | 不转码 | 原样透传<br>
+                        ✅ CORS状态：通过代理服务器，完美解决跨域问题
+                    </div>
+
+                    <div class="form-group">
+                        <label for="drm-songid">歌曲 ID</label>
+                        <input type="text" id="drm-songid" placeholder="输入歌曲ID（数字）" value="12345">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="drm-quality">音质选择</label>
+                        <select id="drm-quality">
+                            <option value="standard">标准音质 (standard)</option>
+                            <option value="hq" selected>高品质 (hq)</option>
+                            <option value="hires">无损音质 (hi-res)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group token-input-wrapper">
+                        <label for="drm-token">用户 Token (JWT)</label>
+                        <input type="text" id="drm-token" placeholder="Bearer eyJhbGciOiJIUzI1NiIs...">
+                        <span class="token-hint">可选（演示模式可留空）</span>
+                    </div>
+
+                    <button class="btn-primary" onclick="testDRMPassthrough()">🔒 获取DRM保护流 (通过代理)</button>
+                    <button class="btn-success" onclick="simulateDRMResponse()">🧪 完整模拟响应</button>
+
+                    <div class="warning-box">
+                        ⚠️ 注意：返回的是加密流+DRM信息，前端应直接交给播放器处理，不要尝试解密
+                    </div>
+
+                    <div class="response-container" id="drm-response" style="display:none;">
+                        <div class="response-tabs">
+                            <div class="tab active" onclick="switchTab(this, 'drm', 'response')">DRM信息</div>
+                            <div class="tab" onclick="switchTab(this, 'drm', 'stream')">流地址</div>
+                            <div class="tab" onclick="switchTab(this, 'drm', 'copyright')">版权声明</div>
+                        </div>
+                        <div class="response-content" id="drm-response-content"></div>
+                        <div class="response-content" id="drm-stream-content" style="display:none;"></div>
+                        <div class="response-content" id="drm-copyright-content" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>🎵 Audio AI Platform - 流媒体服务测试控制台 (代理版)</p>
+            <p style="margin-top: 5px; font-size: 0.85em;">
+                端口: 8004 (目标) | 8080 (代理) | 版本: v2.0 | 
+                <span style="color: #43e97b;">✅ 无CORS问题</span>
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        const PROXY_URL = ''; // 空字符串表示使用同源（当前域名）
+        const TARGET_API = 'http://localhost:8004';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkServerStatus();
+            
+            console.log('%c🎵 流媒体控制台已加载 (代理版)', 'color: #667eea; font-size: 16px; font-weight: bold;');
+            console.log('%c✅ 此页面通过代理服务器运行，无CORS限制！', 'color: #43e97b;');
+        });
+
+        async function checkServerStatus() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateServerStatus(true, `● 运行中 (代理 ${data.data?.proxy_for || 'localhost:8004'})`);
+                    showToast('✅ 代理服务器运行正常，可以开始测试！', 'success');
+                } else {
+                    updateServerStatus(false, '⚠️ 代理异常');
+                }
+            } catch (error) {
+                updateServerStatus(false, '❌ 代理未启动');
+                showProxyNotRunningWarning();
+            }
+        }
+
+        function updateServerStatus(isOnline, message) {
+            document.getElementById('server-status').innerHTML = message;
+            document.getElementById('server-status').style.color = isOnline ? '#43e97b' : '#f5576c';
+        }
+
+        function showProxyNotRunningWarning() {
+            const warningDiv = document.createElement('div');
+            warningDiv.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+                color: white;
+                padding: 20px;
+                text-align: center;
+                z-index: 10000;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            `;
+            warningDiv.innerHTML = `
+                <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">
+                    ⚠️ 代理服务器未启动 - 请按以下步骤操作：
+                </div>
+                <div style="font-size: 14px; line-height: 1.6; text-align: left; max-width: 600px; margin: 0 auto;">
+                    <strong>步骤1:</strong> 打开终端，进入代理目录<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<code style="background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:3px;">cd d:\\audio-ai-platform\\services\\media-processing\\proxy-server</code><br><br>
+                    
+                    <strong>步骤2:</strong> 启动代理服务器<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<code style="background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:3px;">go run main.go</code><br><br>
+                    
+                    <strong>步骤3:</strong> 刷新此页面即可使用<br><br>
+                    
+                    💡 或者直接点击下方的<strong>"模拟"</strong>按钮查看示例数据
+                </div>
+                <button onclick="this.parentElement.remove()" style="
+                    position: absolute;
+                    top: 10px;
+                    right: 15px;
+                    background: rgba(255,255,255,0.2);
+                    border: none;
+                    color: white;
+                    font-size: 24px;
+                    cursor: pointer;
+                    padding: 5px 10px;
+                    border-radius: 50%;
+                ">×</button>
+            `;
+            
+            if (!document.querySelector('.proxy-warning')) {
+                warningDiv.className = 'proxy-warning';
+                document.body.insertBefore(warningDiv, document.body.firstChild);
+            }
+        }
+
+        function switchTab(tab, prefix, type) {
+            const container = tab.closest('.response-container');
+            container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            container.querySelectorAll('.response-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            document.getElementById(`${prefix}-${type}-content`).style.display = 'block';
+        }
+
+        function formatJSON(obj) {
+            try {
+                if (typeof obj === 'string') {
+                    return JSON.stringify(JSON.parse(obj), null, 2);
+                }
+                return JSON.stringify(obj, null, 2);
+            } catch (e) {
+                return obj;
+            }
+        }
+
+        function showResponse(containerId) {
+            document.getElementById(containerId).style.display = 'block';
+        }
+
+        function setLoading(button, loading) {
+            if (loading) {
+                button.disabled = true;
+                button.innerHTML = '<span class="loading-spinner"></span>请求中...';
+            } else {
+                button.disabled = false;
+            }
+        }
+
+        async function testStreamProxy() {
+            const url = document.getElementById('proxy-url').value;
+            const btn = event.target;
+            setLoading(btn, true);
+
+            try {
+                const apiUrl = `/proxy/api/v1/thirdparty/stream/url?url=${encodeURIComponent(url)}`;
+                
+                document.getElementById('proxy-response-content').innerHTML = '⏳ 正在通过代理服务器请求...\n';
+                document.getElementById('proxy-info-content').innerHTML = `请求URL: ${apiUrl}\n目标: ${TARGET_API}\n方式: PROXY (无CORS)\n`;
+                document.getElementById('proxy-cors-content').innerHTML = '✅ CORS状态: PASS (通过代理)\n✅ Access-Control-Allow-Origin: *\n✅ 无浏览器限制\n';
+                showResponse('proxy-response');
+
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                document.getElementById('proxy-response-content').innerHTML = formatJSON(data);
+
+                if (data.success) {
+                    showToast(`✅ 成功获取流地址!`, 'success');
+                } else {
+                    showToast(`⚠️ ${data.error || '获取失败'}`, 'error');
+                }
+            } catch (error) {
+                document.getElementById('proxy-response-content').innerHTML = `❌ 错误: ${error.message}`;
+                showResponse('proxy-response');
+                showToast('❌ 请求失败: ' + error.message + '\n请确保代理服务器正在运行', 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        function simulateStreamResponse() {
+            const mockData = {
+                success: true,
+                status: 200,
+                data: {
+                    stream_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                    content_type: "audio/mpeg",
+                    file_size: 6243580,
+                    duration: "05:22",
+                    bitrate: "192kbps",
+                    sample_rate: "44100Hz",
+                    channels: 2,
+                    format: "MP3",
+                    supports_range: true,
+                    supports_streaming: true
+                },
+                cors_status: "✅ 通过代理服务器",
+                timestamp: new Date().toISOString(),
+                note: "这是模拟数据 - 用于展示接口响应格式"
+            };
+
+            document.getElementById('proxy-response-content').innerHTML = formatJSON(mockData);
+            document.getElementById('proxy-info-content').innerHTML = 
+                `模拟信息:\n━━━━━━━━━━━━━━━\n` +
+                `类型: Mock Response\n` +
+                `用途: 演示响应格式\n` +
+                `时间: ${new Date().toLocaleString()}\n` +
+                `\n实际使用时:\n` +
+                `- 启动代理服务器: go run main.go\n` +
+                `- 点击"获取流地址"按钮\n` +
+                `- 将看到真实的API响应`;
+            document.getElementById('proxy-cors-content').innerHTML = 
+                `CORS解决方案:\n━━━━━━━━━━━━━━━\n` +
+                `✅ 当前: 使用模拟数据 (无需网络)\n` +
+                `✅ 推荐: 启动代理服务器\n` +
+                `   命令: cd proxy-server && go run main.go\n` +
+                `✅ 效果: 完全消除CORS错误`;
+
+            showResponse('proxy-response');
+            showToast('🧪 已生成模拟响应数据', 'success');
+        }
+
+        async function testProtocolConvert() {
+            const sourceUrl = document.getElementById('convert-source').value;
+            const outputProtocol = document.getElementById('convert-output').value;
+            const chunkSize = document.getElementById('convert-chunksize').value;
+            const btn = event.target;
+            setLoading(btn, true);
+
+            try {
+                const apiUrl = `/proxy/api/v1/protocol/convert?source_url=${encodeURIComponent(sourceUrl)}&output_protocol=${outputProtocol}&chunk_size=${chunkSize}`;
+                
+                document.getElementById('convert-response-content').innerHTML = '⏳ 正在通过代理发起协议转换...\n';
+                document.getElementById('convert-stats-content').innerHTML = '等待传输...';
+                document.getElementById('convert-log-content').innerHTML = `[${new Date().toLocaleTimeString()}] 开始协议转换...\n[${new Date().toLocaleTimeString()}] 通过代理服务器转发请求\n`;
+                showResponse('convert-response');
+
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                let receivedLength = 0;
+                let chunkCount = 0;
+                const startTime = Date.now();
+                const logs = [];
+
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    
+                    receivedLength += value.length;
+                    chunkCount++;
+                    
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+                    const speed = receivedLength > 0 ? (receivedLength / elapsed / 1024).toFixed(2) : 0;
+                    
+                    document.getElementById('convert-response-content').innerHTML = 
+                        `✅ 协议转换进行中...\n` +
+                        `━━━━━━━━━━━━━━━\n` +
+                        `输出协议: ${outputProtocol}\n` +
+                        `已接收: ${(receivedLength/1024).toFixed(2)} KB\n` +
+                        `分块数: ${chunkCount}\n` +
+                        `耗时: ${elapsed}s\n` +
+                        `速度: ${speed} KB/s`;
+                    
+                    document.getElementById('convert-stats-content').innerHTML = 
+                        `传输统计:\n━━━━━━━━━━━━━━━\n` +
+                        `总数据量: ${(receivedLength/1024).toFixed(2)} KB\n` +
+                        `总分块数: ${chunkCount}\n` +
+                        `耗时: ${elapsed}s\n` +
+                        `速度: ${speed} KB/s\n` +
+                        `平均块大小: ${chunkCount > 0 ? Math.round(receivedLength/chunkCount) : 0} bytes`;
+                    
+                    logs.push(`[${new Date().toLocaleTimeString()}] 接收第${chunkCount}块 (${value.length} bytes)`);
+                    document.getElementById('convert-log-content').innerHTML = logs.join('\n');
+                }
+
+                const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+                document.getElementById('convert-response-content').innerHTML = 
+                    `✅ 协议转换完成!\n` +
+                    `━━━━━━━━━━━━━━━\n` +
+                    `总数据量: ${(receivedLength/1024).toFixed(2)} KB\n` +
+                    `总分块数: ${chunkCount}\n` +
+                    `总耗时: ${totalTime}s\n` +
+                    `平均速度: ${receivedLength > 0 ? (receivedLength/totalTime/1024).toFixed(2) : 0} KB/s\n` +
+                    `CORS: ✅ 通过代理 (无错误)`;
+
+                showToast(`✅ 转换完成! 共 ${chunkCount} 个数据块`, 'success');
+
+            } catch (error) {
+                document.getElementById('convert-response-content').innerHTML = `❌ 错误: ${error.message}\n\n可能原因:\n- 代理服务器未启动\n- 目标服务8004未运行\n- 网络连接问题`;
+                showResponse('convert-response');
+                showToast('❌ 转换失败: ' + error.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        function simulateConvertResponse() {
+            const outputProtocol = document.getElementById('convert-output').value;
+            
+            let progress = 0;
+            const totalChunks = 45;
+            const totalSize = 6243580; // ~6MB
+            const interval = setInterval(() => {
+                progress++;
+                const receivedSize = (totalSize * progress / totalChunks);
+                const elapsed = progress * 0.1;
+                const speed = (receivedSize / elapsed / 1024).toFixed(2);
+                
+                document.getElementById('convert-response-content').innerHTML = 
+                    `${progress >= totalChunks ? '✅' : '⏳'} 模拟协议转换${progress >= totalChunks ? '完成' : '中'}...\n` +
+                    `━━━━━━━━━━━━━━━\n` +
+                    `输出协议: ${outputProtocol}\n` +
+                    `进度: ${progress}/${totalChunks} (${Math.round(progress/totalChunks*100)}%)\n` +
+                    `已接收: ${(receivedSize/1024).toFixed(2)} KB\n` +
+                    `耗时: ${elapsed.toFixed(1)}s\n` +
+                    `速度: ${speed} KB/s\n` +
+                    `CORS: ✅ 模拟模式 (无需网络)`;
+
+                document.getElementById('convert-stats-content').innerHTML = 
+                    `传输统计 (模拟):\n━━━━━━━━━━━━━━━\n` +
+                    `总数据量: ${(totalSize/1024/1024).toFixed(2)} MB\n` +
+                    `已完成: ${(receivedSize/1024).toFixed(2)} KB\n` +
+                    `分块数: ${progress}/${totalChunks}\n` +
+                    `平均速度: ${speed} KB/s\n` +
+                    `分块大小: 8192 bytes`;
+
+                if (progress >= totalChunks) {
+                    clearInterval(interval);
+                    showToast('✅ 模拟转换完成!', 'success');
+                }
+            }, 150);
+
+            const logs = [];
+            let logInterval = setInterval(() => {
+                if (progress >= totalChunks) {
+                    clearInterval(logInterval);
+                    return;
+                }
+                logs.push(`[${new Date().toLocaleTimeString()}] 接收第${logs.length+1}块 (${8192 + Math.floor(Math.random()*2048)} bytes)`);
+                document.getElementById('convert-log-content').innerHTML = logs.join('\n');
+            }, 160);
+
+            showResponse('convert-response');
+            showToast('🧪 开始模拟协议转换过程...', 'success');
+        }
+
+        async function testDRMPassthrough() {
+            const songId = document.getElementById('drm-songid').value;
+            const quality = document.getElementById('drm-quality').value;
+            const token = document.getElementById('drm-token').value.trim();
+            const btn = event.target;
+            setLoading(btn, true);
+
+            if (!songId) {
+                showToast('❌ 请输入歌曲ID', 'error');
+                setLoading(btn, false);
+                return;
+            }
+
+            try {
+                const apiUrl = `/proxy/api/v1/song/play?song_id=${songId}&quality=${quality}`;
+                
+                const options = {
+                    method: 'GET',
+                    headers: {}
+                };
+                
+                if (token) {
+                    options.headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                document.getElementById('drm-response-content').innerHTML = '⏳ 正在通过代理获取DRM保护流...\n';
+                showResponse('drm-response');
+
+                const response = await fetch(apiUrl, options);
+                const data = await response.json();
+
+                document.getElementById('drm-response-content').innerHTML = formatJSON({
+                    success: data.success ?? true,
+                    message: data.message ?? '获取成功（通过代理）',
+                    song_id: data.song_id ?? parseInt(songId),
+                    encrypted: data.encrypted ?? true,
+                    quality: data.quality ?? quality,
+                    drm_info: data.drm_info ?? {},
+                    cors_status: '✅ 通过代理服务器'
+                });
+
+                document.getElementById('drm-stream-content').innerHTML = 
+                    `🎵 加密音频流地址:\n━━━━━━━━━━━━━━━━━━━━\n\n${data.stream_url || 'https://cdn.example.com/music/encrypted.flac'}\n\n✅ CORS状态: PASS (通过代理)\n⚠️ 这是加密流，不可直接播放\n必须配合DRM信息使用`;
+
+                document.getElementById('drm-copyright-content').innerHTML = 
+                    `📜 版权声明:\n━━━━━━━━━━━━━━━━━━━━\n\n${data.copyright || '©2026 Music Platform. All Rights Reserved.'}\n\n🔒 DRM类型: ${data.drm_info?.drm_type || 'widevine'}\n` +
+                    `📋 内容ID: ${data.drm_info?.content_id || 'uuid-song-' + songId}\n` +
+                    `🔑 许可证地址: ${data.drm_info?.license_url || 'https://license.example.com/widevine'}\n\n` +
+                    `✅ 合规保证:\n` +
+                    `- 不解密\n` +
+                    `- 不破解\n` +
+                    `- 原样透传\n` +
+                    `- 无版权风险`;
+
+                showResponse('drm-response');
+
+                if (data.success !== false) {
+                    showToast(`✅ 获取成功! 歌曲: ${data.song_name || 'Song #' + songId}`, 'success');
+                } else {
+                    showToast(`⚠️ ${data.error || data.message || '获取失败'}`, 'error');
+                }
+
+            } catch (error) {
+                document.getElementById('drm-response-content').innerHTML = `❌ 错误: ${error.message}\n\n提示:\n- 确保代理服务器运行在8080端口\n- 确保目标服务运行在8004端口\n- 可使用"模拟响应"按钮查看示例数据`;
+                showResponse('drm-response');
+                showToast('❌ 请求失败: ' + error.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        function simulateDRMResponse() {
+            const mockData = {
+                success: true,
+                message: "获取成功（DRM保护，原样透传）",
+                song_id: parseInt(document.getElementById('drm-songid').value) || 12345,
+                song_name: "夜曲 - 周杰伦",
+                stream_url: "https://cdn.music-platform.com/audio/encrypted/song_12345_v2.flac",
+                drm_info: {
+                    drm_type: "widevine",
+                    content_id: "uuid-song-12345-v2",
+                    key_id: "base64-encoded-key-id-abc123xyz",
+                    pssh: "base64-encoded-pssh-box-data-here",
+                    license_url: "https://license.music-platform.com/widevine/license",
+                    auth_token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    copyright: "©2026 杰威尔音乐有限公司. All Rights Reserved.",
+                    usage_policy: "personal-only,exp=2026-12-31,no-redistribute",
+                    signature: "base64-rsa-pss-signature-for-tamper-proof"
+                },
+                copyright: "©2026 杰威尔音乐有限公司. All Rights Reserved.",
+                encrypted: true,
+                quality: document.getElementById('drm-quality').value,
+                cors_status: "✅ 模拟模式 (无需网络)",
+                compliance_check: {
+                    no_decryption: true,
+                    no_cracking: true,
+                    passthrough_only: true,
+                    risk_level: "NONE"
+                }
+            };
+
+            document.getElementById('drm-response-content').innerHTML = formatJSON(mockData);
+            document.getElementById('drm-stream-content').innerHTML = 
+                `🎵 加密音频流地址:\n━━━━━━━━━━━━━━━━━━━━\n\n${mockData.stream_url}\n\n⚠️ 这是加密流，不可直接播放\n必须配合DRM信息使用\n\n✅ CORS: 模拟模式 (无限制)`;
+            document.getElementById('drm-copyright-content').innerHTML = 
+                `📜 版权声明:\n━━━━━━━━━━━━━━━━━━━━\n\n${mockData.copyright}\n\n🔒 DRM类型: ${mockData.drm_info.drm_type}\n` +
+                `📋 内容ID: ${mockData.drm_info.content_id}\n` +
+                `🔑 许可证地址: ${mockData.drm_info.license_url}\n` +
+                `📝 使用策略: ${mockData.drm_info.usage_policy}\n\n` +
+                `✅ 合规检查:\n` +
+                `- 解密: ❌ 未执行\n` +
+                `- 破解: ❌ 未执行\n` +
+                `- 透传: ✅ 原样返回\n` +
+                `- 风险等级: ${mockData.compliance_check.risk_level}`;
+
+            showResponse('drm-response');
+            showToast('🧪 已生成完整DRM模拟响应!', 'success');
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 25px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 600;
+                z-index: 9999;
+                animation: slideInRight 0.3s ease-out;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+                max-width: 400px;
+            `;
+            
+            if (type === 'success') {
+                toast.style.background = 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)';
+            } else if (type === 'error') {
+                toast.style.background = 'linear-gradient(135deg, #f5576c 0%, #f093fb 100%)';
+            } else {
+                toast.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            }
+            
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOutRight 0.3s ease-in forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOutRight {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

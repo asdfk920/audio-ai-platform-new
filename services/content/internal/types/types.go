@@ -338,6 +338,11 @@ type DownloadCompleteResp struct {
 	CompletedAt string `json:"completed_at"`
 }
 
+// ContentLikeReq 点赞/取消点赞请求
+type ContentLikeReq struct {
+	ContentID int64 `json:"content_id" validate:"required,gt=0"` // 内容ID（必填，必须大于0）
+}
+
 // ContentLikeResp 点赞/取消点赞响应
 type ContentLikeResp struct {
 	Success   bool   `json:"success"`
@@ -370,7 +375,8 @@ type LikeListResp struct {
 
 // ContentFavoriteReq 用户收藏/取消收藏请求
 type ContentFavoriteReq struct {
-	FavoriteType string `json:"favorite_type" form:"favorite_type"` // 收藏类型：song(默认)/playlist/album
+	ContentID    int64  `json:"content_id" validate:"required,gt=0"` // 内容ID（必填，必须大于0）
+	FavoriteType string `json:"favorite_type,omitempty"`             // 收藏类型：song(默认)/playlist/album
 }
 
 // ContentFavoriteResp 用户收藏/取消收藏响应
@@ -459,6 +465,12 @@ type PlaylistUpdateResp struct {
 type PlaylistDeleteResp struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
+}
+
+// PlaylistSongRemoveResp 移除歌单内歌曲响应（song_ids 对应内容库 content.id）
+type PlaylistSongRemoveResp struct {
+	PlaylistID  string `json:"playlist_id"`
+	RemainTotal int64  `json:"remain_total"` // 歌单剩余曲目数（playlist_songs 行数）
 }
 
 // SubscribeReq 订阅请求

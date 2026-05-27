@@ -83,4 +83,8 @@ type Config struct {
 	}
 	// CORS 浏览器跨域；省略 AllowOrigins 时等价允许 *。
 	CORS apicors.Config `json:",optional"`
+	// Device 设备微服务 HTTP：内容侧转发 POST /api/device/cmd/download_song。须与承载 /ws/device 的实例同一进程或共用 WS Redis relay，否则会误报「已下发」远端收不到。
+	Device struct {
+		BaseURL string `json:",optional"` // 不含尾斜杠，如 http://14.103.202.69:8002；空默认 http://127.0.0.1:8002
+	} `json:",optional"`
 }

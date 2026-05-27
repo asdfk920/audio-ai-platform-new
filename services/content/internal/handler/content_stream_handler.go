@@ -1058,9 +1058,9 @@ func recordDownloadEvent(svcCtx *svc.ServiceContext, userID, contentID int64, ti
 }
 
 // contentLikeHandler 点赞/取消点赞处理器
-// POST /api/v1/content/:id/like
+// POST /api/v1/content/like
 // 必须登录，切换点赞状态（已点赞则取消，未点赞则点赞）
-// 优化版本：使用事务保证数据一致性，业务逻辑抽取到Logic层
+// 请求体：{"content_id": 27}
 func contentLikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -1074,23 +1074,21 @@ func contentLikeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		path := r.URL.Path
-		parts := strings.Split(strings.Trim(path, "/"), "/")
-		if len(parts) < 4 {
-			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空"), nil)
+		var req types.ContentLikeReq
+		if err := httpx.Parse(r, &req); err != nil {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "参数错误: "+err.Error()), nil)
 			return
 		}
 
-		contentID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
-		if err != nil || contentID <= 0 {
-			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 格式错误"), nil)
+		if req.ContentID <= 0 {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空且必须大于0"), nil)
 			return
 		}
 
-		logx.Infof("[Like Handler] 收到请求: userID=%d, contentID=%d", bearerCtx.UserID, contentID)
+		logx.Infof("[Like Handler] 收到请求: userID=%d, contentID=%d", bearerCtx.UserID, req.ContentID)
 
 		l := logic.NewContentLikeLogic(r.Context(), svcCtx)
-		resp, err := l.ToggleLike(contentID, bearerCtx.UserID)
+		resp, err := l.ToggleLike(req.ContentID, bearerCtx.UserID)
 
 		if err != nil {
 			logx.Errorf("[Like Handler] 处理失败: error=%v", err)
@@ -2681,8 +2679,9 @@ func contentDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
-// POST /api/v1/content/:id/favorite
+// POST /api/v1/content/favorite
 // 必须登录，添加收藏（若已收藏则返回提示）
+// 请求体：{"content_id": 27, "favorite_type": "song"}
 func contentFavoriteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -2696,33 +2695,28 @@ func contentFavoriteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		path := r.URL.Path
-		parts := strings.Split(strings.Trim(path, "/"), "/")
-		if len(parts) < 4 {
-			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空"), nil)
-			return
-		}
-
-		contentID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
-		if err != nil || contentID <= 0 {
-			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 格式错误"), nil)
+		bodyBytes, readErr := io.ReadAll(r.Body)
+		if readErr != nil {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "读取请求体失败: "+readErr.Error()), nil)
 			return
 		}
 
 		var req types.ContentFavoriteReq
-		if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
-			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &req)
-		} else {
-			r.ParseForm()
-			req.FavoriteType = r.FormValue("favorite_type")
+		if parseErr := json.Unmarshal(bodyBytes, &req); parseErr != nil {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "JSON格式错误: "+parseErr.Error()), nil)
+			return
+		}
+
+		if req.ContentID <= 0 {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空且必须大于0"), nil)
+			return
 		}
 
 		logx.Infof("[Favorite Handler] 收到收藏请求: userID=%d, contentID=%d, type=%s",
-			bearerCtx.UserID, contentID, req.FavoriteType)
+			bearerCtx.UserID, req.ContentID, req.FavoriteType)
 
 		l := logic.NewContentFavoriteLogic(r.Context(), svcCtx)
-		resp, err := l.AddFavorite(contentID, bearerCtx.UserID, req.FavoriteType)
+		resp, err := l.AddFavorite(req.ContentID, bearerCtx.UserID, req.FavoriteType)
 
 		if err != nil {
 			logx.Errorf("[Favorite Handler] 处理失败: error=%v", err)
@@ -2744,8 +2738,9 @@ func contentFavoriteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
-// DELETE /api/v1/content/:id/favorite
+// DELETE /api/v1/content/favorite
 // 必须登录，取消收藏（若未收藏则返回提示）
+// 请求体：{"content_id": 27}
 func contentUnfavoriteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
@@ -2759,24 +2754,28 @@ func contentUnfavoriteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		path := r.URL.Path
-		parts := strings.Split(strings.Trim(path, "/"), "/")
-		if len(parts) < 4 {
-			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空"), nil)
+		bodyBytes, readErr := io.ReadAll(r.Body)
+		if readErr != nil {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "读取请求体失败: "+readErr.Error()), nil)
 			return
 		}
 
-		contentID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
-		if err != nil || contentID <= 0 {
-			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 格式错误"), nil)
+		var req types.ContentFavoriteReq
+		if parseErr := json.Unmarshal(bodyBytes, &req); parseErr != nil {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "JSON格式错误: "+parseErr.Error()), nil)
+			return
+		}
+
+		if req.ContentID <= 0 {
+			httpresp.Write(w, http.StatusBadRequest, httpresp.WithDetail(httpresp.DefaultMsg(http.StatusBadRequest), "内容 ID 不能为空且必须大于0"), nil)
 			return
 		}
 
 		logx.Infof("[Unfavorite Handler] 收到取消收藏请求: userID=%d, contentID=%d",
-			bearerCtx.UserID, contentID)
+			bearerCtx.UserID, req.ContentID)
 
 		l := logic.NewContentFavoriteLogic(r.Context(), svcCtx)
-		resp, err := l.RemoveFavorite(contentID, bearerCtx.UserID)
+		resp, err := l.RemoveFavorite(req.ContentID, bearerCtx.UserID)
 
 		if err != nil {
 			logx.Errorf("[Unfavorite Handler] 处理失败: error=%v", err)

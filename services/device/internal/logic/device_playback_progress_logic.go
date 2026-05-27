@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
-	"regexp"
 	"strings"
 	"time"
 
@@ -350,15 +349,5 @@ func validateDevicePlaybackProgressReq(req *types.DevicePlaybackProgressReq) err
 		return fmt.Errorf("请求不能为空")
 	}
 
-	sn := strings.TrimSpace(req.Sn)
-	if sn == "" {
-		return fmt.Errorf("设备序列号不能为空")
-	}
-
-	snRegex := regexp.MustCompile(`^[A-Za-z0-9]{16}$`)
-	if !snRegex.MatchString(sn) {
-		return fmt.Errorf("设备序列号格式错误，必须为16位字母数字组合")
-	}
-
-	return nil
+	return validateReqSN(req.Sn)
 }

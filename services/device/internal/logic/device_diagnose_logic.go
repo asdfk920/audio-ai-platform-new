@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -205,9 +204,8 @@ func (l *DeviceDiagnoseLogic) insertDiagnosisRecord(sn string, deviceID int64, d
 func validateDeviceDiagnoseReq(req *types.DeviceDiagnoseReq) error {
 	sn := strings.TrimSpace(req.Sn)
 
-	// 校验 SN 格式（新/旧格式）
-	if !validateSN(sn) {
-		return fmt.Errorf("SN 格式错误，应为 17 位新格式（XXX-XX-YYYY-NNNNN-X）或 16 位旧格式（字母数字组合）")
+	if err := validateReqSN(sn); err != nil {
+		return err
 	}
 
 	// 校验 diag_type
@@ -228,21 +226,6 @@ func validateDeviceDiagnoseReq(req *types.DeviceDiagnoseReq) error {
 	}
 
 	return nil
-}
-
-// validateSN 校验 SN 格式（支持新旧两种格式）
-func validateSN(sn string) bool {
-	sn = strings.TrimSpace(sn)
-
-	// 新格式：17 位，带横杠
-	snPatternNew := regexp.MustCompile(`^[A-Z0-9]{3}-[A-Z0-9]{2}-\d{4}-\d{5}-[A-Z0-9]$`)
-	if snPatternNew.MatchString(sn) {
-		return true
-	}
-
-	// 旧格式：16 位字母数字
-	snPatternOld := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
-	return snPatternOld.MatchString(sn)
 }
 
 // generateDiagRandomString 生成指定长度的随机字符串

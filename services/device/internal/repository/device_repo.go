@@ -525,3 +525,20 @@ func (r *DeviceRepo) UpdateStatusAfterRegister(ctx context.Context, deviceId int
 
 	return nil
 }
+
+// UpdateDeviceName 更新 device 表用户备注名
+func (r *DeviceRepo) UpdateDeviceName(ctx context.Context, deviceID int64, deviceName string) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE public.device
+		SET device_name = $2, updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+	`, deviceID, deviceName)
+	if err != nil {
+		return fmt.Errorf("更新设备名称失败: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("设备不存在或已被删除")
+	}
+	return nil
+}

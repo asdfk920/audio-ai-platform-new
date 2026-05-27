@@ -26,6 +26,7 @@ type resolved struct {
 	allowCredentials bool
 	methods          string
 	headers          string
+	headersReflect   bool // AllowHeaders 为 * 时对预检按 Access-Control-Request-Headers 回显（兼容严格浏览器）
 	expose           string
 	maxAge           string
 }
@@ -35,9 +36,16 @@ func resolve(cfg Config) resolved {
 	if len(cfg.AllowMethods) > 0 {
 		methods = cfg.AllowMethods
 	}
-	headers := []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"}
+	defaultAllowHeaders := []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"}
+	headers := defaultAllowHeaders
+	headersReflect := false
 	if len(cfg.AllowHeaders) > 0 {
-		headers = cfg.AllowHeaders
+		if headersIsWildcardAllowAll(cfg.AllowHeaders) {
+			headersReflect = true
+			headers = defaultAllowHeaders
+		} else {
+			headers = cfg.AllowHeaders
+		}
 	}
 	maxAge := cfg.MaxAge
 	if maxAge <= 0 {
@@ -70,9 +78,30 @@ func resolve(cfg Config) resolved {
 		allowCredentials: allowCred,
 		methods:          strings.Join(methods, ", "),
 		headers:          strings.Join(headers, ", "),
+		headersReflect:   headersReflect,
 		expose:           strings.Join(cfg.ExposeHeaders, ", "),
 		maxAge:           strconv.Itoa(maxAge),
 	}
+}
+
+func headersIsWildcardAllowAll(list []string) bool {
+	for _, h := range list {
+		h = strings.TrimSpace(h)
+		if h == "*" {
+			return len(list) == 1
+		}
+	}
+	return false
+}
+
+func (r resolved) accessControlAllowHeaders(req *http.Request) string {
+	if !r.headersReflect || req == nil {
+		return r.headers
+	}
+	if v := strings.TrimSpace(req.Header.Get("Access-Control-Request-Headers")); v != "" {
+		return v
+	}
+	return r.headers
 }
 
 func (r resolved) allowsOrigin(origin string) bool {
@@ -102,7 +131,7 @@ func Middleware(cfg Config) func(http.HandlerFunc) http.HandlerFunc {
 
 			writeHeaders := func() {
 				w.Header().Set("Access-Control-Allow-Methods", r.methods)
-				w.Header().Set("Access-Control-Allow-Headers", r.headers)
+				w.Header().Set("Access-Control-Allow-Headers", r.accessControlAllowHeaders(req))
 				w.Header().Set("Access-Control-Max-Age", r.maxAge)
 				if r.expose != "" {
 					w.Header().Set("Access-Control-Expose-Headers", r.expose)

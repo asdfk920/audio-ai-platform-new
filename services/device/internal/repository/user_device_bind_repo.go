@@ -91,19 +91,37 @@ func (r *UserDeviceBindRepo) CountByUserId(ctx context.Context, userId int64) (i
 	return count, nil
 }
 
+// ExistsActiveByUserAndSN 用户是否仍绑定该 SN（status=1）
+func (r *UserDeviceBindRepo) ExistsActiveByUserAndSN(ctx context.Context, userId int64, sn string) (bool, error) {
+	var count int64
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COUNT(1)
+		FROM user_device_bind
+		WHERE user_id = $1 AND UPPER(sn) = UPPER($2) AND status = $3
+		  AND (deleted_at IS NULL)
+	`, userId, sn, model.UserDeviceBindStatusNormal).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("查询用户设备绑定失败: %w", err)
+	}
+	return count > 0, nil
+}
+
 // FindByUserIdAndDeviceId 根据用户ID和设备ID查询绑定关系
 func (r *UserDeviceBindRepo) FindByUserIdAndDeviceId(ctx context.Context, userId, deviceId int64) (*model.UserDeviceBind, error) {
 	query := `
 		SELECT 
-			id, user_id, device_id, sn, status, created_at, updated_at, deleted_at
+			id, user_id, device_id, sn,
+			COALESCE(device_name,''), COALESCE(location,''), COALESCE(group_name,''), COALESCE(scene,''),
+			status, created_at, updated_at, deleted_at
 		FROM user_device_bind 
 		WHERE user_id = $1 AND device_id = $2 AND deleted_at IS NULL
 	`
 
 	var bind model.UserDeviceBind
 	err := r.db.QueryRowContext(ctx, query, userId, deviceId).Scan(
-		&bind.ID, &bind.UserID, &bind.DeviceID, &bind.SN, &bind.Status,
-		&bind.CreatedAt, &bind.UpdatedAt, &bind.DeletedAt,
+		&bind.ID, &bind.UserID, &bind.DeviceID, &bind.SN,
+		&bind.DeviceName, &bind.Location, &bind.GroupName, &bind.Scene,
+		&bind.Status, &bind.CreatedAt, &bind.UpdatedAt, &bind.DeletedAt,
 	)
 
 	if err != nil {
@@ -154,5 +172,26 @@ func (r *UserDeviceBindRepo) UpdateStatus(ctx context.Context, id int64, status 
 		return fmt.Errorf("绑定记录不存在或已被删除")
 	}
 
+	return nil
+}
+
+// UpdateDeviceInfo 更新绑定记录的备注名、位置、分组、场景
+func (r *UserDeviceBindRepo) UpdateDeviceInfo(ctx context.Context, bindID int64, deviceName, location, groupName, scene string) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE user_device_bind
+		SET device_name = COALESCE(NULLIF($2,''), device_name),
+		    location = $3,
+		    group_name = $4,
+		    scene = $5,
+		    updated_at = NOW()
+		WHERE id = $6 AND deleted_at IS NULL
+	`, bindID, deviceName, location, groupName, scene, bindID)
+	if err != nil {
+		return fmt.Errorf("更新设备信息失败: %w", err)
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("绑定记录不存在或已被删除")
+	}
 	return nil
 }

@@ -45,8 +45,8 @@ func (l *DeviceDownloadLogic) Download(req *types.DeviceDownloadReq) (*types.Dev
 	}
 
 	sn := strings.ToUpper(strings.TrimSpace(req.Sn))
-	if sn == "" || len(sn) != 16 {
-		return nil, fmt.Errorf("设备序列号格式错误，必须为16位字母数字组合")
+	if err := validateReqSN(sn); err != nil {
+		return nil, err
 	}
 
 	if req.ContentID <= 0 {

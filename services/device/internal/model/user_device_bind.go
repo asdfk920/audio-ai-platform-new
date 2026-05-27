@@ -9,14 +9,18 @@ import (
 // UserDeviceBind 用户设备绑定关系数据模型结构体
 // 对应数据库中的 user_device_bind 表，记录用户与设备的绑定关系
 type UserDeviceBind struct {
-	ID        int64      `db:"id"`
-	UserID    int64      `db:"user_id"`
-	DeviceID  int64      `db:"device_id"`
-	SN        string     `db:"sn"`
-	Status    int16      `db:"status"`
-	CreatedAt time.Time  `db:"created_at"`
-	UpdatedAt time.Time  `db:"updated_at"`
-	DeletedAt *time.Time `db:"deleted_at"`
+	ID         int64      `db:"id"`
+	UserID     int64      `db:"user_id"`
+	DeviceID   int64      `db:"device_id"`
+	SN         string     `db:"sn"`
+	DeviceName string     `db:"device_name"`
+	Location   string     `db:"location"`
+	GroupName  string     `db:"group_name"`
+	Scene      string     `db:"scene"`
+	Status     int16      `db:"status"`
+	CreatedAt  time.Time  `db:"created_at"`
+	UpdatedAt  time.Time  `db:"updated_at"`
+	DeletedAt  *time.Time `db:"deleted_at"`
 }
 
 // UserDeviceBindStatus 用户设备绑定状态常量定义

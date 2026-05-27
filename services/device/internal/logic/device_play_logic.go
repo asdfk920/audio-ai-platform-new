@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -144,10 +143,8 @@ func (l *DevicePlayLogic) DevicePlay(req *types.DevicePlayReq) (*types.DevicePla
 // 参数 req *types.DevicePlayReq: 设备播放指令请求
 // 返回 error: 校验失败时的错误信息
 func validateDevicePlayReq(req *types.DevicePlayReq) error {
-	// sn 校验：16 位字母数字
-	snRegex := regexp.MustCompile(`(?i)^[A-Z0-9]{16}$`)
-	if !snRegex.MatchString(req.Sn) {
-		return fmt.Errorf("SN 格式错误，必须为 16 位字母数字组合")
+	if err := validateReqSN(req.Sn); err != nil {
+		return err
 	}
 
 	// action 校验

@@ -450,22 +450,22 @@ type WithdrawAccountCancellationResp struct {
 
 // ==================== 设备更新相关类型定义 ====================
 
-// UpdateDeviceReq 对应：PUT /api/v1/user/device/update（更新设备信息请求）
+// UpdateDeviceReq 对应：PUT /api/v1/user/device/update | /api/v1/user/device/upd（更新设备信息请求）
 type UpdateDeviceReq struct {
-	Sn        string `json:"sn"`                  // 设备序列号（必填）
-	Alias     string `json:"alias,optional"`      // 设备备注名（如"卧室音箱"，最多50字符）
-	Location  string `json:"location,optional"`   // 设备位置（如"卧室"、"客厅"，最多100字符）
-	GroupName string `json:"group_name,optional"` // 设备分组（如"家庭音响组"，最多100字符）
-	Scene     string `json:"scene,optional"`      // 常用场景（如"晨间唤醒"、"睡前音乐"，最多200字符）
+	Sn         string `json:"sn"`                    // 设备序列号（必填）
+	DeviceName string `json:"device_name,optional"`  // 设备别名/备注名（如"卧室音箱"，最多50字符）
+	Location   string `json:"location,optional"`     // 设备位置（如"卧室"、"客厅"，最多100字符）
+	GroupName  string `json:"group_name,optional"`   // 设备分组（如"家庭音响组"，最多100字符）
+	Scene      string `json:"scene,optional"`        // 常用场景（如"晨间唤醒"、"睡前音乐"，最多200字符）
 }
 
-// UpdateDeviceResp 对应：PUT /api/v1/user/device/update（更新设备信息响应）
+// UpdateDeviceResp 对应：PUT /api/v1/user/device/update | /api/v1/user/device/upd（更新设备信息响应）
 type UpdateDeviceResp struct {
-	Sn        string `json:"sn"`         // 设备序列号
-	Alias     string `json:"alias"`      // 更新后的设备备注名
-	Location  string `json:"location"`   // 更新后的位置
-	GroupName string `json:"group_name"` // 更新后的分组
-	Scene     string `json:"scene"`      // 更新后的场景
-	UpdatedAt string `json:"updated_at"`         // 更新时间
-	Message   string `json:"message,omitempty"` // 冗余提示（一般由顶层 msg 表达，可不返回）
+	Sn         string `json:"sn"`          // 设备序列号
+	DeviceName string `json:"device_name"` // 更新后的设备别名/备注名
+	Location   string `json:"location"`    // 更新后的位置
+	GroupName  string `json:"group_name"`  // 更新后的分组
+	Scene      string `json:"scene"`       // 更新后的场景
+	UpdatedAt  string `json:"updated_at"`  // 更新时间
+	Message    string `json:"message,omitempty"`
 }

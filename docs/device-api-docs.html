@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 设备微服务API文档</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+            margin-bottom: 20px;
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-top: 25px;
+        }
+        .stat-item {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        #swagger-ui {
+            padding: 20px;
+        }
+        .info-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .info-box h3 {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .info-box ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .info-box li {
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        .info-box li:before {
+            content: "✅";
+            position: absolute;
+            left: 0;
+        }
+        .method-tag {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            font-size: 0.85em;
+            margin-right: 5px;
+        }
+        .get { background: #61affe; }
+        .post { background: #49cc90; }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.8em; }
+            .stats { gap: 15px; }
+            .stat-item { padding: 10px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 音频AI平台 - 设备微服务API文档</h1>
+            <p>设备管理和控制 | WebSocket实时通信 | DRM版权保护</p>
+
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-number">10</span>
+                    <span class="stat-label">核心接口</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">40+</span>
+                    <span class="stat-label">数据模型</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">15+</span>
+                    <span class="stat-label">请求示例</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">JWT+WS</span>
+                    <span class="stat-label">双重认证</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>🎯 核心接口一览</h3>
+            <ul>
+                <li><span class="method-tag post">POST</span> /device/register - 设备注册/激活（首次使用必调）</li>
+                <li><span class="method-tag post">POST</span> /device/auth - 获取JWT Token（30天有效）</li>
+                <li><span class="method-tag get">GET</span> /device/ws - 建立WebSocket长连接</li>
+                <li><span class="method-tag post">POST</span> /device/cmd/play - 播放控制指令（播放/暂停/停止/上下首）</li>
+                <li><span class="method-tag post">POST</span> /device/cmd/pause - 暂停播放指令</li>
+                <li><span class="method-tag post">POST</span> /device/cmd/play-audio - 点播指令（支持DRM）</li>
+                <li><span class="method-tag post">POST</span> /device/cmd/volume-up - 增加音量（±20范围）</li>
+                <li><span class="method-tag post">POST</span> /device/cmd/volume-down - 降低音量</li>
+                <li><span class="method-tag post">POST</span> /device/cmd/reboot - 远程重启设备</li>
+                <li><span class="method-tag post">POST</span> /device/download/song - 下载歌曲（支持DRM透传）</li>
+            </ul>
+        </div>
+
+        <div id="swagger-ui"></div>
+    </div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js"></script>
+    <script>
+        const spec = {
+            "openapi": "3.0.3",
+            "info": {
+                "title": "音频AI平台 - 设备微服务API文档",
+                "description": "提供完整的设备管理和控制功能，包括：设备注册认证、设备控制、实时通信、内容下载",
+                "version": "1.0.0",
+                "contact": {
+                    "name": "Device API Support",
+                    "email": "device-support@audio-ai-platform.com"
+                }
+            },
+            "servers": [
+                {"url": "http://localhost:8002/api/v1", "description": "本地开发环境"},
+                {"url": "https://device-api.audio-ai-platform.com/api/v1", "description": "生产环境"}
+            ],
+            "tags": [
+                {"name": "设备管理", "description": "设备注册、认证、绑定等基础操作"},
+                {"name": "设备控制", "description": "播放控制、音量调节、重启等指令下发"},
+                {"name": "实时通信", "description": "WebSocket长连接和消息推送"},
+                {"name": "内容下载", "description": "音频文件下载和DRM管理"}
+            ],
+            "paths": {
+                "/device/register": {
+                    "post": {
+                        "tags": ["设备管理"],
+                        "summary": "注册新设备",
+                        "operationId": "registerDevice",
+                        "requestBody": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceRegisterRequest"}}}
+                        },
+                        "responses": {
+                            "200": {"description": "注册成功", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceRegisterResponse"}}}}
+                        }
+                    }
+                },
+                "/device/auth": {
+                    "post": {
+                        "tags": ["设备管理"],
+                        "summary": "设备身份认证",
+                        "description": "使用SN + 密钥进行身份验证并获取访问Token（有效期30天）",
+                        "operationId": "authenticateDevice",
+                        "requestBody": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceAuthRequest"}}}
+                        },
+                        "responses": {
+                            "200": {"description": "认证成功，返回Token", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceAuthResponse"}}}},
+                            "401": {"description": "认证失败"}
+                        }
+                    }
+                },
+                "/device/ws": {
+                    "get": {
+                        "tags": ["实时通信"],
+                        "summary": "建立WebSocket长连接",
+                        "parameters": [
+                            {"name": "sn", "in": "query", "schema": {"type": "string"}, "description": "设备序列号"},
+                            {"name": "token", "in": "query", "schema": {"type": "string"}, "description": "JWT Token"}
+                        ],
+                        "responses": {"101": {"description": "连接建立成功"}}
+                    }
+                },
+                "/device/cmd/play": {
+                    "post": {
+                        "tags": ["设备控制"],
+                        "summary": "下发播放指令",
+                        "security": [{"BearerAuth": []}],
+                        "requestBody": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DevicePlayRequest"}}}
+                        },
+                        "responses": {
+                            "200": {"description": "指令下发成功", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InstructionResponse"}}}}
+                        }
+                    }
+                },
+                "/device/cmd/pause": {
+                    "post": {
+                        "tags": ["设备控制"],
+                        "summary": "下发暂停指令",
+                        "security": [{"BearerAuth": []}],
+                        "requestBody": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DevicePauseRequest"}}}
+                        },
+                        "responses": {"200": {"description": "暂停指令下发成功"}}
+                    }
+                },
+                "/device/cmd/play-audio": {
+                    "post": {
+                        "tags": ["设备控制"],
+                        "summary": "下发点播指令",
+                        "description": "向设备下发点播指定内容的指令（支持DRM）",
+                        "security": [{"BearerAuth": []}],
+                        "requestBody": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DevicePlayAudioRequest"}}}
+                        },
+                        "responses": {
+                            "200": {"description": "点播指令下发成功", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PlayAudioResponse"}}}}
+                        }
+                    }
+                },
+                "/device/cmd/volume-up": {
+                    "post": {
+                        "tags": ["设备控制"],
+                        "summary": "增加音量",
+                        "security": [{"BearerAuth": []}],
+                        "requestBody": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VolumeUpRequest"}}}
+                        },
+                        "responses": {"200": {"description": "音量调节成功"}}
+                    }
+                },
+                "/device/cmd/volume-down": {
+                    "post": {
+                        "tags": ["设备控制"],
+                        "summary": "降低音量",
+                        "security": [{"BearerAuth": []}],
+                        "requestBody": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VolumeDownRequest"}}}
+                        },
+                        "responses": {"200": {"description": "音量调节成功"}}
+                    }
+                },
+                "/device/cmd/reboot": {
+                    "post": {
+                        "tags": ["设备控制"],
+                        "summary": "重启设备",
+                        "description": "向设备下发远程重启指令（会导致设备短暂离线）",
+                        "security": [{"BearerAuth": []}],
+                        "requestBody": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceRebootRequest"}}}
+                        },
+                        "responses": {"200": {"description": "重启指令下发成功"}}
+                    }
+                },
+                "/device/download/song": {
+                    "post": {
+                        "tags": ["内容下载"],
+                        "summary": "下发歌曲下载任务",
+                        "description": "向设备下发音频文件下载任务（支持DRM保护内容）",
+                        "security": [{"BearerAuth": []}],
+                        "requestBody": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DownloadSongRequest"}}}
+                        },
+                        "responses": {
+                            "200": {"description": "下载任务创建成功", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DownloadSongResponse"}}}}
+                        }
+                    }
+                }
+            },
+            "components": {
+                "securitySchemes": {
+                    "BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+                },
+                "schemas": {
+                    "DeviceRegisterRequest": {
+                        "type": "object",
+                        "required": ["sn", "device_secret"],
+                        "properties": {
+                            "sn": {"type": "string", "pattern": "^[A-Za-z0-9]{16}$", "example": "AUSP2605000002Y2"},
+                            "device_secret": {"type": "string", "format": "password", "example": "prod_secret_xxx"},
+                            "firmware_version": {"type": "string", "example": "v2.3.1"}
+                        }
+                    },
+                    "DeviceRegisterResponse": {
+                        "type": "object",
+                        "properties": {
+                            "code": {"type": "integer", "example": 200},
+                            "data": {
+                                "type": "object",
+                                "properties": {
+                                    "sn": {"type": "string", "example": "AUSP2605000002Y2"},
+                                    "device_id": {"type": "integer", "example": 106},
+                                    "status": {"type": "string", "enum": ["activated", "already_activated"]},
+                                    "activated_at": {"type": "string", "format": "date-time"}
+                                }
+                            }
+                        }
+                    },
+                    "DeviceAuthRequest": {
+                        "type": "object",
+                        "required": ["sn", "device_secret"],
+                        "properties": {
+                            "sn": {"type": "string", "pattern": "^[A-Za-z0-9]{16}$", "example": "AUSP2605000002Y2"},
+                            "device_secret": {"type": "string", "format": "password", "example": "prod_secret_xxx"}
+                        }
+                    },
+                    "DeviceAuthResponse": {
+                        "type": "object",
+                        "properties": {
+                            "code": {"type": "integer", "example": 200},
+                            "msg": {"type": "string", "example": "设备认证成功"},
+                            "data": {
+                                "type": "object",
+                                "properties": {
+                                    "token": {"type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."},
+                                    "expires_in": {"type": "integer", "example": 2592000},
+                                    "device_id": {"type": "integer", "example": 106},
+                                    "sn": {"type": "string", "example": "AUSP2605000002Y2"},
+                                    "model": {"type": "string", "example": "AudioBox-Pro"},
+                                    "status": {"type": "integer", "enum": [1,2,3,4,5], "example": 1}
+                                }
+                            }
+                        }
+                    },
+                    "DevicePlayRequest": {
+                        "type": "object",
+                        "required": ["sn", "action"],
+                        "properties": {
+                            "sn": {"type": "string", "example": "AUSP2605000002Y2"},
+                            "action": {"type": "string", "enum": ["play", "pause", "stop", "next", "prev"], "example": "play"},
+                            "media_url": {"type": "string", "format": "uri", "example": "https://stream.example.com/music/1001.mp3"},
+                            "volume": {"type": "integer", "minimum": 0, "maximum": 100, "example": 80}
+                        }
+                    },
+                    "DevicePauseRequest": {
+                        "type": "object",
+                        "required": ["sn", "action"],
+                        "properties": {
+                            "sn": {"type": "string", "example": "AUSP2605000002Y2"},
+                            "action": {"type": "string", "enum": ["pause"], "example": "pause"}
+                        }
+                    },
+                    "DevicePlayAudioRequest": {
+                        "type": "object",
+                        "required": ["sn", "content_id"],
+                        "properties": {
+                            "sn": {"type": "string", "example": "AUSP2605000002Y2"},
+                            "content_id": {"type": "integer", "example": 1001},
+                            "audio_url": {"type": "string", "format": "uri", "example": "https://stream.example.com/music/1001.mp3"},
+                            "start_pos": {"type": "number", "example": 0},
+                            "volume": {"type": "integer", "minimum": 0, "maximum": 100, "example": 75},
+                            "play_mode": {"type": "string", "enum": ["sequential", "list_loop", "single_loop", "random"], "example": "sequential"}
+                        }
+                    },
+                    "VolumeUpRequest": {
+                        "type": "object",
+                        "required": ["sn", "action"],
+                        "properties": {
+                            "sn": {"type": "string", "example": "AUSP2605000002Y2"},
+                            "action": {"type": "string", "enum": ["volume_up"], "example": "volume_up"},
+                            "step": {"type": "integer", "minimum": 0, "maximum": 20, "default": 5, "example": 5}
+                        }
+                    },
+                    "VolumeDownRequest": {
+                        "type": "object",
+                        "required": ["sn", "action"],
+                        "properties": {
+                            "sn": {"type": "string", "example": "AUSP2605000002Y2"},
+                            "action": {"type": "string", "enum": ["volume_down"], "example": "volume_down"},
+                            "step": {"type": "integer", "minimum": 0, "maximum": 20, "default": 5, "example": 5}
+                        }
+                    },
+                    "DeviceRebootRequest": {
+                        "type": "object",
+                        "required": ["sn", "action"],
+                        "properties": {
+                            "sn": {"type": "string", "example": "AUSP2605000002Y2"},
+                            "action": {"type": "string", "enum": ["reboot"], "example": "reboot"}
+                        }
+                    },
+                    "DownloadSongRequest": {
+                        "type": "object",
+                        "required": ["sn", "content_id"],
+                        "properties": {
+                            "sn": {"type": "string", "example": "AUSP2605000002Y2"},
+                            "content_id": {"type": "integer", "example": 1001},
+                            "song_name": {"type": "string", "example": "晴天"},
+                            "quality": {"type": "string", "enum": ["standard", "high", "lossless", "low"], "default": "standard"},
+                            "enable_drm": {"type": "boolean", "example": false}
+                        }
+                    },
+                    "InstructionResponse": {
+                        "type": "object",
+                        "properties": {
+                            "code": {"type": "integer", "example": 200},
+                            "data": {
+                                "type": "object",
+                                "properties": {
+                                    "instruction_id": {"type": "integer", "example": 90001},
+                                    "status": {"type": "string", "enum": ["delivered", "cached", "failed"], "example": "delivered"},
+                                    "message": {"type": "string", "example": "指令已成功下发到设备"}
+                                }
+                            }
+                        }
+                    },
+                    "PlayAudioResponse": {
+                        "type": "object",
+                        "properties": {
+                            "code": {"type": "integer", "example": 200},
+                            "data": {
+                                "type": "object",
+                                "properties": {
+                                    "task_id": {"type": "string", "example": "task_1705747200_001"},
+                                    "instruction_id": {"type": "integer", "example": 90003},
+                                    "status": {"type": "string", "example": "delivered"},
+                                    "message": {"type": "string", "example": "点播指令已下发到设备"}
+                                }
+                            }
+                        }
+                    },
+                    "DownloadSongResponse": {
+                        "type": "object",
+                        "properties": {
+                            "code": {"type": "integer", "example": 200},
+                            "data": {
+                                "type": "object",
+                                "properties": {
+                                    "task_id": {"type": "string", "example": "dl_task_1705747200_001"},
+                                    "status": {"type": "string", "enum": ["pending", "sent", "failed", "cached"], "example": "sent"},
+                                    "message": {"type": "string", "example": "下载任务已下发到设备"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        window.onload = function() {
+            const ui = SwaggerUIBundle({
+                spec: spec,
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                docExpansion: "list",
+                filter: true,
+                showRequestDuration: true
+            });
+
+            window.ui = ui;
+        };
+    </script>
+</body>
+</html>

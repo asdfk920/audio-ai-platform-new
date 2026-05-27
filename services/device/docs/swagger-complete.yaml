@@ -1,0 +1,1578 @@
+openapi: 3.0.3
+info:
+  title: 音频AI平台 - 设备微服务API文档
+  description: |
+    ## 🎵 设备微服务接口文档
+
+    提供完整的设备管理和控制功能，包括：
+    - **设备注册认证**: 设备激活、身份验证、Token获取
+    - **设备控制**: 播放、暂停、点播、音量调节、重启等指令下发
+    - **实时通信**: WebSocket长连接，支持双向通信和状态同步
+    - **内容下载**: 支持DRM版权保护的音频文件下载
+    - **状态管理**: 在线状态追踪、影子数据同步
+
+    ### 🔑 认证方式
+
+    #### 1️⃣ 设备Token认证（JWT）
+    ```
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    ```
+
+    #### 2️⃣ WebSocket连接认证
+    建立WebSocket连接后立即发送认证消息：
+    ```json
+    {
+      "type": "auth",
+      "sn": "AUSP2605000002Y2",
+      "timestamp": 1705747200000,
+      "signature": "hmac-sha256-hex-signature"
+    }
+    ```
+
+    ### 📋 指令状态说明
+    - `delivered` - 已成功下发到设备
+    - `cached` - 设备离线，已缓存等待上线后发送
+    - `failed` - 发送失败
+    - `pending` - 等待处理中
+
+  version: "1.0.0"
+  contact:
+    name: Device API Support
+    email: device-support@audio-ai-platform.com
+    url: http://localhost:8002/docs
+
+servers:
+  - url: http://localhost:8002/api/v1
+    description: 本地开发环境
+  - url: https://device-api.audio-ai-platform.com/api/v1
+    description: 生产环境
+
+tags:
+  - name: 设备管理
+    description: 设备注册、认证、绑定等基础操作
+  - name: 设备控制
+    description: 播放控制、音量调节、重启等指令下发
+  - name: 实时通信
+    description: WebSocket长连接和消息推送
+  - name: 内容下载
+    description: 音频文件下载和DRM管理
+  - name: 状态查询
+    description: 设备状态、播放进度等信息查询
+
+paths:
+  # ==================== 设备注册 ====================
+  /device/register:
+    post:
+      tags:
+        - 设备管理
+      summary: 注册新设备
+      description: |
+        首次使用时进行设备注册（激活）。
+
+        ### 📝 业务流程
+        1. 设备从Flash/OTP读取序列号和密钥
+        2. 调用此接口完成云端注册
+        3. 注册成功后再调用 `/device/auth` 获取访问Token
+
+        ### ✅ 适用场景
+        - 新设备首次开机
+        - 设备恢复出厂设置后重新激活
+        - 设备更换硬件或固件升级后重新注册
+
+        ### ⚠️ 注意事项
+        - SN必须为16位字母数字组合
+        - device_secret为生产阶段预烧录密钥
+        - 同一SN重复注册会返回已激活状态
+
+      operationId: registerDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRegisterRequest'
+            examples:
+              new_device:
+                summary: 新设备注册
+                value:
+                  sn: "AUSP2605000002Y2"
+                  device_secret: "prod_secret_abc123_xyz789"
+                  firmware_version: "v2.3.1"
+                  hardware_version: "HW-v1.0"
+                  mac: "AA:BB:CC:DD:EE:FF"
+
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceRegisterResponse'
+              examples:
+                first_activation:
+                  summary: 首次激活
+                  value:
+                    code: 200
+                    msg: "success"
+                    data:
+                      sn: "AUSP2605000002Y2"
+                      device_id: 106
+                      status: "activated"
+                      activated_at: "2024-01-20T10:30:00Z"
+                      message: "设备激活成功"
+                already_activated:
+                  summary: 已激活设备再次注册
+                  value:
+                    code: 200
+                    msg: "success"
+                    data:
+                      sn: "AUSP2605000002Y2"
+                      device_id: 106
+                      status: "already_activated"
+                      activated_at: "2024-01-15T08:00:00Z"
+                      message: "设备已处于激活状态"
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ==================== 设备认证 ====================
+  /device/auth:
+    post:
+      tags:
+        - 设备管理
+      summary: 设备身份认证
+      description: |
+        使用SN + 密钥进行身份验证并获取访问Token。
+
+        ### 🔐 认证流程
+        1. 提供设备SN和预烧录的device_secret
+        2. 服务端校验密钥正确性
+        3. 检查设备状态（是否被禁用）
+        4. 生成JWT Token返回给设备
+        5. 后续所有API调用需携带此Token
+
+        ### ⏰ Token有效期
+        - 默认有效期：**30天** (2592000秒)
+        - 可通过配置项 `DEVICE_AUTH_TOKEN_EXPIRE_SECONDS` 调整
+        - Token过期后需重新调用此接口获取新Token
+
+        ### 💡 使用建议
+        - ✅ Token应安全存储在设备本地
+        - ✅ 定期检查Token有效期，提前刷新
+        - ⚠️ 不要在日志中打印完整Token
+
+      operationId: authenticateDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceAuthRequest'
+            examples:
+              standard_auth:
+                summary: 标准认证请求
+                value:
+                  sn: "AUSP2605000002Y2"
+                  device_secret: "prod_secret_abc123_xyz789"
+
+      responses:
+        '200':
+          description: 认证成功，返回Token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceAuthResponse'
+              examples:
+                auth_success:
+                  summary: 成功获取Token
+                  value:
+                    code: 200
+                    msg: "设备认证成功"
+                    data:
+                      token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXZpY2VfaWQiOjEwNiwic24iOiJBVVNQMjYwNTAwMDAwMlkyIiwiZXhwIjoxNzQ3OTg4ODAwLCJpYXQiOjE3NDc5MDI0MDB9.xxxxx"
+                      expires_in: 2592000
+                      device_id: 106
+                      sn: "AUSP2605000002Y2"
+                      model: "AudioBox-Pro"
+                      firmware_version: "v2.3.1"
+                      hardware_version: "HW-v1.0"
+                      online_status: 1
+                      status: 1
+                      message: "设备认证成功"
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: 认证失败（密钥错误或设备不存在）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                wrong_secret:
+                  value:
+                    code: 1005
+                    msg: "认证失败：设备密钥不正确"
+                device_disabled:
+                  value:
+                    code: 1007
+                    msg: "认证失败：设备已被禁用"
+
+  # ==================== 设备信息更新 ====================
+  /user/device/upd:
+    put:
+      tags:
+        - 用户设备管理
+      summary: 更新设备信息
+      description: |
+        用户通过 App 更新已绑定设备的基本信息和配置。
+
+        ### 📝 可更新字段
+        - **device_name**: 设备别名/备注名（用户为设备起的易记名称）
+        - **location**: 设备位置（如"客厅"、"主卧"）
+        - **group_name**: 分组名称（如"家庭音响系统"）
+        - **scene**: 使用场景（如"睡前音乐,晨间唤醒"）
+
+        ### 🔐 认证要求
+        - 需要携带用户JWT Token
+        - 用户必须是设备的绑定者
+        - 设备必须处于正常状态
+
+        ### ✅ 适用场景
+        - 修改设备别名便于识别
+        - 设置设备位置用于定位
+        - 创建设备分组进行批量管理
+        - 配置使用场景实现智能推荐
+
+        ### ⚠️ 注意事项
+        - 所有字段均为可选，只更新提供的字段
+        - device_name 为空时保持原有名称不变
+        - 更新会同步到 device 表和 user_device_bind 表
+
+      operationId: updateDeviceInfo
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceUpdateRequest'
+            examples:
+              update_all_fields:
+                summary: 更新所有字段
+                value:
+                  sn: "AUSP2605000004B4"
+                  device_name: "卧室音箱"
+                  location: "主卧"
+                  group_name: "家庭音响系统"
+                  scene: "睡前音乐,晨间唤醒"
+              update_alias_only:
+                summary: 仅修改别名
+                value:
+                  sn: "AUSP2605000004B4"
+                  device_name: "我的新音响"
+
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceUpdateResponse'
+              examples:
+                success:
+                  summary: 成功示例
+                  value:
+                    code: 200
+                    msg: "修改成功"
+                    data:
+                      sn: "AUSP2605000004B4"
+                      device_name: "卧室音箱"
+                      location: "主卧"
+                      group_name: "家庭音响系统"
+                      scene: "睡前音乐,晨间唤醒"
+                      updated_at: "2026-05-27T11:02:33+08:00"
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==================== WebSocket连接 ====================
+  /device/ws:
+    get:
+      tags:
+        - 实时通信
+      summary: 建立WebSocket长连接
+      description: |
+        与设备建立持久化的WebSocket连接。
+
+        ### 🔌 连接方式
+
+        #### 方式1: 通过Header传递Token（推荐）
+        ```
+        ws://host/device/ws?sn=AUSP2605000002Y2
+        Headers:
+          Authorization: Bearer <jwt_token>
+        ```
+
+        #### 方式2: 通过Query参数传递Token
+        ```
+        ws://host/device/ws?token=<jwt_token>&sn=AUSP2605000002Y2
+        ```
+
+        ### 📨 认证握手
+        建立连接后**必须立即**发送首包认证消息：
+
+        ```json
+        {
+          "type": "auth",
+          "sn": "AUSP2605000002Y2",
+          "timestamp": 1705747200000,
+          "signature": "hmac-sha256-hex-signature"
+        }
+        ```
+
+        **签名计算方法：**
+        ```
+        signData = sn + timestamp
+        signature = HMAC-SHA256(key=device_secret, data=signData) → hex lowercase
+        ```
+
+        ### 🔄 心跳保活
+        - 客户端每隔30秒发送ping
+        - 服务端响应pong
+        - 超过60秒无心跳自动断开
+
+        ### 📡 消息类型
+        - `auth` - 认证消息
+        - `cmd` - 控制指令（下行）
+        - `status` - 状态上报（上行）
+        - `event` - 事件通知（双向）
+
+      operationId: connectWebSocket
+      parameters:
+        - name: sn
+          in: query
+          description: 设备序列号（可选，用于日志记录）
+          required: false
+          schema:
+            type: string
+            example: "AUSP2605000002Y2"
+
+        - name: token
+          in: query
+          description: JWT Token（如果无法在Header中传递）
+          required: false
+          schema:
+            type: string
+
+      responses:
+        '101':
+          description: WebSocket连接建立成功
+
+        '401':
+          description: 未授权或Token无效
+
+  # ==================== 播放指令 ====================
+  /device/cmd/play:
+    post:
+      tags:
+        - 设备控制
+      summary: 下发播放指令
+      description: |
+        向指定设备下发播放指令。
+
+        ### 🎵 支持的操作类型
+        - `play` - 开始播放
+        - `pause` - 暂停播放
+        - `stop` - 停止播放
+        - `next` - 下一首
+        - `prev` - 上一首
+
+        ### 📝 参数说明
+        - `media_url`: 播放的媒体资源URL（play操作必填）
+        - `volume`: 播放音量 0-100（可选）
+
+        ### ⚠️ 注意事项
+        - 设备在线时立即下发（status=delivered）
+        - 设备离线时缓存等待（status=cached）
+        - 返回instruction_id可用于追踪执行结果
+
+      operationId: sendPlayCommand
+      security:
+        - BearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevicePlayRequest'
+            examples:
+              play_with_url:
+                summary: 播放指定URL
+                value:
+                  sn: "AUSP2605000002Y2"
+                  action: "play"
+                  media_url: "https://stream.example.com/music/1001.mp3"
+                  volume: 80
+              pause_playback:
+                summary: 暂停播放
+                value:
+                  sn: "AUSP2605000002Y2"
+                  action: "pause"
+              stop_playback:
+                summary: 停止播放
+                value:
+                  sn: "AUSP2605000002Y2"
+                  action: "stop"
+
+      responses:
+        '200':
+          description: 指令下发成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstructionResponse'
+              examples:
+                delivered_online:
+                  summary: 设备在线，已下发
+                  value:
+                    code: 200
+                    msg: "success"
+                    data:
+                      instruction_id: 90001
+                      status: "delivered"
+                      message: "指令已成功下发到设备"
+                cached_offline:
+                  summary: 设备离线，已缓存
+                  value:
+                    code: 200
+                    msg: "success"
+                    data:
+                      instruction_id: 90002
+                      status: "cached"
+                      message: "设备离线，指令已缓存，上线后将自动发送"
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==================== 暂停指令 ====================
+  /device/cmd/pause:
+    post:
+      tags:
+        - 设备控制
+      summary: 下发暂停指令
+      description: |
+        向指定设备下发暂停播放指令。
+
+        ### 使用场景
+        - 用户点击暂停按钮
+        - 来电自动暂停
+        - 语音助手"暂停播放"
+
+        ### 执行效果
+        - 当前播放的歌曲暂停
+        - 保存当前播放位置
+        - 可通过resume指令从暂停处继续播放
+
+      operationId: sendPauseCommand
+      security:
+        - BearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevicePauseRequest'
+            examples:
+              standard_pause:
+                value:
+                  sn: "AUSP2605000002Y2"
+                  action: "pause"
+
+      responses:
+        '200':
+          description: 暂停指令下发成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstructionResponse'
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==================== 点播指令 ====================
+  /device/cmd/play-audio:
+    post:
+      tags:
+        - 设备控制
+      summary: 下发点播指令
+      description: |
+        向设备下发点播指定内容的指令（支持DRM）。
+
+        ### 🎯 功能特性
+        - ✅ 支持通过ContentID点播
+        - ✅ 支持直接提供AudioURL播放
+        - ✅ 支持自定义起始播放位置
+        - ✅ 支持多种播放模式
+        - ✅ 支持DRM版权保护内容透传
+
+        ### 🎼 播放模式
+        - `sequential` - 顺序播放
+        - `list_loop` - 列表循环
+        - `single_loop` - 单曲循环
+        - `random` - 随机播放
+
+        ### 📊 任务追踪
+        返回task_id用于：
+        - 追踪播放任务状态
+        - 与进度上报关联
+        - 统计播放成功率
+
+      operationId: sendPlayAudioCommand
+      security:
+        - BearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevicePlayAudioRequest'
+            examples:
+              play_by_content_id:
+                summary: 通过ContentID点播
+                value:
+                  sn: "AUSP2605000002Y2"
+                  content_id: 1001
+                  volume: 75
+                  start_pos: 0
+                  play_mode: "sequential"
+              play_by_url:
+                summary: 直接播放URL
+                value:
+                  sn: "AUSP2605000002Y2"
+                  audio_url: "https://stream.example.com/music/1001.mp3"
+                  volume: 80
+                  play_mode: "single_loop"
+              resume_from_position:
+                summary: 从指定位置继续播放
+                value:
+                  sn: "AUSP2605000002Y2"
+                  content_id: 1001
+                  audio_url: "https://stream.example.com/music/1001.mp3"
+                  start_pos: 120.5
+                  volume: 70
+                  play_mode: "sequential"
+
+      responses:
+        '200':
+          description: 点播指令下发成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayAudioResponse'
+              examples:
+                success:
+                  value:
+                    code: 200
+                    msg: "success"
+                    data:
+                      task_id: "task_1705747200_001"
+                      instruction_id: 90003
+                      status: "delivered"
+                      message: "点播指令已下发到设备"
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 内容不存在或不可用
+
+  # ==================== 音量调节 ====================
+  /device/cmd/volume-up:
+    post:
+      tags:
+        - 设备控制
+      summary: 增加音量
+      description: |
+        向设备下发音量增加指令。
+
+        ### 🔊 音量参数
+        - 默认增量：**+5**
+        - 可调范围：**0-20**
+        - 最终音量范围：**0-100**
+
+        ### 示例
+        - step=5, 当前音量50 → 目标55
+        - step=20, 当前音量85 → 目标100（不会超过100）
+
+      operationId: volumeUp
+      security:
+        - BearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VolumeUpRequest'
+            examples:
+              default_step:
+                summary: 默认增加5
+                value:
+                  sn: "AUSP2605000002Y2"
+                  action: "volume_up"
+              custom_step:
+                summary: 自定义增量
+                value:
+                  sn: "AUSP2605000002Y2"
+                  action: "volume_up"
+                  params:
+                    step: 10
+                  step: 10
+
+      responses:
+        '200':
+          description: 音量调节指令下发成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VolumeResponse'
+              examples:
+                volume_up_success:
+                  value:
+                    code: 200
+                    msg: "success"
+                    data:
+                      instruction_id: 90004
+                      current_volume: 65
+                      target_volume: 70
+                      status: "delivered"
+                      message: "音量已调整至70%"
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /device/cmd/volume-down:
+    post:
+      tags:
+        - 设备控制
+      summary: 降低音量
+      description: |
+        向设备下发音量降低指令。
+
+        ### 🔊 音量参数
+        - 默认减量：**-5**
+        - 可调范围：**0-20**
+        - 最终音量范围：**0-100**
+
+        ### 示例
+        - step=5, 当前音量50 → 目标45
+        - step=20, 当前音量15 → 目标0（不会低于0）
+
+      operationId: volumeDown
+      security:
+        - BearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VolumeDownRequest'
+            examples:
+              default_step:
+                summary: 默认减少5
+                value:
+                  sn: "AUSP2605000002Y2"
+                  action: "volume_down"
+              custom_step:
+                summary: 自定义减量
+                value:
+                  sn: "AUSP2605000002Y2"
+                  action: "volume_down"
+                  params:
+                    step: 8
+                  step: 8
+
+      responses:
+        '200':
+          description: 音量调节指令下发成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VolumeResponse'
+              examples:
+                volume_down_success:
+                  value:
+                    code: 200
+                    msg: "success"
+                    data:
+                      instruction_id: 90005
+                      current_volume: 45
+                      target_volume: 40
+                      status: "delivered"
+                      message: "音量已调整至40%"
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==================== 设备重启 ====================
+  /device/cmd/reboot:
+    post:
+      tags:
+        - 设备控制
+      summary: 重启设备
+      description: |
+        向设备下发远程重启指令。
+
+        ### ⚠️ 重要提示
+        - ❌ 此操作会导致设备短暂离线
+        - ❌ 正在进行的播放会被中断
+        - ✅ 重启后设备会自动重连WebSocket
+        - ✅ 重启通常需要10-30秒
+
+        ### 🔄 重启流程
+        1. 下发reboot指令
+        2. 设备收到指令后开始重启
+        3. 设备断开WebSocket连接
+        4. 设备启动完成后自动重连
+        5. 设备重新认证并上报状态
+
+        ### 💡 适用场景
+        - 固件更新后需要重启
+        - 设备运行异常需要恢复
+        - 清理内存或释放资源
+        - 测试设备重启功能
+
+      operationId: rebootDevice
+      security:
+        - BearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRebootRequest'
+            examples:
+              reboot_command:
+                value:
+                  sn: "AUSP2605000002Y2"
+                  action: "reboot"
+
+      responses:
+        '200':
+          description: 重启指令下发成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstructionResponse'
+              examples:
+                reboot_sent:
+                  value:
+                    code: 200
+                    msg: "success"
+                    data:
+                      instruction_id: 90006
+                      status: "delivered"
+                      message: "重启指令已下发，设备将在几秒内重启"
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 无权限重启该设备
+
+  # ==================== 下载歌曲 ====================
+  /device/download/song:
+    post:
+      tags:
+        - 内容下载
+      summary: 下发歌曲下载任务
+      description: |
+        向设备下发音频文件下载任务（支持DRM保护内容）。
+
+        ### 📥 下载功能
+        - ✅ 支持标准MP3/AAC格式下载
+        - ✅ 支持DRM加密内容下载（Widevine/FairPlay/PlayReady）
+        - ✅ 自动选择最佳音质
+        - ✅ 断点续传支持
+        - ✅ 下载进度实时上报
+
+        ### 🛡️ DRM支持
+        当内容受DRM保护时：
+        - 自动携带DRM元数据（PSSH、License URL等）
+        - 设备端负责许可证申请和解密
+        - 完整的版权合规日志记录
+        - 所有DRM信息原样透传，不解码不修改
+
+        ### 📊 下载质量选项
+        - `standard` - 标准音质（推荐）
+        - `high` - 高品质
+        - `lossless` - 无损音质（如可用）
+        - `low` - 低音质（节省流量）
+
+        ### 📈 任务追踪
+        返回task_id用于：
+        - 查询下载进度
+        - 监控下载状态
+        - 处理下载回调通知
+
+      operationId: downloadSongToDevice
+      security:
+        - BearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadSongRequest'
+            examples:
+              standard_download:
+                summary: 标准下载
+                value:
+                  sn: "AUSP2605000002Y2"
+                  content_id: 1001
+                  song_name: "晴天"
+                  quality: "standard"
+                  enable_drm: false
+              drm_download:
+                summary: DRM保护内容下载
+                value:
+                  sn: "AUSP2605000002Y2"
+                  content_id: 2001
+                  song_name: "付费歌曲"
+                  quality: "high"
+                  enable_drm: true
+              custom_source:
+                summary: 指定源URL下载
+                value:
+                  sn: "AUSP2605000002Y2"
+                  content_id: 3001
+                  source_url: "https://cdn.example.com/music/custom.mp3"
+                  quality: "lossless"
+
+      responses:
+        '200':
+          description: 下载任务创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadSongResponse'
+              examples:
+                task_created:
+                  value:
+                    code: 200
+                    msg: "success"
+                    data:
+                      task_id: "dl_task_1705747200_001"
+                      instruction_id: 90007
+                      status: "sent"
+                      message: "下载任务已下发到设备"
+                cached_offline:
+                  value:
+                    code: 200
+                    msg: "success"
+                    data:
+                      task_id: "dl_task_1705747200_002"
+                      instruction_id: null
+                      status: "cached"
+                      message: "设备离线，下载任务已缓存"
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 内容不存在或无法下载
+        '409':
+          description: 存储空间不足或正在下载相同内容
+
+# ==================== 组件定义 ====================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Token认证格式：
+
+        ```
+        Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        ```
+
+        Token通过 `/api/v1/device/auth` 接口获取。
+        有效期默认30天。
+
+  schemas:
+    # ========== 通用响应 ==========
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 错误码
+          example: 400
+        msg:
+          type: string
+          description: 错误信息
+          example: "参数错误"
+
+    # ========== 设备注册 ==========
+    DeviceRegisterRequest:
+      type: object
+      required:
+        - sn
+        - device_secret
+      properties:
+        sn:
+          type: string
+          description: 设备序列号（16位字母数字组合，从Flash/OTP读取）
+          pattern: '^[A-Za-z0-9]{16}$'
+          minLength: 16
+          maxLength: 16
+          example: "AUSP2605000002Y2"
+        device_secret:
+          type: string
+          description: 设备密钥（生产阶段预烧录，用于身份验证）
+          format: password
+          example: "prod_secret_abc123_xyz789"
+        device_name_raw:
+          type: string
+          description: |
+            设备原始名称（可选）
+            - 设备出厂时预设或用户首次注册时设置的名称
+            - 示例："客厅音响"、"卧室音箱"、"主卧智能音箱"
+            - 最大长度：100字符
+            - 如果不提供，系统会使用默认值（如"未命名设备"）
+          maxLength: 100
+          example: "客厅智能音响"
+        firmware_version:
+          type: string
+          description: 固件版本号（可选）
+          example: "v2.3.1"
+        hardware_version:
+          type: string
+          description: 硬件版本号（可选）
+          example: "HW-v1.0"
+        mac:
+          type: string
+          description: MAC地址（可选）
+          format: mac
+          example: "AA:BB:CC:DD:EE:FF"
+
+    DeviceRegisterResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        msg:
+          type: string
+          example: "success"
+        data:
+          type: object
+          properties:
+            sn:
+              type: string
+              description: 设备序列号
+              example: "AUSP2605000002Y2"
+            device_id:
+              type: integer
+              format: int64
+              description: 云端分配的唯一标识
+              example: 106
+            status:
+              type: string
+              enum: ["activated", "already_activated"]
+              description: 激活状态
+              example: "activated"
+            activated_at:
+              type: string
+              format: date-time
+              description: 激活时间
+              example: "2024-01-20T10:30:00Z"
+            message:
+              type: string
+              description: 提示信息
+              example: "设备激活成功"
+
+    # ========== 设备认证 ==========
+    DeviceAuthRequest:
+      type: object
+      required:
+        - sn
+        - device_secret
+      properties:
+        sn:
+          type: string
+          description: 设备序列号（16位字母数字组合）
+          pattern: '^[A-Za-z0-9]{16}$'
+          minLength: 16
+          maxLength: 16
+          example: "AUSP2605000002Y2"
+        device_secret:
+          type: string
+          description: 设备密钥（生产阶段预烧录）
+          format: password
+          example: "prod_secret_abc123_xyz789"
+
+    DeviceAuthResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        msg:
+          type: string
+          example: "设备认证成功"
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              description: JWT访问凭证
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            expires_in:
+              type: integer
+              format: int64
+              description: 凭证有效期（秒）
+              example: 2592000
+            device_id:
+              type: integer
+              format: int64
+              description: 设备ID
+              example: 106
+            sn:
+              type: string
+              description: 设备序列号
+              example: "AUSP2605000002Y2"
+            model:
+              type: string
+              description: 设备型号
+              example: "AudioBox-Pro"
+            firmware_version:
+              type: string
+              description: 固件版本号
+              example: "v2.3.1"
+            hardware_version:
+              type: string
+              description: 硬件版本号
+              example: "HW-v1.0"
+            online_status:
+              type: integer
+              enum: [0, 1]
+              description: 在线状态（0=离线, 1=在线）
+              example: 1
+            status:
+              type: integer
+              enum: [1, 2, 3, 4, 5]
+              description: 设备状态（1=正常, 2=禁用, 3=停用, 4=未注册, 5=未认证）
+              example: 1
+            message:
+              type: string
+              description: 提示信息
+              example: "设备认证成功"
+
+    # ========== 播放控制 ==========
+    DevicePlayRequest:
+      type: object
+      required:
+        - sn
+        - action
+      properties:
+        sn:
+          type: string
+          description: 设备序列号
+          example: "AUSP2605000002Y2"
+        action:
+          type: string
+          enum: ["play", "pause", "stop", "next", "prev"]
+          description: 操作类型
+          example: "play"
+        media_url:
+          type: string
+          format: uri
+          description: 媒体资源URL（play操作必填）
+          example: "https://stream.example.com/music/1001.mp3"
+        volume:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 音量 0-100
+          example: 80
+
+    DevicePauseRequest:
+      type: object
+      required:
+        - sn
+        - action
+      properties:
+        sn:
+          type: string
+          description: 设备序列号
+          example: "AUSP2605000002Y2"
+        action:
+          type: string
+          enum: ["pause"]
+          description: 操作类型
+          example: "pause"
+
+    DevicePlayAudioRequest:
+      type: object
+      required:
+        - sn
+        - content_id
+      properties:
+        sn:
+          type: string
+          description: 设备序列号（16位）
+          example: "AUSP2605000002Y2"
+        device_sn:
+          type: string
+          description: 同上，兼容性字段
+          deprecated: true
+        content_id:
+          type: integer
+          format: int64
+          description: 内容ID（正整数）
+          example: 1001
+        audio_url:
+          type: string
+          format: uri
+          description: 可播放音频URL
+          example: "https://stream.example.com/music/1001.mp3"
+        start_pos:
+          type: number
+          format: float
+          description: 起始播放位置（秒）
+          minimum: 0
+          example: 0
+        volume:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 音量 0-100
+          example: 75
+        play_mode:
+          type: string
+          enum: ["sequential", "list_loop", "single_loop", "random"]
+          description: 播放模式
+          example: "sequential"
+
+    PlayAudioResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        msg:
+          type: string
+          example: "success"
+        data:
+          type: object
+          properties:
+            task_id:
+              type: string
+              description: 任务ID（用于追踪）
+              example: "task_1705747200_001"
+            instruction_id:
+              type: integer
+              format: int64
+              description: 指令ID
+              example: 90003
+            status:
+              type: string
+              enum: ["delivered", "queued", "cached", "failed"]
+              description: 指令状态
+              example: "delivered"
+            message:
+              type: string
+              description: 提示信息
+              example: "点播指令已下发到设备"
+
+    # ========== 音量控制 ==========
+    VolumeUpParams:
+      type: object
+      properties:
+        step:
+          type: integer
+          minimum: 0
+          maximum: 20
+          default: 5
+          description: 音量增量（默认5，范围0-20）
+          example: 5
+
+    VolumeUpRequest:
+      type: object
+      required:
+        - sn
+        - action
+      properties:
+        sn:
+          type: string
+          description: 设备序列号
+          example: "AUSP2605000002Y2"
+        action:
+          type: string
+          enum: ["volume_up"]
+          description: 操作类型
+          example: "volume_up"
+        params:
+          $ref: '#/components/schemas/VolumeUpParams'
+        step:
+          type: integer
+          minimum: 0
+          maximum: 20
+          description: 音量增量（与params.step二选一）
+          example: 5
+
+    VolumeDownParams:
+      type: object
+      properties:
+        step:
+          type: integer
+          minimum: 0
+          maximum: 20
+          default: 5
+          description: 音量减量（默认5，范围0-20）
+          example: 5
+
+    VolumeDownRequest:
+      type: object
+      required:
+        - sn
+        - action
+      properties:
+        sn:
+          type: string
+          description: 设备序列号
+          example: "AUSP2605000002Y2"
+        action:
+          type: string
+          enum: ["volume_down"]
+          description: 操作类型
+          example: "volume_down"
+        params:
+          $ref: '#/components/schemas/VolumeDownParams'
+        step:
+          type: integer
+          minimum: 0
+          maximum: 20
+          description: 音量减量（与params.step二选一）
+          example: 5
+
+    VolumeResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        msg:
+          type: string
+          example: "success"
+        data:
+          type: object
+          properties:
+            instruction_id:
+              type: integer
+              format: int64
+              example: 90004
+            current_volume:
+              type: integer
+              description: 调节前的音量值
+              example: 65
+            target_volume:
+              type: integer
+              description: 调节后的目标音量值
+              example: 70
+            status:
+              type: string
+              enum: ["delivered", "cached"]
+              example: "delivered"
+            message:
+              type: string
+              example: "音量已调整至70%"
+
+    # ========== 设备重启 ==========
+    DeviceRebootRequest:
+      type: object
+      required:
+        - sn
+        - action
+      properties:
+        sn:
+          type: string
+          description: 设备序列号
+          example: "AUSP2605000002Y2"
+        action:
+          type: string
+          enum: ["reboot"]
+          description: 操作类型
+          example: "reboot"
+
+    InstructionResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        msg:
+          type: string
+          example: "success"
+        data:
+          type: object
+          properties:
+            instruction_id:
+              type: integer
+              format: int64
+              description: 指令ID（用于追踪）
+              example: 90006
+            status:
+              type: string
+              enum: ["delivered", "cached", "failed", "pending"]
+              description: 指令状态
+              example: "delivered"
+            message:
+              type: string
+              description: 提示信息
+              example: "指令已成功下发到设备"
+
+    # ========== 内容下载 ==========
+    DownloadSongRequest:
+      type: object
+      required:
+        - sn
+        - content_id
+      properties:
+        sn:
+          type: string
+          description: 目标设备序列号（16位）
+          example: "AUSP2605000002Y2"
+        content_id:
+          type: integer
+          format: int64
+          description: 内容ID
+          example: 1001
+        song_name:
+          type: string
+          description: 歌曲名称（可选，默认取自内容详情）
+          example: "晴天"
+        quality:
+          type: string
+          enum: ["standard", "high", "lossless", "low"]
+          default: "standard"
+          description: 音质等级
+          example: "standard"
+        source_url:
+          type: string
+          format: uri
+          description: 来源URL（可选，默认取自内容详情）
+          example: "https://stream.example.com/music/1001.mp3"
+        enable_drm:
+          type: boolean
+          description: 是否启用DRM（省略时默认启用）
+          example: false
+        device_id:
+          type: integer
+          format: int64
+          description: 已废弃，请使用sn
+          deprecated: true
+
+    DownloadSongResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        msg:
+          type: string
+          example: "success"
+        data:
+          type: object
+          properties:
+            task_id:
+              type: string
+              description: 下载任务ID（用于追踪）
+              example: "dl_task_1705747200_001"
+            instruction_id:
+              type: integer
+              format: int64
+              nullable: true
+              description: 指令ID（设备离线时可能为null）
+              example: 90007
+            status:
+              type: string
+              enum: ["pending", "sent", "failed", "cached"]
+              description: 任务状态
+              example: "sent"
+            message:
+              type: string
+              description: 状态描述
+              example: "下载任务已下发到设备"
+
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalid_sn:
+              value:
+                code: 400
+                msg: "参数错误：SN格式不正确，必须为16位字母数字"
+            missing_field:
+              value:
+                code: 400
+                msg: "参数错误：缺少必要字段 sn"
+
+    Unauthorized:
+      description: 未认证或Token无效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            no_token:
+              value:
+                code: 401
+                msg: "未提供认证Token"
+            expired_token:
+              value:
+                code: 401
+                msg: "Token已过期，请重新认证"
+            invalid_token:
+              value:
+                code: 401
+                msg: "Token签名验证失败"
+            wrong_secret:
+              value:
+                code: 1005
+                msg: "认证失败：设备密钥不正确"
+
+    Conflict:
+      description: 资源冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            already_registered:
+              value:
+                code: 409
+                msg: "设备已注册，无需重复注册"
+
+    # ==================== 设备信息更新接口 ====================
+
+    DeviceUpdateRequest:
+      type: object
+      required:
+        - sn
+      properties:
+        sn:
+          type: string
+          description: 设备序列号（16位字母数字组合）
+          pattern: '^[A-Za-z0-9]{16}$'
+          minLength: 16
+          maxLength: 16
+          example: "AUSP2605000004B4"
+        device_name:
+          type: string
+          description: |
+            设备别名/备注名（可选）
+            - 用户为设备起的易记名称，用于在App中识别设备
+            - 示例："我的音响"、"卧室音箱"、"客厅智能音箱"
+            - 最大长度：100字符
+            - 如果不提供或为空，保持原有名称不变
+          maxLength: 100
+          example: "卧室音箱"
+        location:
+          type: string
+          description: |
+            设备位置（可选）
+            - 描述设备所在的物理位置
+            - 示例："客厅"、"主卧"、"书房"、"办公室"
+            - 最大长度：100字符
+            - 默认值：空字符串
+          maxLength: 100
+          example: "主卧"
+        group_name:
+          type: string
+          description: |
+            分组名称（可选）
+            - 用于将多台设备分组管理
+            - 示例："家庭音响系统"、"办公室设备"、"会议室"
+            - 最大长度：100字符
+            - 默认值：空字符串
+          maxLength: 100
+          example: "家庭音响系统"
+        scene:
+          type: string
+          description: |
+            使用场景（可选）
+            - 描述设备的主要使用场景，支持多个场景用逗号分隔
+            - 示例："睡前音乐,晨间唤醒"、"会议通话"、"背景音乐"
+            - 最大长度：500字符
+            - 默认值：空字符串
+          maxLength: 500
+          example: "睡前音乐,晨间唤醒"
+
+    DeviceUpdateResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        msg:
+          type: string
+          example: "修改成功"
+        data:
+          type: object
+          properties:
+            sn:
+              type: string
+              description: 设备序列号
+              example: "AUSP2605000004B4"
+            device_name:
+              type: string
+              description: 设备别名/备注名（更新后的值）
+              example: "卧室音箱"
+            location:
+              type: string
+              description: 设备位置（更新后的值）
+              example: "主卧"
+            group_name:
+              type: string
+              description: 分组名称（更新后的值）
+              example: "家庭音响系统"
+            scene:
+              type: string
+              description: 使用场景（更新后的值）
+              example: "睡前音乐,晨间唤醒"
+            updated_at:
+              type: string
+              format: date-time
+              description: 更新时间（ISO8601格式）
+              example: "2026-05-27T11:02:33+08:00"

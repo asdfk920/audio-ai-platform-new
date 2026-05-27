@@ -87,14 +87,55 @@ func (l *ContentFavoriteLogic) AddFavorite(contentID int64, userID int64, favori
 	isFavorited := existingErr == nil && existingRecord.ID > 0 && existingRecord.Status == 1
 
 	if isFavorited {
-		logx.Infof("[Favorite] 已收藏: userID=%d, contentID=%d", userID, contentID)
+		logx.Infof("[Favorite] 已收藏，执行取消收藏: userID=%d, contentID=%d", userID, contentID)
 
-		return &types.ContentFavoriteResp{
-			Success:       true,
-			Message:       "已收藏",
-			Favorited:     true,
-			FavoriteCount: content.FavoriteCount,
-		}, nil
+		var resp *types.ContentFavoriteResp
+
+		err = l.svcCtx.DB.Transaction(func(tx *gorm.DB) error {
+
+			updateResult := tx.Table("user_favorites").
+				Where("user_id = ? AND content_id = ?", userID, contentID).
+				Update("status", 0)
+			if updateResult.Error != nil {
+				logx.Errorf("[Favorite] 取消收藏失败: error=%v", updateResult.Error)
+				return fmt.Errorf("取消收藏失败: %v", updateResult.Error)
+			}
+
+			countUpdateResult := tx.Table("content").
+				Where("id = ?", contentID).
+				Update("favorite_count", gorm.Expr("GREATEST(COALESCE(favorite_count, 0) - 1, 0)"))
+			if countUpdateResult.Error != nil {
+				logx.Errorf("[Favorite] 更新收藏数失败: error=%v", countUpdateResult.Error)
+				return fmt.Errorf("更新收藏数失败: %v", countUpdateResult.Error)
+			}
+
+			content.FavoriteCount--
+			if content.FavoriteCount < 0 {
+				content.FavoriteCount = 0
+			}
+
+			resp = &types.ContentFavoriteResp{
+				Success:       true,
+				Message:       "取消收藏成功",
+				Favorited:     false,
+				FavoriteCount: content.FavoriteCount,
+			}
+
+			logx.Infof("[Favorite] ✅ Toggle取消收藏成功: userID=%d, contentID=%d, title=%s, favoriteCount=%d",
+				userID, contentID, content.Title, content.FavoriteCount)
+
+			return nil
+		})
+
+		if err != nil {
+			logx.Errorf("[Favorite] ❌ 取消收藏事务失败: error=%v", err)
+			return nil, err
+		}
+
+		logx.Infof("[Favorite] Toggle处理完成: success=%v, favorited=%v, favoriteCount=%d",
+			resp.Success, resp.Favorited, resp.FavoriteCount)
+
+		return resp, nil
 	}
 
 	var resp *types.ContentFavoriteResp
