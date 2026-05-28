@@ -83,6 +83,7 @@ const (
 	CodeDeviceInactive               = 2016 // 设备未激活，无法查询状态
 	CodeDeviceScrapped               = 2017 // 设备已报废，无法查询状态
 	CodeDeviceStatusQueryRateLimit   = 2018 // 设备状态查询过于频繁
+	CodeDeviceShadowVersionConflict  = 2036 // 设备影子版本冲突（乐观锁）
 	CodeMemberPackageNotFound        = 2020 // 套餐不存在
 	CodeMemberPackageDisabled        = 2021 // 套餐已下架
 	CodeMemberOrderNotFound          = 2022 // 订单不存在
@@ -197,6 +198,7 @@ var codeMsg = map[int]string{
 	CodeDeviceInactive:                "设备未激活，暂无法查询状态",
 	CodeDeviceScrapped:                "设备已报废，暂无法查询状态",
 	CodeDeviceStatusQueryRateLimit:    "设备状态查询过于频繁，请稍后再试",
+	CodeDeviceShadowVersionConflict:   "设备影子版本冲突，请刷新后重试",
 	CodeMemberPackageNotFound:         "套餐不存在",
 	CodeMemberPackageDisabled:         "套餐已下架",
 	CodeMemberOrderNotFound:           "订单不存在",

@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
 
 	"go-admin/app/admin/device/shadow"
 	"go-admin/common/mqttadmin"
+
 	"gorm.io/gorm"
 )
 
@@ -333,14 +335,14 @@ func (e *PlatformDeviceService) PutDeviceShadowDesired(in *PutDeviceShadowDesire
 	if online && len(deltaMap) > 0 {
 		if cli := mqttadmin.Client(); cli != nil {
 			payload := map[string]interface{}{
-				"type":       "device_shadow_delta",
-				"device_sn":  dev.Sn,
-				"device_id":  dev.ID,
-				"delta":      deltaMap,
-				"desired":    prevDesired,
-				"timestamp":  now.UnixMilli(),
-				"source":     "admin",
-				"operator":   strings.TrimSpace(in.Operator),
+				"type":      "device_shadow_delta",
+				"device_sn": dev.Sn,
+				"device_id": dev.ID,
+				"delta":     deltaMap,
+				"desired":   prevDesired,
+				"timestamp": now.UnixMilli(),
+				"source":    "admin",
+				"operator":  strings.TrimSpace(in.Operator),
 			}
 			b, _ := json.Marshal(payload)
 			topic := fmt.Sprintf("device/%s/shadow/delta", dev.Sn)
@@ -358,6 +360,159 @@ func (e *PlatformDeviceService) PutDeviceShadowDesired(in *PutDeviceShadowDesire
 		PushedMQTT: pushed,
 		Online:     online,
 	}, nil
+}
+
+// DeviceShadowListFilter 影子列表筛选
+type DeviceShadowListFilter struct {
+	Sn           string
+	SnExact      bool
+	OnlineStatus *int16
+	HasShadow    *bool // true=仅有 device_shadow 记录的设备
+}
+
+// DeviceShadowListItem 影子列表行（PG 为主，详情再拉 Redis）
+type DeviceShadowListItem struct {
+	DeviceID        int64      `json:"device_id"`
+	Sn              string     `json:"sn"`
+	FirmwareVersion string     `json:"firmware_version,omitempty"`
+	OnlineStatus    int16      `json:"online_status"`
+	DisplayOnline   int16      `json:"display_online"`
+	Battery         *int32     `json:"battery,omitempty"`
+	RunState        string     `json:"run_state,omitempty"`
+	HasReported     bool       `json:"has_reported"`
+	HasDesired      bool       `json:"has_desired"`
+	LastReportTime  *time.Time `json:"last_report_time,omitempty"`
+	ShadowUpdatedAt *time.Time `json:"shadow_updated_at,omitempty"`
+	LastActiveAt    *time.Time `json:"last_active_at,omitempty"`
+}
+
+func (e *PlatformDeviceService) deviceShadowListQuery(f DeviceShadowListFilter) *gorm.DB {
+	q := e.Orm.Table("device AS d").
+		Joins("LEFT JOIN device_shadow AS ds ON ds.device_id = d.id").
+		Where("d.deleted_at IS NULL")
+	if s := strings.TrimSpace(f.Sn); s != "" {
+		if f.SnExact {
+			q = q.Where("d.sn = ?", strings.ToUpper(s))
+		} else {
+			q = q.Where("d.sn ILIKE ?", "%"+strings.ToUpper(s)+"%")
+		}
+	}
+	if f.OnlineStatus != nil {
+		q = q.Where("d.online_status = ?", *f.OnlineStatus)
+	}
+	if f.HasShadow != nil {
+		if *f.HasShadow {
+			q = q.Where("ds.device_id IS NOT NULL")
+		} else {
+			q = q.Where("ds.device_id IS NULL")
+		}
+	}
+	return q
+}
+
+// ListDeviceShadows 分页查询设备影子列表
+func (e *PlatformDeviceService) ListDeviceShadows(page, pageSize int, f DeviceShadowListFilter) ([]DeviceShadowListItem, int64, error) {
+	if e.Orm == nil {
+		return nil, 0, fmt.Errorf("orm nil")
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	var total int64
+	sub := e.deviceShadowListQuery(f).Select("d.id").Distinct()
+	if err := e.Orm.Table("(?) AS _cnt", sub).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	type row struct {
+		DeviceID        int64           `gorm:"column:device_id"`
+		Sn              string          `gorm:"column:sn"`
+		FirmwareVersion string          `gorm:"column:firmware_version"`
+		OnlineStatus    int16           `gorm:"column:online_status"`
+		LastActiveAt    *time.Time      `gorm:"column:last_active_at"`
+		Reported        json.RawMessage `gorm:"column:reported"`
+		Desired         json.RawMessage `gorm:"column:desired"`
+		LastReportTime  *time.Time      `gorm:"column:last_report_time"`
+		ShadowUpdatedAt *time.Time      `gorm:"column:shadow_updated_at"`
+	}
+	var rows []row
+	offset := (page - 1) * pageSize
+	listQ := e.deviceShadowListQuery(f)
+	selectSQL := `d.id AS device_id, d.sn, d.firmware_version, d.online_status, d.last_active_at,
+		ds.reported, ds.desired, ds.last_report_time, ds.updated_at AS shadow_updated_at`
+	err := listQ.Select(selectSQL).
+		Order("COALESCE(ds.updated_at, d.updated_at) DESC NULLS LAST, d.id DESC").
+		Limit(pageSize).Offset(offset).Scan(&rows).Error
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "desired") {
+		listQ = e.deviceShadowListQuery(f)
+		err = listQ.Select(`d.id AS device_id, d.sn, d.firmware_version, d.online_status, d.last_active_at,
+			ds.reported, ds.last_report_time, ds.updated_at AS shadow_updated_at`).
+			Order("COALESCE(ds.updated_at, d.updated_at) DESC NULLS LAST, d.id DESC").
+			Limit(pageSize).Offset(offset).Scan(&rows).Error
+	}
+	if err != nil {
+		log.Printf("[ShadowList] ❌ 查询失败: page=%d, pageSize=%d, error=%v", page, pageSize, err)
+		return nil, 0, err
+	}
+
+	log.Printf("[ShadowList] ✅ 查询成功: total=%d, rows_count=%d, page=%d, pageSize=%d",
+		total, len(rows), page, pageSize)
+
+	if len(rows) > 0 {
+		log.Printf("[ShadowList] 📋 第一条数据: device_id=%d, sn=%s, online_status=%d",
+			rows[0].DeviceID, rows[0].Sn, rows[0].OnlineStatus)
+	}
+
+	out := make([]DeviceShadowListItem, 0, len(rows))
+	for _, r := range rows {
+		item := DeviceShadowListItem{
+			DeviceID:        r.DeviceID,
+			Sn:              r.Sn,
+			FirmwareVersion: strings.TrimSpace(r.FirmwareVersion),
+			OnlineStatus:    r.OnlineStatus,
+			DisplayOnline:   displayOnlineFromLastActive(r.LastActiveAt, r.OnlineStatus),
+			HasReported:     jsonObjectNonEmpty(r.Reported),
+			HasDesired:      jsonObjectNonEmpty(r.Desired),
+			LastReportTime:  r.LastReportTime,
+			ShadowUpdatedAt: r.ShadowUpdatedAt,
+			LastActiveAt:    r.LastActiveAt,
+		}
+		if len(r.Reported) > 0 {
+			var rep map[string]interface{}
+			if json.Unmarshal(r.Reported, &rep) == nil {
+				if v, ok := rep["battery"].(float64); ok {
+					b := int32(v)
+					item.Battery = &b
+				}
+				if v, ok := rep["run_state"].(string); ok {
+					item.RunState = v
+				} else if v, ok := rep["power_status"].(string); ok {
+					item.RunState = v
+				}
+			}
+		}
+		out = append(out, item)
+	}
+
+	log.Printf("[ShadowList] 📤 最终返回: out_count=%d, total=%d", len(out), total)
+	if len(out) > 0 {
+		log.Printf("[ShadowList] 📤 返回的第一条: sn=%s, display_online=%d, has_reported=%v",
+			out[0].Sn, out[0].DisplayOnline, out[0].HasReported)
+	}
+
+	return out, total, nil
+}
+
+func jsonObjectNonEmpty(raw json.RawMessage) bool {
+	s := strings.TrimSpace(string(raw))
+	return s != "" && s != "{}" && s != "null"
 }
 
 func (e *PlatformDeviceService) upsertDeviceShadowDesired(deviceID int64, sn string, desired json.RawMessage, now time.Time) error {

@@ -29,6 +29,11 @@ Redis:
   Password: "cjs110017"
   DB: 0
 
+# 设备影子 Redis Hash（device:shadow:{SN}）
+DeviceShadow:
+  HeartbeatTTLSeconds: 300
+  SeedTTLSeconds: 86400
+
 # 内容服务（download_song 仅传 content_id 时拉取 play_url）
 Content:
   BaseURL: "http://127.0.0.1:8003"

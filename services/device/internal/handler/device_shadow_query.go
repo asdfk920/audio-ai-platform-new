@@ -26,9 +26,12 @@ func deviceShadowQueryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		sn := r.URL.Query().Get("sn")
 		if sn == "" {
+			sn = r.URL.Query().Get("device_sn")
+		}
+		if sn == "" {
 			httpx.WriteJson(w, http.StatusBadRequest, map[string]interface{}{
 				"code": 400,
-				"msg":  "sn 参数不能为空",
+				"msg":  "sn 或 device_sn 参数不能为空",
 				"data": nil,
 			})
 			return

@@ -164,6 +164,9 @@ func (l *DeviceWsLogic) DeviceWs(w http.ResponseWriter, r *http.Request) {
 	// ③ 补发离线期间的pending指令
 	go l.afterWSAuthFlushPendingInstructions(deviceID)
 
+	// ④ 补发离线期间的诊断指令（异步，不阻塞主流程）
+	go l.flushCachedDiagnosisCommands(deviceID, snUpper)
+
 	logx.Infof("[WS] 📍 设备已加入在线列表: device_id=%s sn_key=%s (当前在线设备数: %d)", deviceIdStr, snUpper, len(deviceConnMap))
 
 	// ④ 注册断开清理逻辑
@@ -295,37 +298,118 @@ func (l *DeviceWsLogic) handleCommandResponse(deviceId string, response map[stri
 	case "reboot":
 		// 传递 l (DeviceWsLogic) 给处理函数，使其能访问数据库和连接池
 		HandleDeviceRebootResponse(l, deviceId, response)
+	case "diagnosis", "collect_log":
+		l.handleDiagnosisResponse(deviceId, response)
 	default:
 		logx.Infof("[CMD_RESPONSE] 未知指令反馈: device_id=%s, cmd=%s", deviceId, cmd)
 	}
 }
 
-// SendCmdToDevice 给外部调用：发送指令到设备
-func SendCmdToDevice(deviceId string, data interface{}) error {
-	lock.RLock()
-	dc, ok := deviceConnMap[deviceId]
-	lock.RUnlock()
+// handleDiagnosisResponse 处理设备诊断指令响应
+// 设备执行完日志收集等诊断指令后回传结果
+func (l *DeviceWsLogic) handleDiagnosisResponse(deviceId string, response map[string]interface{}) {
+	traceID, _ := response["trace_id"].(string)
+	status, _ := response["status"].(string)
+	code, _ := response["code"].(float64)
 
-	if ok {
-		if err := dc.WriteJSON(data); err != nil {
-			return fmt.Errorf("WebSocket 写入失败(device_id=%s): %w", deviceId, err)
+	logx.Infof("[DIAGNOSIS_RESPONSE] 收到诊断指令响应: device_id=%s, trace_id=%s, status=%s, code=%v",
+		deviceId, traceID, status, int(code))
+
+	if status == "success" {
+		logx.Infof("[DIAGNOSIS_RESPONSE] ✅ 诊断指令执行成功: trace_id=%s, device_id=%s", traceID, deviceId)
+	} else {
+		errorMsg, _ := response["error_msg"].(string)
+		logx.Errorf("[DIAGNOSIS_RESPONSE] ❌ 诊断指令执行失败: trace_id=%s, device_id=%s, error=%s",
+			traceID, deviceId, errorMsg)
+	}
+
+	logContent, hasLogContent := response["log_content"].(string)
+	if hasLogContent && logContent != "" {
+		logSize, _ := response["log_size"].(float64)
+		logMD5, _ := response["log_md5"].(string)
+		logx.Infof("[DIAGNOSIS_RESPONSE] 日志内容接收: trace_id=%s, size=%d bytes, md5=%s",
+			traceID, int(logSize), logMD5)
+	}
+}
+
+// flushCachedDiagnosisCommands 设备上线后自动下发缓存的诊断指令
+// 在WebSocket连接成功并认证后异步调用
+// 参数 deviceID int64: 设备ID
+// 参数 deviceSN string: 设备序列号（大写）
+func (l *DeviceWsLogic) flushCachedDiagnosisCommands(deviceID int64, deviceSN string) {
+	if deviceSN == "" {
+		logx.Slowf("[DiagnosisCache] 设备SN为空，跳过缓存指令补发: device_id=%d", deviceID)
+		return
+	}
+
+	time.Sleep(300 * time.Millisecond)
+
+	cache := GetDiagnosisCache(l.svcCtx)
+	cachedCommands, err := cache.FlushCachedCommands(deviceSN)
+	if err != nil {
+		logx.Errorf("[DiagnosisCache] 获取缓存指令失败: device_sn=%s, err=%v", deviceSN, err)
+		return
+	}
+
+	if len(cachedCommands) == 0 {
+		logx.Debugf("[DiagnosisCache] 无待补发的缓存指令: device_sn=%s", deviceSN)
+		return
+	}
+
+	deviceIDStr := fmt.Sprintf("%d", deviceID)
+	successCount := 0
+	failCount := 0
+
+	for i, cmd := range cachedCommands {
+		logx.Infof("[DiagnosisCache] 📤 补发缓存指令 [%d/%d]: trace_id=%s, device_sn=%s, cmd_action=%s",
+			i+1, len(cachedCommands), cmd.TraceID, deviceSN, cmd.CmdAction)
+
+		if l.svcCtx.WsDeliver != nil {
+			result, err := l.svcCtx.WsDeliver(deviceIDStr, deviceSN, cmd)
+			if err != nil {
+				logx.Errorf("[DiagnosisCache] ❌ 补发失败: trace_id=%s, err=%v", cmd.TraceID, err)
+				failCount++
+				continue
+			}
+			if result.LocalWriteOk || result.RelayPublishOk {
+				successCount++
+				logx.Infof("[DiagnosisCache] ✅ 补发成功: trace_id=%s, local=%v, relay=%v",
+					cmd.TraceID, result.LocalWriteOk, result.RelayPublishOk)
+			} else {
+				failCount++
+				logx.Slowf("[DiagnosisCache] ⚠️ 补发未成功（设备可能已离线）: trace_id=%s", cmd.TraceID)
+			}
+		} else if l.svcCtx.WsPushJSON != nil {
+			err := l.svcCtx.WsPushJSON(deviceIDStr, cmd)
+			if err != nil {
+				logx.Errorf("[DiagnosisCache] ❌ WsPushJSON补发失败: trace_id=%s, err=%v", cmd.TraceID, err)
+				failCount++
+				continue
+			}
+			successCount++
+			logx.Infof("[DiagnosisCache] ✅ WsPushJSON补发成功: trace_id=%s", cmd.TraceID)
+		} else {
+			logx.Errorf("[DiagnosisCache] 无可用的推送通道，无法补发")
+			failCount++
 		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	logx.Infof("[DiagnosisCache] 📊 缓存指令补发完成: device_sn=%s, total=%d, success=%d, fail=%d",
+		deviceSN, len(cachedCommands), successCount, failCount)
+}
+
+// SendCmdToDevice 给外部调用：发送指令到设备（兼容旧注入，内部走 DeliverDeviceWs）
+func SendCmdToDevice(deviceId string, data interface{}) error {
+	r, err := DeliverDeviceWs(deviceId, "", data)
+	if err != nil {
+		logx.Errorf("设备 %s 未在线或未建立 WebSocket 连接: %v", deviceId, err)
+		return err
+	}
+	if r.LocalWriteOk || r.RelayPublishOk {
 		return nil
 	}
-
-	// 多实例部署：Redis 仍为在线但本进程无连接 → 尝试经 Redis Pub/Sub 转发到持有 WS 的节点
-	if wsRelayRedis != nil {
-		pctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		if err := relayPublishWsPush(pctx, deviceId, data); err != nil {
-			logx.Errorf("[WS] relay publish 失败 device_id=%s: %v", deviceId, err)
-		} else {
-			logx.Infof("[WS] relay publish ok device_id=%s（将由在线实例投递）", deviceId)
-			return nil
-		}
-	}
-
-	logx.Errorf("设备 %s 未在线或未建立 WebSocket 连接（本实例 map 为空且未启用/未能发布 relay）", deviceId)
 	return fmt.Errorf("设备 WebSocket 未连接: %s", deviceId)
 }
 
@@ -431,7 +515,7 @@ func (l *DeviceWsLogic) afterWSAuthFlushPendingInstructions(deviceID int64) {
 		return
 	}
 	cmdsvc := commandsvc.New(l.svcCtx)
-	n, err := cmdsvc.DispatchPendingInstructions(l.ctx, deviceID, sn)
+	n, _, err := cmdsvc.DispatchPendingInstructions(l.ctx, deviceID, sn)
 	if err != nil {
 		logx.Errorf("[WS] Flush pending: DispatchPendingInstructions 失败 device_id=%d: %v", deviceID, err)
 		return

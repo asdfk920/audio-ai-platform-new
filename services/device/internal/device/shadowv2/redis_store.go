@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -172,20 +173,41 @@ func (s *RedisShadowStore) UpdateDesired(ctx context.Context, deviceSN string, d
 }
 
 func (s *RedisShadowStore) GetShadow(ctx context.Context, deviceSN string) (*DeviceShadow, error) {
-	key := BuildShadowKey(deviceSN)
+	deviceSN = strings.TrimSpace(deviceSN)
+	if deviceSN == "" {
+		return nil, fmt.Errorf("shadow not found")
+	}
+	// v1 影子键使用大写 SN；订阅/查询可能传入原始大小写，两种都尝试
+	candidates := []string{deviceSN}
+	upper := strings.ToUpper(deviceSN)
+	if upper != deviceSN {
+		candidates = append(candidates, upper)
+	}
+	var lastErr error
+	for _, sn := range candidates {
+		shadow, err := s.getShadowBySN(ctx, sn)
+		if err == nil {
+			return shadow, nil
+		}
+		lastErr = err
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, fmt.Errorf("shadow not found")
+}
 
+func (s *RedisShadowStore) getShadowBySN(ctx context.Context, deviceSN string) (*DeviceShadow, error) {
+	key := BuildShadowKey(deviceSN)
 	data, err := s.rdb.HGetAll(ctx, key).Result()
 	if err != nil {
 		logx.Errorf("shadowv2: GetShadow failed for device %s: %v", deviceSN, err)
 		return nil, fmt.Errorf("query shadow failed: %w", err)
 	}
-
 	if len(data) == 0 {
 		return nil, fmt.Errorf("shadow not found")
 	}
-
-	shadow := FromMap(deviceSN, data)
-	return shadow, nil
+	return FromMap(deviceSN, data), nil
 }
 
 func (s *RedisShadowStore) GetReported(ctx context.Context, deviceSN string) (map[string]interface{}, int64, error) {
@@ -408,4 +430,57 @@ func parseInt64FromInterface(v interface{}) int64 {
 	default:
 		return 0
 	}
+}
+
+// CountByStatus 统计指定状态的设备数量
+func (s *RedisShadowStore) CountByStatus(ctx context.Context, status DeviceStatus) (int64, error) {
+	pattern := BuildShadowKey("*")
+	var cursor uint64
+	var count int64
+
+	for {
+		keys, nextCursor, err := s.rdb.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return 0, fmt.Errorf("scan shadows failed: %w", err)
+		}
+
+		cursor = nextCursor
+		if len(keys) > 0 {
+			for _, key := range keys {
+				statusStr, err := s.rdb.HGet(ctx, key, GetShadowFields().Status).Result()
+				if err == nil && DeviceStatus(statusStr) == status {
+					count++
+				}
+			}
+		}
+
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return count, nil
+}
+
+// CountTotal 统计设备影子总数
+func (s *RedisShadowStore) CountTotal(ctx context.Context) (int64, error) {
+	pattern := BuildShadowKey("*")
+	var cursor uint64
+	var count int64
+
+	for {
+		keys, nextCursor, err := s.rdb.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return 0, fmt.Errorf("scan shadows failed: %w", err)
+		}
+
+		count += int64(len(keys))
+		cursor = nextCursor
+
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return count, nil
 }

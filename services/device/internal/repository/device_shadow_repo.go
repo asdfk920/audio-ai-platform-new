@@ -18,6 +18,39 @@ func NewDeviceShadowRepo(db *sql.DB) *DeviceShadowRepo {
 	return &DeviceShadowRepo{db: db}
 }
 
+// ExistsByDeviceID 是否已有影子持久化行
+func (r *DeviceShadowRepo) ExistsByDeviceID(ctx context.Context, deviceID int64) (bool, error) {
+	var n int64
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM public.device_shadow WHERE device_id = $1`, deviceID).Scan(&n)
+	if err != nil {
+		return false, fmt.Errorf("查询设备影子失败: %w", err)
+	}
+	return n > 0, nil
+}
+
+// InsertInitialIfAbsent 首次注册插入影子行（device_id 冲突则跳过）
+func (r *DeviceShadowRepo) InsertInitialIfAbsent(ctx context.Context, deviceID int64, sn string, reported, desired, metadata json.RawMessage) (bool, error) {
+	if len(reported) == 0 {
+		reported = json.RawMessage(`{}`)
+	}
+	if len(desired) == 0 {
+		desired = json.RawMessage(`{}`)
+	}
+	if len(metadata) == 0 {
+		metadata = json.RawMessage(`{}`)
+	}
+	res, err := r.db.ExecContext(ctx, `
+		INSERT INTO public.device_shadow (device_id, sn, reported, desired, metadata, version, created_at, updated_at)
+		VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, 0, NOW(), NOW())
+		ON CONFLICT (device_id) DO NOTHING
+	`, deviceID, sn, string(reported), string(desired), string(metadata))
+	if err != nil {
+		return false, fmt.Errorf("插入设备影子失败: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
+}
+
 func (r *DeviceShadowRepo) FindBySn(ctx context.Context, sn string) (*model.DeviceShadow, error) {
 	query := `
 		SELECT 

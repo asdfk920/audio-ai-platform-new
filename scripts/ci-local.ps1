@@ -8,6 +8,8 @@ $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $root
 
 $env:GOTOOLCHAIN = "local"
+$env:GOPRIVATE = "github.com/jacklau/*"
+$env:GONOSUMDB = "github.com/jacklau/*"
 
 $golangci = Join-Path (go env GOPATH) "bin\golangci-lint.exe"
 if (-not (Test-Path $golangci)) {

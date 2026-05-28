@@ -11,6 +11,9 @@ on:
 # 注意：job.services.image 不能使用 env 表达式，Postgres/Redis 镜像版本在下方两处保持同步
 env:
   GOLANGCI_LINT_VERSION: v1.64.8
+  # 本仓库为 monorepo，子模块通过 replace 指向本地路径；避免 CI 向 github.com/jacklau 发起 HTTPS 鉴权拉取
+  GOPRIVATE: github.com/jacklau/*
+  GONOSUMDB: github.com/jacklau/*
 
 jobs:
   lint:
@@ -37,7 +40,10 @@ jobs:
         run: |
           set -euo pipefail
           go install "github.com/golangci/golangci-lint/cmd/golangci-lint@${{ env.GOLANGCI_LINT_VERSION }}"
+          GOLANGCI="$(go env GOPATH)/bin/golangci-lint"
+          echo "GOLANGCI_LINT=$GOLANGCI" >> "$GITHUB_ENV"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          "$GOLANGCI" version
 
       - name: Sync root platform module (replace 指向根模块的 user 等子模块需先解析)
         env:
@@ -59,7 +65,7 @@ jobs:
           cd "${GITHUB_WORKSPACE}/common"
           go mod tidy
           go mod verify
-          golangci-lint run --config "${GITHUB_WORKSPACE}/.golangci.yml" --out-format=colored-line-number --timeout=5m ./...
+          "${GOLANGCI_LINT}" run --config "${GITHUB_WORKSPACE}/.golangci.yml" --out-format=colored-line-number --timeout=5m ./...
 
       - name: Lint microservices
         env:
@@ -70,7 +76,7 @@ jobs:
           CFG="${ROOT}/.golangci.yml"
           for svc in services/user services/device services/content services/media-processing; do
             echo "=== Linting ${svc} ==="
-            (cd "${ROOT}/${svc}" && go mod tidy && go mod verify && golangci-lint run --config "${CFG}" --out-format=colored-line-number --timeout=5m ./...)
+            (cd "${ROOT}/${svc}" && go mod tidy && go mod verify && "${GOLANGCI_LINT}" run --config "${CFG}" --out-format=colored-line-number --timeout=5m ./...)
           done
 
       - name: Lint admin (allow failures)
@@ -80,7 +86,7 @@ jobs:
         run: |
           echo "Linting admin service (go-admin framework code may have issues)..."
           CFG="${GITHUB_WORKSPACE}/.golangci.yml"
-          cd admin && golangci-lint run --config "${CFG}" --out-format=colored-line-number --timeout=5m ./...
+          cd admin && "${GOLANGCI_LINT}" run --config "${CFG}" --out-format=colored-line-number --timeout=5m ./...
 
   test:
     name: Test
@@ -191,7 +197,12 @@ jobs:
       - name: Install golangci-lint
         env:
           GOTOOLCHAIN: local
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@${{ env.GOLANGCI_LINT_VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install "github.com/golangci/golangci-lint/cmd/golangci-lint@${{ env.GOLANGCI_LINT_VERSION }}"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          "$(go env GOPATH)/bin/golangci-lint" version
 
       - name: Run scripts/ci-local.sh
         env:

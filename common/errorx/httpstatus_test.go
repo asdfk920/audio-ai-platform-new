@@ -27,6 +27,7 @@ func TestHTTPStatusForCode(t *testing.T) {
 		{CodeInvalidProfileAvatar, http.StatusBadRequest},
 		{CodeIPDenied, http.StatusForbidden},
 		{CodeDeviceNotBound, http.StatusBadRequest},
+		{CodeDeviceNotFound, http.StatusBadRequest},
 		{CodeDeviceRegisterRateLimit, http.StatusTooManyRequests},
 		{CodeDeviceUnbindNotOwner, http.StatusForbidden},
 		{CodeDatabaseError, http.StatusServiceUnavailable},

@@ -9,15 +9,16 @@ type EnumItem struct {
 	Value string `json:"value"` // 实际值
 }
 
-// DeviceRegisterReq 设备注册请求（预录入+首次激活模式）
-// 设备生产时SN和密钥已预录入云端（状态：未激活），设备首次联网时触发注册/激活流程
-// 流程：参数校验 → 查询预录入设备 → 密钥验证 → 状态检查 → 激活记录
+// DeviceRegisterReq 设备注册请求
+// 云端无该 SN 时注册接口会按请求中的 sn+device_secret 自动预录入，再完成首次激活
+// 流程：参数校验 →（按需）自动预录入 → 密钥验证 → 状态检查 → 激活记录
 type DeviceRegisterReq struct {
 	Sn              string `json:"sn" validate:"required"`            // 设备序列号（16位字母数字组合，从Flash/OTP读取）
 	DeviceSecret    string `json:"device_secret" validate:"required"` // 设备密钥（生产阶段预烧录，用于身份验证）
 	FirmwareVersion string `json:"firmware_version,omitempty"`        // 固件版本号（可选，用于记录设备当前固件版本）
 	HardwareVersion string `json:"hardware_version,omitempty"`        // 硬件版本号（可选，用于记录设备硬件型号）
 	Mac             string `json:"mac,omitempty"`                     // MAC地址（可选，用于设备识别和定位）
+	DeviceNameRaw   string `json:"device_name_raw,omitempty"`         // 设备原始名称（出厂或注册时上报，最长100字符）
 }
 
 // DeviceRegisterResp 设备注册响应（激活模式）
@@ -585,6 +586,67 @@ type DeviceShadowQueryResp struct {
 	RunState        string        `json:"run_state"`        // 运行状态
 }
 
+// DeviceShadowBatchItem 批量更新影子单项（字段级 merge，需携带 expect_version）
+type DeviceShadowBatchItem struct {
+	SN            string                 `json:"sn"`
+	ExpectVersion int64                  `json:"expect_version"`
+	Reported      map[string]interface{} `json:"reported,omitempty"`
+	Desired       map[string]interface{} `json:"desired,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// DeviceShadowBatchReq 批量更新设备影子请求（最多 100 台，全成功或全失败）
+type DeviceShadowBatchReq struct {
+	Items []DeviceShadowBatchItem `json:"items"`
+}
+
+// DeviceShadowBatchItemResult 批量更新成功后单项版本
+type DeviceShadowBatchItemResult struct {
+	SN      string `json:"sn"`
+	Version int64  `json:"version"`
+}
+
+// DeviceShadowBatchResp 批量更新设备影子响应
+type DeviceShadowBatchResp struct {
+	Updated int                           `json:"updated"`
+	Items   []DeviceShadowBatchItemResult `json:"items"`
+}
+
+// DeviceShadowBatchReportItem 网关批量上报单项（仅 reported）
+type DeviceShadowBatchReportItem struct {
+	SN            string                 `json:"sn"`
+	ExpectVersion *int64                 `json:"expect_version,omitempty"`
+	Reported      map[string]interface{} `json:"reported"`
+}
+
+// DeviceShadowBatchReportReq 设备端批量影子上报请求
+type DeviceShadowBatchReportReq struct {
+	Items []DeviceShadowBatchReportItem `json:"items"`
+}
+
+// DeviceShadowBatchReportItemResult 批量上报成功单项
+type DeviceShadowBatchReportItemResult struct {
+	SN         string `json:"sn"`
+	NewVersion int64  `json:"new_version"`
+}
+
+// DeviceShadowBatchReportResp 设备端批量影子上报响应
+type DeviceShadowBatchReportResp struct {
+	SuccessCount int                                 `json:"success_count"`
+	FailCount    int                                 `json:"fail_count"`
+	Items        []DeviceShadowBatchReportItemResult `json:"items"`
+}
+
+// DeviceShadowV2QueryResp 设备影子查询响应（不含 desired，仅 reported + 元数据）
+type DeviceShadowV2QueryResp struct {
+	DeviceSN   string                 `json:"device_sn"`
+	Reported   map[string]interface{} `json:"reported"`
+	Version    int64                  `json:"version"`
+	UpdateTime int64                  `json:"update_time"`
+	Status     string                 `json:"status"`
+	Message    string                 `json:"message,omitempty"`
+}
+
 // DeviceLogReportReq 设备日志上报请求
 // 设备通过 HTTP POST 请求上报运行日志
 type DeviceLogReportReq struct {
@@ -908,4 +970,71 @@ type DeviceDownloadListResp struct {
 	Page       int32                    `json:"page"`        // 当前页码
 	PageSize   int32                    `json:"page_size"`   // 每页数量
 	TotalPages int32                    `json:"total_pages"` // 总页数
+}
+
+// ========== 诊断指令下发相关类型 ==========
+
+// DiagnosisCommandReq 诊断指令下发请求
+// 用户通过App/后台发起设备日志收集等诊断指令
+type DiagnosisCommandReq struct {
+	DeviceSN     string              `json:"device_sn" validate:"required"`  // 设备序列号
+	CmdAction    string              `json:"cmd_action" validate:"required"` // 指令动作：collect_log
+	LogType      string              `json:"log_type"`                       // 日志类型：all/system/app/error（默认all）
+	TimeRange    *DiagnosisTimeRange `json:"time_range,omitempty"`           // 时间范围（可选）
+	MaxLines     int                 `json:"max_lines"`                      // 最大返回行数（默认1000，最大10000）
+	Compress     bool                `json:"compress"`                       // 是否GZIP压缩（默认false）
+	CallbackFlag bool                `json:"callback_flag"`                  // 是否必须回传结果（默认true）
+	Priority     string              `json:"priority"`                       // 优先级：normal/high（默认normal）
+	TimeoutSec   int                 `json:"timeout_sec"`                    // 超时时间（秒，默认60）
+}
+
+// DiagnosisTimeRange 日志时间范围
+type DiagnosisTimeRange struct {
+	Start string `json:"start"` // 起始时间（ISO8601格式）
+	End   string `json:"end"`   // 结束时间（ISO8601格式）
+}
+
+// DiagnosisCommandResp 诊断指令下发响应
+// 返回指令下发状态和追踪信息
+type DiagnosisCommandResp struct {
+	TraceID   string `json:"trace_id"`   // 指令唯一标识（UUID）
+	DeviceSN  string `json:"device_sn"`  // 目标设备序列号
+	Status    string `json:"status"`     // 指令状态：pending/sent/timeout/failed
+	Message   string `json:"message"`    // 状态描述
+	SendTime  int64  `json:"send_time"`  // 下发时间戳（毫秒）
+	ExpiresAt int64  `json:"expires_at"` // 超时时间戳（毫秒）
+}
+
+// DiagnosisCommandDevicePayload 下发给设备的诊断指令载荷（WebSocket消息体）
+type DiagnosisCommandDevicePayload struct {
+	TraceID   string                 `json:"trace_id"`           // 全局唯一指令ID
+	CmdType   string                 `json:"cmd_type"`           // 固定值：diagnosis
+	CmdAction string                 `json:"cmd_action"`         // 指令动作：collect_log
+	DeviceSN  string                 `json:"device_sn"`          // 目标设备SN
+	SendTime  int64                  `json:"send_time"`          // 服务端下发时间戳（毫秒）
+	Priority  string                 `json:"priority,omitempty"` // 优先级：normal/high
+	Params    map[string]interface{} `json:"params"`             // 业务参数
+}
+
+// DiagnosisCommandLogParams 日志收集业务参数
+type DiagnosisCommandLogParams struct {
+	LogType      string              `json:"log_type"`      // 日志类型：all/system/app/error
+	TimeRange    *DiagnosisTimeRange `json:"time_range"`    // 时间范围
+	MaxLines     int                 `json:"max_lines"`     // 最大行数
+	Compress     bool                `json:"compress"`      // 是否压缩
+	CallbackFlag bool                `json:"callback_flag"` // 是否必须回传
+}
+
+// DiagnosisDeviceResponse 设备端诊断指令响应消息
+// 设备执行完诊断指令后回传的结果
+type DiagnosisDeviceResponse struct {
+	TraceID    string `json:"trace_id"`    // 与下发指令的trace_id一致
+	DeviceSN   string `json:"device_sn"`   // 执行指令的设备序列号
+	Status     string `json:"status"`      // 执行状态：success/failed
+	Code       int    `json:"code"`        // 结果码：0-成功，非0-失败
+	LogContent string `json:"log_content"` // 日志内容（Base64编码或原始文本）
+	LogMD5     string `json:"log_md5"`     // 日志内容MD5校验值
+	LogSize    int64  `json:"log_size"`    // 原始日志大小（字节）
+	ErrorMsg   string `json:"error_msg"`   // 错误信息（失败时必填）
+	ExecTime   int64  `json:"exec_time"`   // 设备执行耗时（毫秒）
 }

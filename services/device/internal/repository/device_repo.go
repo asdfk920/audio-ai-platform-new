@@ -163,22 +163,24 @@ func (r *DeviceRepo) FindBySnForActivation(ctx context.Context, sn string) (*mod
 	query := `
 		SELECT id, sn, model, product_key, device_secret, register_signature,
 		       register_timestamp, firmware_version, hardware_version, mac,
-		       ip, online_status, usage_status, status, create_by,
+		       COALESCE(device_name_raw, ''), ip, online_status, usage_status, status, create_by,
 		       last_active_at, created_at, updated_at, deleted_at
 		FROM public.device
 		WHERE sn = $1 AND deleted_at IS NULL
-		  AND status IN ($2, $3)
+		  AND status IN ($2, $3, $4, $5)
 	`
 
 	var device model.Device
 	err := r.db.QueryRowContext(ctx, query, sn,
+		model.DeviceStatusDefault,
 		model.DeviceStatusUnregistered,
+		model.DeviceStatusUnauthenticated,
 		model.DeviceStatusNormal,
 	).Scan(
 		&device.ID, &device.Sn, &device.Model, &device.ProductKey,
 		&device.DeviceSecret, &device.RegisterSignature,
 		&device.RegisterTimestamp, &device.FirmwareVersion,
-		&device.HardwareVersion, &device.Mac, &device.Ip,
+		&device.HardwareVersion, &device.Mac, &device.DeviceNameRaw, &device.Ip,
 		&device.OnlineStatus, &device.UsageStatus, &device.Status,
 		&device.CreateBy, &device.LastActiveAt, &device.CreatedAt,
 		&device.UpdatedAt, &device.DeletedAt,
@@ -205,7 +207,7 @@ func (r *DeviceRepo) FindBySnForActivation(ctx context.Context, sn string) (*mod
 // 参数 hardwareVersion string: 硬件版本号
 // 参数 mac string: MAC地址
 // 返回 error: 更新失败时的错误信息
-func (r *DeviceRepo) ActivateDevice(ctx context.Context, deviceId int64, ip string, firmwareVersion string, hardwareVersion string, mac string) error {
+func (r *DeviceRepo) ActivateDevice(ctx context.Context, deviceId int64, ip string, firmwareVersion string, hardwareVersion string, mac string, deviceNameRaw string) error {
 	query := `
 		UPDATE public.device
 		SET status = $1,
@@ -213,11 +215,12 @@ func (r *DeviceRepo) ActivateDevice(ctx context.Context, deviceId int64, ip stri
 		    firmware_version = COALESCE(NULLIF($3, ''), firmware_version),
 		    hardware_version = COALESCE(NULLIF($4, ''), hardware_version),
 		    mac = COALESCE(NULLIF($5, ''), mac),
+		    device_name_raw = CASE WHEN NULLIF(TRIM($6), '') IS NOT NULL THEN TRIM($6) ELSE device_name_raw END,
 		    last_active_at = NOW(),
 		    updated_at = NOW()
-		WHERE id = $6
+		WHERE id = $7
 		  AND deleted_at IS NULL
-		  AND status = $7
+		  AND status IN ($8, $9, $10)
 	`
 
 	result, err := r.db.ExecContext(ctx, query,
@@ -226,8 +229,11 @@ func (r *DeviceRepo) ActivateDevice(ctx context.Context, deviceId int64, ip stri
 		firmwareVersion,
 		hardwareVersion,
 		mac,
+		deviceNameRaw,
 		deviceId,
+		model.DeviceStatusDefault,
 		model.DeviceStatusUnregistered,
+		model.DeviceStatusUnauthenticated,
 	)
 
 	if err != nil {
@@ -246,6 +252,47 @@ func (r *DeviceRepo) ActivateDevice(ctx context.Context, deviceId int64, ip stri
 	return nil
 }
 
+// UpdateDeviceNameRaw 写入设备原始名称（非空时覆盖）
+func (r *DeviceRepo) UpdateDeviceNameRaw(ctx context.Context, deviceID int64, deviceNameRaw string) error {
+	name := strings.TrimSpace(deviceNameRaw)
+	if name == "" || deviceID <= 0 {
+		return nil
+	}
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE public.device
+		SET device_name_raw = $1, updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL
+	`, name, deviceID)
+	if err != nil {
+		return fmt.Errorf("更新设备原始名称失败: %w", err)
+	}
+	return nil
+}
+
+// ResetForPreRegistration 将设备重置为未激活预录入状态并更新密钥（用于注册前自动预录入/恢复）
+func (r *DeviceRepo) ResetForPreRegistration(ctx context.Context, deviceID int64, deviceSecret, deviceNameRaw string) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE public.device
+		SET device_secret = $1,
+		    status = $2,
+		    online_status = $3,
+		    device_name_raw = CASE WHEN NULLIF(TRIM($4), '') IS NOT NULL THEN TRIM($4) ELSE device_name_raw END,
+		    updated_at = NOW()
+		WHERE id = $5 AND deleted_at IS NULL
+	`, strings.TrimSpace(deviceSecret), model.DeviceStatusUnregistered, model.DeviceOnlineStatusOffline, strings.TrimSpace(deviceNameRaw), deviceID)
+	if err != nil {
+		return fmt.Errorf("重置预录入设备失败: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("重置预录入设备失败: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("重置预录入设备失败: 未更新任何行")
+	}
+	return nil
+}
+
 // CreateWithFullInfo 创建新设备记录（包含完整信息）
 // 用于设备注册时创建完整的设备记录，包括密钥、签名、时间戳等
 //
@@ -255,8 +302,8 @@ func (r *DeviceRepo) ActivateDevice(ctx context.Context, deviceId int64, ip stri
 // 返回 error: 创建失败时的错误信息
 func (r *DeviceRepo) CreateWithFullInfo(ctx context.Context, device *model.Device) (int64, error) {
 	query := `
-		INSERT INTO device (sn, product_key, device_secret, status, online_status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+		INSERT INTO device (sn, product_key, device_secret, device_name_raw, status, online_status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
 		RETURNING id
 	`
 
@@ -265,6 +312,7 @@ func (r *DeviceRepo) CreateWithFullInfo(ctx context.Context, device *model.Devic
 		device.Sn,
 		device.ProductKey,
 		device.DeviceSecret,
+		strings.TrimSpace(device.DeviceNameRaw),
 		device.Status,
 		device.OnlineStatus,
 	).Scan(&deviceID)

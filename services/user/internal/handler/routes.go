@@ -44,6 +44,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: refreshTokenHandler(serverCtx),
 			},
 			{
+				// 微信 OAuth 回调（公开，无需 JWT）
+				Method:  http.MethodGet,
+				Path:    "/api/v1/user/oauth/wechat/callback",
+				Handler: oauthWechatCallbackHandler(serverCtx),
+			},
+			{
+				// Google OAuth 回调（公开，无需 JWT）
+				Method:  http.MethodGet,
+				Path:    "/api/v1/user/oauth/google/callback",
+				Handler: oauthGoogleCallbackHandler(serverCtx),
+			},
+			{
 				// 发送验证码（邮箱/手机；scene 区分注册/登录/换绑等）
 				Method:  http.MethodPost,
 				Path:    "/api/v1/user/verify/send",
@@ -132,6 +144,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/device/share/quit",
 				Handler: quitDeviceShareHandler(serverCtx),
+			},
+			{
+				// 我发出的共享列表（兼容旧路径）
+				Method:  http.MethodGet,
+				Path:    "/device/share/my/send/list",
+				Handler: listSentDeviceSharesHandler(serverCtx),
+			},
+			{
+				// 我发出的共享列表（文档常用路径）
+				Method:  http.MethodGet,
+				Path:    "/device/share/send/list",
+				Handler: listSentDeviceSharesSendListHandler(serverCtx),
 			},
 			{
 				// 我收到的共享列表

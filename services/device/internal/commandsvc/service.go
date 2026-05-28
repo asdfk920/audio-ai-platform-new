@@ -30,20 +30,33 @@ func logDBErr(op string, err error) error {
 	return errorx.NewDefaultError(errorx.CodeDatabaseError)
 }
 
-// wsPushPayload 向设备 WebSocket 写入；先按 device_id 数字键，失败再按 SN（与连接池双键注册一致）。
-func (s *Service) wsPushPayload(deviceKey string, sn string, payload interface{}) error {
-	if s == nil || s.svcCtx == nil || s.svcCtx.WsPushJSON == nil {
-		return fmt.Errorf("WsPushJSON 未注入")
+// wsPushPayload 向设备 WebSocket 写入：优先本进程连接，否则可走 Redis relay（多副本）。
+func (s *Service) wsPushPayload(deviceKey string, sn string, payload interface{}) (localOK bool, relayOK bool, err error) {
+	if s == nil || s.svcCtx == nil {
+		return false, false, fmt.Errorf("commandsvc: nil service")
+	}
+	if s.svcCtx.WsDeliver != nil {
+		r, err := s.svcCtx.WsDeliver(deviceKey, sn, payload)
+		if err != nil {
+			return false, false, err
+		}
+		return r.LocalWriteOk, r.RelayPublishOk, nil
+	}
+	if s.svcCtx.WsPushJSON == nil {
+		return false, false, fmt.Errorf("WsPushJSON 未注入")
 	}
 	if err := s.svcCtx.WsPushJSON(deviceKey, payload); err != nil {
-		snAlt := strings.ToUpper(strings.TrimSpace(sn))
+		snAlt := strings.TrimSpace(sn)
 		if snAlt != "" && snAlt != deviceKey {
 			logx.Infof("commandsvc: WS 按 device_key=%s 失败，尝试 SN 键 %s: %v", deviceKey, snAlt, err)
-			return s.svcCtx.WsPushJSON(snAlt, payload)
+			if err2 := s.svcCtx.WsPushJSON(snAlt, payload); err2 != nil {
+				return false, false, err2
+			}
+			return true, false, nil
 		}
-		return err
+		return false, false, err
 	}
-	return nil
+	return true, false, nil
 }
 
 const (
@@ -249,7 +262,7 @@ INSERT INTO public.device_instruction (
 	$9, $10, $11, $12, $13, $14, $15, $16
 )
 RETURNING id`,
-		in.DeviceID, strings.ToUpper(strings.TrimSpace(in.DeviceSN)), in.UserID,
+		in.DeviceID, strings.TrimSpace(in.DeviceSN), in.UserID,
 		commandCode, commandCode, instructionType, string(paramsBytes), StatusPending,
 		operator, strings.TrimSpace(in.Reason), in.Priority, in.ExpiresAt, in.MaxRetry, in.TimeoutSeconds, mergedCount, in.ScheduleID,
 	).Scan(&instructionID)
@@ -283,38 +296,43 @@ RETURNING id`,
 	}
 
 	// 1) 设备判在线时，优先即时经 WebSocket 下发（多副本依赖 SendCmd 内 Redis relay + Worker 兜底）
-	pushed := 0
+	totalPushed := 0
+	usedRelayOnly := false
 	if s.isDeviceOnline(ctx, in.DeviceSN) {
-		var dErr error
-		pushed, dErr = s.DispatchPendingInstructions(ctx, in.DeviceID, in.DeviceSN)
+		pushed, ur, dErr := s.DispatchPendingInstructions(ctx, in.DeviceID, in.DeviceSN)
+		usedRelayOnly = usedRelayOnly || ur
 		if dErr != nil {
 			logx.Errorf("commandsvc CreateImmediateInstruction: DispatchPendingInstructions err=%v", dErr)
 		}
-		if pushed == 0 {
+		totalPushed += pushed
+		if totalPushed == 0 {
 			time.Sleep(100 * time.Millisecond)
-			n2, dErr2 := s.DispatchPendingInstructions(ctx, in.DeviceID, in.DeviceSN)
+			n2, ur2, dErr2 := s.DispatchPendingInstructions(ctx, in.DeviceID, in.DeviceSN)
+			usedRelayOnly = usedRelayOnly || ur2
 			if dErr2 != nil {
 				logx.Errorf("commandsvc CreateImmediateInstruction: retry Dispatch err=%v", dErr2)
 			} else {
-				pushed += n2
+				totalPushed += n2
 			}
 		}
 	}
 
 	switch {
-	case pushed > 0:
+	case totalPushed > 0 && usedRelayOnly:
+		result.Status = "dispatched_relay"
+	case totalPushed > 0:
 		result.Status = "dispatched"
 	default:
 		result.Status = "queued"
 	}
 
 	// 2) 仅在同步仍未送达时再入 RabbitMQ（需在 device 进程中启动 Consumer，否则会积压）
-	if pushed == 0 && s.rabbitMQMgr != nil && s.rabbitMQMgr.IsConnected() {
+	if totalPushed == 0 && s.rabbitMQMgr != nil && s.rabbitMQMgr.IsConnected() {
 		cmdMsg := &rabbitmq.CommandMessage{
 			MessageID:      uuid.New().String(),
 			InstructionID:  instructionID,
 			DeviceID:       in.DeviceID,
-			DeviceSN:       strings.ToUpper(strings.TrimSpace(in.DeviceSN)),
+			DeviceSN:       strings.TrimSpace(in.DeviceSN),
 			UserID:         in.UserID,
 			CommandCode:    commandCode,
 			CommandType:    instructionType,
@@ -340,12 +358,12 @@ RETURNING id`,
 	return result, nil
 }
 
-func (s *Service) DispatchPendingInstructions(ctx context.Context, deviceID int64, sn string) (int, error) {
+func (s *Service) DispatchPendingInstructions(ctx context.Context, deviceID int64, sn string) (int, bool, error) {
 	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil {
-		return 0, errorx.NewDefaultError(errorx.CodeSystemError)
+		return 0, false, errorx.NewDefaultError(errorx.CodeSystemError)
 	}
 	if !s.isDeviceOnline(ctx, sn) {
-		return 0, nil
+		return 0, false, nil
 	}
 	limit := s.dispatchBatchSize()
 	rows, err := s.svcCtx.DB.QueryContext(ctx, `
@@ -357,7 +375,7 @@ WHERE device_id = $1
 ORDER BY priority DESC, created_at ASC
 LIMIT $3`, deviceID, StatusPending, limit)
 	if err != nil {
-		return 0, logDBErr("DispatchPendingInstructions(query)", err)
+		return 0, false, logDBErr("DispatchPendingInstructions(query)", err)
 	}
 	defer rows.Close()
 
@@ -372,15 +390,16 @@ LIMIT $3`, deviceID, StatusPending, limit)
 			&item.InstructionID, &item.Cmd, &item.CommandCode, &item.InstructionType, &item.Params,
 			&item.Status, &item.Priority, &item.RetryCount, &item.ExpiresAt, &item.CreatedAt, &item.MaxRetry,
 		); err != nil {
-			return 0, logDBErr("DispatchPendingInstructions(scan)", err)
+			return 0, false, logDBErr("DispatchPendingInstructions(scan)", err)
 		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
-		return 0, logDBErr("DispatchPendingInstructions(rows)", err)
+		return 0, false, logDBErr("DispatchPendingInstructions(rows)", err)
 	}
 
 	pushed := 0
+	usedRelayOnly := false
 	for _, item := range items {
 		if item.ExpiresAt != nil && item.ExpiresAt.Before(time.Now()) {
 			_ = s.markInstructionStatus(ctx, item.InstructionID, deviceID, StatusExpired(), "expired_before_dispatch", "system")
@@ -390,11 +409,15 @@ LIMIT $3`, deviceID, StatusPending, limit)
 		payload := wsInstructionEnvelope(sn, item.PendingCommand)
 
 		deviceKey := strconv.FormatInt(deviceID, 10)
-		if err := s.wsPushPayload(deviceKey, sn, payload); err != nil {
+		localOK, relayOK, err := s.wsPushPayload(deviceKey, sn, payload)
+		if err != nil {
 			logx.Errorf("commandsvc: WebSocket 下发失败 instruction_id=%d device=%s: %v", item.InstructionID, deviceKey, err)
 			continue
 		}
-		logx.Infof("commandsvc: WebSocket 已推送 instruction_id=%d device=%s cmd=%s", item.InstructionID, deviceKey, strings.TrimSpace(item.Cmd))
+		if relayOK && !localOK {
+			usedRelayOnly = true
+		}
+		logx.Infof("commandsvc: WebSocket 已推送 instruction_id=%d device=%s cmd=%s local=%v relay=%v", item.InstructionID, deviceKey, strings.TrimSpace(item.Cmd), localOK, relayOK)
 
 		now := time.Now()
 		if _, err := s.svcCtx.DB.ExecContext(ctx, `
@@ -406,13 +429,13 @@ SET status = $1,
 WHERE id = $3 AND device_id = $4 AND status = $5`,
 			StatusExecuting, now, item.InstructionID, deviceID, StatusPending,
 		); err != nil {
-			return pushed, logDBErr("DispatchPendingInstructions(update executing)", err)
+			return pushed, usedRelayOnly, logDBErr("DispatchPendingInstructions(update executing)", err)
 		}
 		prev := StatusPending
 		_ = s.insertStateLog(ctx, item.InstructionID, &prev, StatusExecuting, "ws_dispatched", "system")
 		pushed++
 	}
-	return pushed, nil
+	return pushed, usedRelayOnly, nil
 }
 
 func (s *Service) ListPendingForDevice(ctx context.Context, deviceID int64, limit int) ([]PendingCommand, error) {
@@ -512,7 +535,7 @@ func (s *Service) ListInstructionsForUser(ctx context.Context, filter Instructio
 	}
 	args := []interface{}{filter.UserID}
 	where := []string{"user_id = $1"}
-	if sn := strings.ToUpper(strings.TrimSpace(filter.DeviceSN)); sn != "" {
+	if sn := strings.TrimSpace(filter.DeviceSN); sn != "" {
 		args = append(args, sn)
 		where = append(where, fmt.Sprintf("sn = $%d", len(args)))
 	}
@@ -670,7 +693,7 @@ INSERT INTO public.device_command_schedule (
 	$8, $9, $10, 'active', $11
 )
 RETURNING id`,
-			in.DeviceID, strings.ToUpper(strings.TrimSpace(in.DeviceSN)), in.UserID, in.ScheduleType,
+			in.DeviceID, strings.TrimSpace(in.DeviceSN), in.UserID, in.ScheduleType,
 			string(in.DesiredPayload), string(in.DesiredPayload), in.MergeDesired,
 			nullString(in.CronExpr), in.Timezone, nextExecuteAt, in.ExpiresAt,
 		).Scan(&id)
@@ -735,7 +758,7 @@ func (s *Service) ListSchedulesForUser(ctx context.Context, filter ScheduleListF
 	}
 	args := []interface{}{filter.UserID}
 	where := []string{"user_id = $1"}
-	if sn := strings.ToUpper(strings.TrimSpace(filter.DeviceSN)); sn != "" {
+	if sn := strings.TrimSpace(filter.DeviceSN); sn != "" {
 		args = append(args, sn)
 		where = append(where, fmt.Sprintf("device_sn = $%d", len(args)))
 	}
@@ -891,7 +914,7 @@ LIMIT $2`, StatusPending, limit)
 		if err := rows.Scan(&deviceID, &sn); err != nil {
 			return logDBErr("RedrivePendingInstructions(scan)", err)
 		}
-		if _, err := s.DispatchPendingInstructions(ctx, deviceID, sn); err != nil {
+		if _, _, err := s.DispatchPendingInstructions(ctx, deviceID, sn); err != nil {
 			return err
 		}
 	}
@@ -1057,7 +1080,7 @@ func (s *Service) isDeviceOnline(ctx context.Context, sn string) bool {
 
 	if s.svcCtx.DB != nil {
 		var onlineStatus int16
-		upperSN := strings.ToUpper(strings.TrimSpace(sn))
+		upperSN := strings.TrimSpace(sn)
 		err := s.svcCtx.DB.QueryRowContext(ctx, `
 			SELECT online_status FROM device
 			WHERE UPPER(TRIM(sn)) = $1 AND deleted_at IS NULL
@@ -1325,7 +1348,7 @@ WHERE id = $4 AND device_id = $5 AND status IN ($6, $7)`,
 	prev := StatusPending
 	_ = s.insertStateLog(ctx, msg.InstructionID, &prev, StatusExecuting, "mq_dispatched", "system")
 
-	if err := s.wsPushPayload(deviceKey, msg.DeviceSN, payload); err != nil {
+	if _, _, err := s.wsPushPayload(deviceKey, msg.DeviceSN, payload); err != nil {
 		return fmt.Errorf("WebSocket dispatch failed: %w", err)
 	}
 

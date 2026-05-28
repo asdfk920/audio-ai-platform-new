@@ -7,14 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
-
-var snPattern = regexp.MustCompile(`^[A-Z0-9]{3}-[A-Z0-9]{2}-\d{4}-\d{5}-[A-Z0-9]$`)
 
 // generateSN 生成符合规范的设备序列号
 func generateSN(vendorCode, productLine string) (string, error) {
@@ -57,52 +53,17 @@ func generateSN(vendorCode, productLine string) (string, error) {
 	return sn, nil
 }
 
-// validateSN 验证序列号格式是否合法
+// validateSN 仅校验非空；若为标准五段式 SN 则解析各字段，不做格式/校验位限制。
 func validateSN(sn string) (bool, string, string, string, string, string, error) {
 	sn = strings.TrimSpace(sn)
-
-	// 基本长度检查（17 位）
-	if len(sn) != 17 {
-		return false, "", "", "", "", "", fmt.Errorf("序列号长度应为 17 位（含横杠），当前：%d", len(sn))
+	if sn == "" {
+		return false, "", "", "", "", "", fmt.Errorf("序列号不能为空")
 	}
-
-	// 格式检查
-	if !snPattern.MatchString(sn) {
-		return false, "", "", "", "", "", fmt.Errorf("序列号格式不正确，应为 XXX-XX-YYYY-NNNNN-X 格式")
-	}
-
-	// 分解各部分
 	parts := strings.Split(sn, "-")
-	if len(parts) != 5 {
-		return false, "", "", "", "", "", fmt.Errorf("序列号分段错误")
+	if len(parts) == 5 {
+		return true, parts[0], parts[1], parts[2], parts[3], parts[4], nil
 	}
-
-	vendorCode := parts[0]  // 厂商码 (3 位)
-	productLine := parts[1] // 产品线 (2 位)
-	yearMonth := parts[2]   // 年月 (4 位)
-	serialNum := parts[3]   // 流水号 (5 位)
-	checkDigit := parts[4]  // 校验位 (1 位)
-
-	// 验证校验位
-	prefix := fmt.Sprintf("%s-%s-%s-%s", vendorCode, productLine, yearMonth, serialNum)
-	expectedCheckDigit := generateCheckDigit(prefix)
-	if expectedCheckDigit != checkDigit[0] {
-		return false, "", "", "", "", "", fmt.Errorf("校验位错误，应为：%c", expectedCheckDigit)
-	}
-
-	// 验证年月是否合理
-	month, err := strconv.Atoi(yearMonth[2:])
-	if err != nil || month < 1 || month > 12 {
-		return false, "", "", "", "", "", fmt.Errorf("月份无效：%d", month)
-	}
-
-	// 验证流水号
-	serialInt, err := strconv.Atoi(serialNum)
-	if err != nil || serialInt < 1 || serialInt > 99999 {
-		return false, "", "", "", "", "", fmt.Errorf("流水号无效：%s", serialNum)
-	}
-
-	return true, vendorCode, productLine, yearMonth, serialNum, checkDigit, nil
+	return true, "", "", "", "", "", nil
 }
 
 // parseSN 解析序列号，返回详细信息
@@ -117,17 +78,19 @@ func parseSN(sn string) (map[string]interface{}, error) {
 	}
 
 	result := map[string]interface{}{
-		"sn":                sn,
-		"vendor_code":       vendorCode,
-		"vendor_name":       getVendorName(vendorCode),
-		"product_line":      productLine,
-		"product_line_name": getProductLineName(productLine),
-		"year_month":        yearMonth,
-		"year":              "20" + yearMonth[:2],
-		"month":             yearMonth[2:],
-		"serial_number":     serialNum,
-		"check_digit":       checkDigit,
-		"valid":             true,
+		"sn":    sn,
+		"valid": true,
+	}
+	if vendorCode != "" && productLine != "" && len(yearMonth) >= 4 {
+		result["vendor_code"] = vendorCode
+		result["vendor_name"] = getVendorName(vendorCode)
+		result["product_line"] = productLine
+		result["product_line_name"] = getProductLineName(productLine)
+		result["year_month"] = yearMonth
+		result["year"] = "20" + yearMonth[:2]
+		result["month"] = yearMonth[2:]
+		result["serial_number"] = serialNum
+		result["check_digit"] = checkDigit
 	}
 
 	return result, nil
@@ -244,11 +207,6 @@ func BindUserDevice(ctx context.Context, db *sql.DB, userID int64, deviceSN stri
 		return nil, newError(400, "设备序列号不能为空")
 	}
 
-	// 验证 SN 格式：厂商码 (3 位) + 产品线 (2 位) + 年月 (4 位) + 流水号 (5 位) + 校验位 (1 位)
-	if err := validateSNFormat(snNorm); err != nil {
-		return nil, newError(400, err.Error())
-	}
-
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, newError(500, "系统繁忙，请稍后重试")
@@ -362,36 +320,11 @@ func normalizeSN(sn string) string {
 	return strings.ToUpper(strings.TrimSpace(sn))
 }
 
-// validateSNFormat 验证序列号格式
-// 格式：厂商码 (3 位) + 产品线 (2 位) + 年月 (4 位) + 流水号 (5 位) + 校验位 (1 位)
-// 示例：AUD-SP-2605-00001-X
+// validateSNFormat 仅校验非空（不做格式限制）
 func validateSNFormat(sn string) error {
-	sn = strings.TrimSpace(sn)
-
-	// 支持短格式：厂商码 (2-3 位) + 产品线 (2 位) + 流水号 (3-5 位)
-	// 示例：SN-X1-001 或 AUD-SP-00001
-	snPatternShort := regexp.MustCompile(`^[A-Z0-9]{2,3}-[A-Z0-9]{2}-\d{3,5}$`)
-
-	if !snPatternShort.MatchString(strings.ToUpper(sn)) {
-		return fmt.Errorf("序列号格式不正确，应为短格式（如：SN-X1-001）或 16 位旧格式")
+	if strings.TrimSpace(sn) == "" {
+		return fmt.Errorf("设备序列号不能为空")
 	}
-
-	// 分解各部分
-	parts := strings.Split(sn, "-")
-	if len(parts) != 3 {
-		return fmt.Errorf("序列号分段错误")
-	}
-
-	// vendorCode := parts[0]  // 厂商码 (2-3 位)
-	// productLine := parts[1] // 产品线 (2 位)
-	serialNum := parts[2] // 流水号 (3-5 位)
-
-	// 验证流水号
-	serialInt, err := strconv.Atoi(serialNum)
-	if err != nil || serialInt < 1 || serialInt > 99999 {
-		return fmt.Errorf("流水号无效：%s", serialNum)
-	}
-
 	return nil
 }
 

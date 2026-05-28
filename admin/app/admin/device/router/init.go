@@ -67,6 +67,8 @@ func RegisterPlatformDeviceRouter(v1 *gin.RouterGroup, authMiddleware *jwt.GinJW
 		r.POST("/delete", api.Delete)
 		r.GET("/log/list", api.GetDeviceLogList)
 		// 设备影子（须在 /:sn 静态路由之前注册）
+		r.GET("/shadow/list", api.ShadowList)
+		r.GET("/shadow-list", api.ShadowList) // 别名，避免部分环境 /shadow/list 未注册
 		r.GET("/shadow", api.ShadowGet)
 		r.PUT("/shadow/desired", api.ShadowPutDesired)
 		r.GET("/devices/:sn/shadow", api.NormalizedShadowGet)

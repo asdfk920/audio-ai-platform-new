@@ -15,6 +15,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -32,6 +33,7 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/logic"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/rabbitmq"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/redisexpire"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/repository"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/shadowsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/statuspersist"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
@@ -99,6 +101,12 @@ func main() {
 	}
 	logx.Infof("postgres target (host/database): %s", postgresLogTarget(c.Postgres.DataSource))
 
+	if err := repository.EnsureDeviceShadowSchema(context.Background(), db); err != nil {
+		logx.Errorf("device_shadow schema ensure failed: %v", err)
+	} else {
+		logx.Info("device_shadow schema ensured")
+	}
+
 	var rdb *redis.Client
 	if addr := strings.TrimSpace(c.Redis.Addr); addr != "" {
 		rdb = redis.NewClient(&redis.Options{
@@ -108,8 +116,11 @@ func main() {
 		})
 		pctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		if err := rdb.Ping(pctx).Err(); err != nil {
-			cancel()
-			panic("redis ping: " + err.Error())
+			logx.Errorf("redis ping 失败，将以无 Redis 模式启动（影子查询走 PostgreSQL）: %v", err)
+			_ = rdb.Close()
+			rdb = nil
+		} else {
+			logx.Infof("redis connected: %s", addr)
 		}
 		cancel()
 	}
@@ -138,6 +149,14 @@ func main() {
 
 	ctx := svc.NewServiceContext(c, db, rdb)
 	ctx.WsPushJSON = logic.SendCmdToDevice
+	ctx.WsDeliver = logic.DeliverDeviceWs
+
+	// 设置设备影子状态变更推送回调（避免循环依赖）
+	shadowsvc.SetGlobalPushCallback(func(deviceSN string, data interface{}) {
+		logic.NotifyDeviceStatusChange(deviceSN, data)
+	})
+	logx.Infof("[main] ShadowService global push callback configured")
+
 	handler.RegisterHandlers(server, ctx)
 
 	bgCtx, bgStop := context.WithCancel(context.Background())
@@ -210,7 +229,26 @@ func main() {
 		defer ctx.HeartbeatMonitor.Stop()
 	}
 
+	if portBusy(c.Host, c.Port) {
+		logx.Infof("端口 %d 已被占用，设备微服务可能已在运行；无需重复启动（本地开发请用 run-dev.ps1 或 go build -o device-api.exe .）", c.Port)
+		return
+	}
+
 	server.Start()
+}
+
+// portBusy 检测监听端口是否已被占用（避免 go run 时与已有实例冲突导致 panic）
+func portBusy(host string, port int) bool {
+	addr := fmt.Sprintf(":%d", port)
+	if h := strings.TrimSpace(host); h != "" && h != "0.0.0.0" {
+		addr = net.JoinHostPort(h, fmt.Sprintf("%d", port))
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return true
+	}
+	_ = ln.Close()
+	return false
 }
 
 // postgresLogTarget logs host + database name only (no user/password) so you can confirm migrations ran on this DB.

@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultSN  = `^[A-Za-z0-9][A-Za-z0-9_-]{6,62}[A-Za-z0-9]$|^[A-Za-z0-9]{8}$`
+	defaultSN  = `^[\s\S]+$`
 	defaultPK  = `^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`
 	defaultMAC = `^([0-9A-F]{2}:){5}[0-9A-F]{2}$`
 )

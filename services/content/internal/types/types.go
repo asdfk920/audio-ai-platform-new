@@ -467,6 +467,39 @@ type PlaylistDeleteResp struct {
 	Message string `json:"message"`
 }
 
+// PlaylistListReq 我的歌单列表请求
+type PlaylistListReq struct {
+	Page           int32  `form:"page"`
+	PageSize       int32  `form:"page_size"`
+	Source         string `form:"source"`          // local / spotify / qq-music
+	IncludeDeleted bool   `form:"include_deleted"` // true=含已软删记录（默认仅有效歌单）
+}
+
+// MyPlaylistItem 歌单列表项
+type MyPlaylistItem struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	CoverURL    string `json:"cover_url"`
+	SongCount   int    `json:"song_count"`
+	IsPublic    bool   `json:"is_public"`
+	Status      int16  `json:"status"` // 1=有效 2=已删除
+	CreatedAt   string `json:"created_at"`
+	Description string `json:"description,omitempty"`
+	Source      string `json:"source,omitempty"`
+	UpdatedAt   string `json:"updated_at,omitempty"`
+	DeletedAt   string `json:"deleted_at,omitempty"`
+}
+
+// PlaylistListResp 我的歌单列表响应
+type PlaylistListResp struct {
+	Total      int64            `json:"total"`
+	List       []MyPlaylistItem `json:"list"`
+	Page       int32            `json:"page"`
+	PageSize   int32            `json:"page_size"`
+	HasMore    bool             `json:"has_more"`
+	TotalPages int              `json:"total_pages"`
+}
+
 // PlaylistSongRemoveResp 移除歌单内歌曲响应（song_ids 对应内容库 content.id）
 type PlaylistSongRemoveResp struct {
 	PlaylistID  string `json:"playlist_id"`
@@ -540,6 +573,12 @@ type SubscribeListItem struct {
 	VipLevel      int16  `json:"vip_level"`
 	SubscribeType int16  `json:"subscribe_type"` // 1-歌曲 2-歌手 3-专辑
 	SubscribedAt  string `json:"subscribed_at"`
+}
+
+// SubscribeListReq 订阅列表请求
+type SubscribeListReq struct {
+	Page     int32 `form:"page"`      // 页码（默认1）
+	PageSize int32 `form:"page_size"` // 每页数量（默认20）
 }
 
 // SubscribeListResp 订阅列表响应
@@ -1073,4 +1112,56 @@ type DeviceDownloadListResp struct {
 	Page       int32                    `json:"page"`        // 当前页码
 	PageSize   int32                    `json:"page_size"`   // 每页数量
 	TotalPages int32                    `json:"total_pages"` // 总页数
+}
+
+// ==================== 站内消息通知系统 ====================
+
+// MessageListReq 消息列表请求
+type MessageListReq struct {
+	Page        int32  `form:"page"`         // 页码（默认1）
+	PageSize    int32  `form:"page_size"`    // 每页数量（默认20）
+	MessageType string `form:"message_type"` // 消息类型筛选（可选：new_content/system/subscription）
+	IsRead      *int16 `form:"is_read"`      // 0=未读 1=已读（不传则全部）
+}
+
+// MessageListItem 消息列表项
+type MessageListItem struct {
+	ID          int64  `json:"id"`
+	MessageType string `json:"message_type"` // new_content(新内容)/system(系统)/subscription(订阅相关)
+	Title       string `json:"title"`
+	Content     string `json:"content"`
+	RelatedType string `json:"related_type"` // 关联类型：song/album/artist/playlist
+	RelatedID   int64  `json:"related_id"`   // 关联ID（如歌曲ID、专辑ID等）
+	ActionURL   string `json:"action_url"`   // 点击跳转链接
+	IsRead      bool   `json:"is_read"`
+	ReadAt      string `json:"read_at,omitempty"`
+	CreatedAt   string `json:"created_at"`
+}
+
+// MessageListResp 消息列表响应
+type MessageListResp struct {
+	Total       int64             `json:"total"`
+	UnreadCount int64             `json:"unread_count"`
+	List        []MessageListItem `json:"list"`
+	Page        int32             `json:"page"`
+	PageSize    int32             `json:"page_size"`
+	TotalPages  int32             `json:"total_pages"`
+}
+
+// MarkMessageReadReq 标记消息已读请求
+type MarkMessageReadReq struct {
+	MessageIDs []int64 `json:"message_ids"` // 消息ID列表（为空则标记全部已读）
+}
+
+// MarkMessageReadResp 标记消息已读响应
+type MarkMessageReadResp struct {
+	Success      bool   `json:"success"`
+	Message      string `json:"message"`
+	AffectedRows int64  `json:"affected_rows"` // 影响的行数
+	UnreadCount  int64  `json:"unread_count"`  // 剩余未读数
+}
+
+// UnreadCountResp 未读消息数量响应
+type UnreadCountResp struct {
+	UnreadCount int64 `json:"unread_count"`
 }

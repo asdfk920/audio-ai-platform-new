@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
 
 	"github.com/jacklau/audio-ai-platform/pkg/jwtx"
+	shadowv2 "github.com/jacklau/audio-ai-platform/services/device/internal/device/shadowv2"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/middleware/jwt"
+	"github.com/jacklau/audio-ai-platform/services/device/internal/shadowsvc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
 )
@@ -189,12 +192,11 @@ func (l *UserWsLogic) handleUserDownloadSong(dc *wsUserConn, ctx context.Context
 }
 
 func (l *UserWsLogic) handleDeviceSubscribe(dc *wsUserConn, userID int64, ctx context.Context, authz string, msg map[string]interface{}) {
-	deviceSN := strings.TrimSpace(wsStringField(msg, "device_sn", "sn"))
-	if deviceSN == "" {
+	deviceSNs := l.extractDeviceSNList(msg)
+	if len(deviceSNs) == 0 {
 		_ = dc.WriteJSON(map[string]interface{}{
 			"type":    "subscribe_error",
-			"cmd":     "subscribe_error",
-			"message": "缺少 device_sn 或 sn 参数",
+			"message": "缺少 device_sn 或 sn 参数（支持字符串或数组）",
 		})
 		return
 	}
@@ -204,59 +206,158 @@ func (l *UserWsLogic) handleDeviceSubscribe(dc *wsUserConn, userID int64, ctx co
 		token = authz
 	}
 
-	if err := l.verifyDeviceOwnership(ctx, userID, deviceSN, token); err != nil {
-		logx.Errorf("[DeviceSub] 鉴权失败 user_id=%d device_sn=%s err=%v", userID, deviceSN, err)
-		_ = dc.WriteJSON(map[string]interface{}{
-			"cmd":   "subscribe_error",
-			"error": err.Error(),
-		})
+	var success []string
+	var failed []string
+	for _, deviceSN := range deviceSNs {
+		if err := l.verifyDeviceOwnership(ctx, userID, deviceSN, token); err != nil {
+			logx.Errorf("[DeviceSub] 鉴权失败 user_id=%d device_sn=%s err=%v", userID, deviceSN, err)
+			failed = append(failed, deviceSN)
+			continue
+		}
+		success = append(success, deviceSN)
+	}
+
+	if len(success) > 0 {
+		RegisterDeviceSubscriptions(userID, success, dc)
+
+		for _, deviceSN := range success {
+			pushMsg := l.buildSubscribeShadowPush(ctx, deviceSN)
+			if pushMsg == nil {
+				pushMsg = map[string]interface{}{
+					"device_sn":   deviceSN,
+					"reported":    map[string]interface{}{},
+					"version":     int64(1),
+					"update_time": time.Now().Unix(),
+					"status":      string(shadowv2.StatusOffline),
+				}
+			}
+			pushMsg["type"] = "subscribe_success"
+			pushMsg["message"] = "订阅成功，当前设备状态"
+			_ = dc.WriteJSON(pushMsg)
+		}
+
+		logx.Infof("[DeviceSub] 批量订阅完成 user_id=%d 成功=%d 失败=%d", userID, len(success), len(failed))
 		return
 	}
 
-	RegisterDeviceSubscription(userID, deviceSN, dc)
+	_ = dc.WriteJSON(map[string]interface{}{
+		"type":    "subscribe_error",
+		"message": "所有设备均无权限访问",
+		"failed":  failed,
+	})
+}
 
-	store := l.svcCtx.GetRedisShadowStore()
-	if store != nil {
-		shadow, err := store.GetShadow(ctx, deviceSN)
-		if err != nil {
-			logx.Slowf("[DeviceSub] 查询设备影子失败 device_sn=%s err=%v", deviceSN, err)
-		} else if shadow != nil {
-			_ = dc.WriteJSON(map[string]interface{}{
-				"cmd":       "subscribe_success",
-				"device_sn": deviceSN,
-				"data":      shadow,
-			})
-			logx.Infof("[DeviceSub] 订阅成功并推送当前状态 user_id=%d device_sn=%s", userID, deviceSN)
-			return
+// buildSubscribeShadowPush 订阅时推送当前影子：优先 Redis（兼容 v1 reported_json），reported 为空则读 PostgreSQL。
+func (l *UserWsLogic) buildSubscribeShadowPush(ctx context.Context, deviceSN string) map[string]interface{} {
+	sn := strings.TrimSpace(deviceSN)
+	if sn == "" {
+		return nil
+	}
+
+	var reported map[string]interface{}
+	var version int64 = 1
+	updateTime := time.Now().Unix()
+	status := shadowv2.StatusOffline
+
+	if store := l.svcCtx.GetRedisShadowStore(); store != nil {
+		if shadow, err := store.GetShadow(ctx, sn); err == nil && shadow != nil {
+			version = shadow.Version
+			updateTime = shadow.UpdateTime
+			status = shadow.Status
+			if len(shadow.Reported) > 0 {
+				reported = shadow.Reported
+			}
 		}
 	}
 
-	_ = dc.WriteJSON(map[string]interface{}{
-		"cmd":       "subscribe_success",
-		"device_sn": deviceSN,
-	})
+	if len(reported) == 0 && l.svcCtx.DB != nil {
+		view, err := shadowsvc.New(l.svcCtx).GetShadowViewBySNFromDB(ctx, sn)
+		if err != nil {
+			logx.Slowf("[DeviceSub] 从 DB 读取影子失败 device_sn=%s err=%v", sn, err)
+		} else if view != nil {
+			_ = json.Unmarshal(view.Reported, &reported)
+			if view.Version > 0 {
+				version = view.Version
+			}
+			if view.Online {
+				status = shadowv2.StatusOnline
+			}
+			if view.LastReportTime != nil {
+				updateTime = view.LastReportTime.Unix()
+			}
+		}
+	}
 
-	logx.Infof("[DeviceSub] 订阅成功 user_id=%d device_sn=%s", userID, deviceSN)
+	if reported == nil {
+		reported = map[string]interface{}{}
+	}
+
+	return map[string]interface{}{
+		"device_sn":   sn,
+		"reported":    reported,
+		"version":     version,
+		"update_time": updateTime,
+		"status":      string(status),
+	}
+}
+
+func (l *UserWsLogic) extractDeviceSNList(msg map[string]interface{}) []string {
+	if raw, ok := msg["device_sn"]; ok {
+		switch v := raw.(type) {
+		case string:
+			if sn := strings.TrimSpace(v); sn != "" {
+				return []string{sn}
+			}
+		case []interface{}:
+			var sns []string
+			for _, item := range v {
+				if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+					sns = append(sns, strings.TrimSpace(s))
+				}
+			}
+			return sns
+		}
+	}
+
+	if raw, ok := msg["sn"]; ok {
+		switch v := raw.(type) {
+		case string:
+			if sn := strings.TrimSpace(v); sn != "" {
+				return []string{sn}
+			}
+		case []interface{}:
+			var sns []string
+			for _, item := range v {
+				if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+					sns = append(sns, strings.TrimSpace(s))
+				}
+			}
+			return sns
+		}
+	}
+
+	return nil
 }
 
 func (l *UserWsLogic) handleDeviceUnsubscribe(dc *wsUserConn, userID int64, msg map[string]interface{}) {
-	deviceSN := strings.TrimSpace(wsStringField(msg, "device_sn", "sn"))
-	if deviceSN == "" {
+	deviceSNs := l.extractDeviceSNList(msg)
+	if len(deviceSNs) == 0 {
 		_ = dc.WriteJSON(map[string]interface{}{
 			"type":    "unsubscribe_error",
-			"cmd":     "unsubscribe_error",
-			"message": "缺少 device_sn 或 sn 参数",
+			"message": "缺少 device_sn 或 sn 参数（支持字符串或数组）",
 		})
 		return
 	}
-	UnregisterDeviceSubscription(userID, deviceSN)
+
+	success := UnregisterDeviceSubscriptions(userID, deviceSNs)
 
 	_ = dc.WriteJSON(map[string]interface{}{
-		"cmd":       "unsubscribe_success",
-		"device_sn": deviceSN,
+		"type":       "unsubscribe_success",
+		"device_sns": success,
+		"message":    fmt.Sprintf("成功取消订阅 %d 个设备", len(success)),
 	})
 
-	logx.Infof("[DeviceSub] 取消订阅成功 user_id=%d device_sn=%s", userID, deviceSN)
+	logx.Infof("[DeviceSub] 批量取消订阅 user_id=%d 设备数=%d", userID, len(success))
 }
 
 func (l *UserWsLogic) verifyDeviceOwnership(ctx context.Context, userID int64, deviceSN string, _ string) error {

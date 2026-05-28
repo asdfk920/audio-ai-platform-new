@@ -19,12 +19,13 @@ type Device struct {
 	FirmwareVersion   string     `db:"firmware_version"`
 	HardwareVersion   string     `db:"hardware_version"`
 	Mac               string     `db:"mac"`
+	DeviceNameRaw     string     `db:"device_name_raw"` // 设备原始名称（出厂或注册上报）
 	Ip                string     `db:"ip"`
 	OnlineStatus      int16      `db:"online_status"`
 	UsageStatus       int16      `db:"usage_status"`
 	Status            int16      `db:"status"`
 	CreateBy          int64      `db:"create_by"`
-	LastActiveAt      time.Time  `db:"last_active_at"`
+	LastActiveAt      *time.Time `db:"last_active_at"` // 可为 NULL（预录入/未上线设备）
 	CreatedAt         time.Time  `db:"created_at"`
 	UpdatedAt         time.Time  `db:"updated_at"`
 	DeletedAt         *time.Time `db:"deleted_at"`

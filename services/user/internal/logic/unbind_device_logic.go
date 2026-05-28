@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"encoding/json"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -97,20 +96,8 @@ func (l *UnbindDeviceLogic) validateParams(req *types.UnbindDeviceReq) error {
 		return errorx.NewCodeError(errorx.CodeInvalidParam, "设备序列号不能为空")
 	}
 
-	if !l.isValidSN(sn) {
-		return errorx.NewCodeError(errorx.CodeDeviceSnInvalid, "设备序列号格式错误")
-	}
-
 	req.Sn = sn
 	return nil
-}
-
-func (l *UnbindDeviceLogic) isValidSN(sn string) bool {
-	if len(sn) < 6 || len(sn) > 64 {
-		return false
-	}
-	matched, _ := regexp.MatchString(`^[A-Za-z0-9_-]+$`, sn)
-	return matched
 }
 
 func (l *UnbindDeviceLogic) checkDeviceExists(sn string) (int64, error) {

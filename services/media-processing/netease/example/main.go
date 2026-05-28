@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -12,7 +14,7 @@ func main() {
 	fmt.Println("🎵 网易云音乐 SDK 测试")
 	fmt.Println("====================================")
 
-	client := netease.NewClient("http://localhost:8001")
+	client := netease.NewClient("http://localhost:8001", "your-app-id", "your-app-secret")
 
 	fmt.Println("\n📱 1. 获取二维码 Key...")
 	qrResp, err := client.GetQRCodeKey()
@@ -22,11 +24,11 @@ func main() {
 	}
 
 	fmt.Printf("✅ 二维码获取成功!\n")
-	fmt.Printf("   📌 Key: %s\n", qrResp.Data.Key)
+	fmt.Printf("   📌 Key: %s\n", qrResp.Data.UniKey)
 	fmt.Printf("   🖼️  URL: %s\n", qrResp.Data.URL)
 	fmt.Println("\n💡 请使用网易云音乐 App 扫描上面的二维码...")
 
-	key := qrResp.Data.Key
+	key := qrResp.Data.UniKey
 
 	fmt.Println("\n⏳ 2. 开始轮询登录状态...")
 	maxAttempts := 30 // 最多轮询 30 次（约 150 秒）

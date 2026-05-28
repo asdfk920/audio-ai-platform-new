@@ -7,6 +7,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 export GOTOOLCHAIN=local
+export GOPRIVATE=github.com/jacklau/*
+export GONOSUMDB=github.com/jacklau/*
 
 GOPATH_BIN="$(go env GOPATH)/bin"
 GOLANGCI=""

@@ -15,7 +15,6 @@ import (
 )
 
 var (
-	snProvisionPattern = regexp.MustCompile(`^[A-Za-z0-9]{16,32}$`)
 	macPattern         = regexp.MustCompile(`^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$`)
 )
 
@@ -166,9 +165,6 @@ func (e *PlatformDeviceService) RegisterDeviceWithOptions(in *ProvisionIn) (*Pro
 
 	if sn == "" || pk == "" {
 		return nil, ErrPlatformDeviceInvalid
-	}
-	if !snProvisionPattern.MatchString(sn) {
-		return nil, ErrPlatformDeviceSNFormat
 	}
 
 	var macNorm string

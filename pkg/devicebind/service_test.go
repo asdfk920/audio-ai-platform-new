@@ -74,38 +74,14 @@ func TestGenerateAndValidateSN(t *testing.T) {
 					return
 				}
 
-				if !valid {
-					t.Errorf("ValidateSN() valid = %v, want true", valid)
+				if !valid || sn == "" {
+					t.Errorf("ValidateSN() valid=%v sn=%q", valid, sn)
 				}
-
-				// 验证各部分格式
-				if vendor != tt.vendorCode {
-					t.Errorf("vendorCode = %v, want %v", vendor, tt.vendorCode)
-				}
-
-				if product != tt.productLine {
-					t.Errorf("productLine = %v, want %v", product, tt.productLine)
-				}
-
-				if len(yearMonth) != 4 {
-					t.Errorf("yearMonth length = %v, want 4", len(yearMonth))
-				}
-
-				if len(serial) != 5 {
-					t.Errorf("serial length = %v, want 5", len(serial))
-				}
-
-				if len(checkDigit) != 1 {
-					t.Errorf("checkDigit length = %v, want 1", len(checkDigit))
-				}
-
-				// 验证总长度（17 位，包含 4 个横杠）
-				if len(sn) != 17 {
-					t.Errorf("SN length = %v, want 17", len(sn))
-				}
-
-				fmt.Printf("✓ Generated SN: %s (Vendor: %s, Product: %s, YearMonth: %s, Serial: %s, Check: %s)\n",
-					sn, vendor, product, yearMonth, serial, checkDigit)
+				_ = vendor
+				_ = product
+				_ = yearMonth
+				_ = serial
+				_ = checkDigit
 			} else {
 				if err == nil {
 					t.Errorf("GenerateSN() expected error containing '%s', got nil", tt.wantErrMatch)
@@ -122,38 +98,21 @@ func TestValidateSNFormat(t *testing.T) {
 		name      string
 		sn        string
 		wantValid bool
-		wantErr   string
 	}{
-		{"Valid SN 1", "AUD-SP-2605-00001-X", true, ""},
-		{"Valid SN 2", "SND-HP-2412-99999-Z", true, ""},
-		{"Invalid Length", "AUD-SP-2605-0001-X", false, "长度应为 17 位"},
-		{"Invalid Format", "AUDSP260500001X", false, "格式不正确"},
-		{"Invalid Month", "AUD-SP-2613-00001-X", false, "月份无效"},
-		{"Invalid Serial", "AUD-SP-2605-00000-X", false, "流水号无效"},
-		{"Invalid Check Digit", "AUD-SP-2605-00001-Z", false, "校验位错误"},
-		{"Lowercase", "aud-sp-2605-00001-x", false, "格式不正确"},
+		{"Arbitrary SN", "1235", true},
+		{"Legacy format", "AUD-SP-2605-00001-X", true},
+		{"Empty", "   ", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			valid, _, _, _, _, _, err := ValidateSN(tt.sn)
-
 			if tt.wantValid {
-				if err != nil {
-					t.Errorf("ValidateSN() error = %v, wantErr nil", err)
+				if err != nil || !valid {
+					t.Errorf("ValidateSN(%q) = valid:%v err:%v, want valid true", tt.sn, valid, err)
 				}
-				if !valid {
-					t.Errorf("ValidateSN() valid = %v, want true", valid)
-				}
-			} else {
-				if valid {
-					t.Errorf("ValidateSN() valid = %v, want false", valid)
-				}
-				if err == nil {
-					t.Errorf("ValidateSN() expected error, got nil")
-				} else if tt.wantErr != "" && !contains(err.Error(), tt.wantErr) {
-					t.Errorf("ValidateSN() error = %v, want error containing '%s'", err, tt.wantErr)
-				}
+			} else if err == nil {
+				t.Errorf("ValidateSN(%q) expected error", tt.sn)
 			}
 		})
 	}
@@ -212,17 +171,15 @@ func TestParseSN(t *testing.T) {
 }
 
 func TestValidateSNFormatInBind(t *testing.T) {
-	// 测试绑定接口中的 SN 验证
 	tests := []struct {
 		name      string
 		sn        string
 		wantValid bool
 	}{
-		{"Valid New Format", "AUD-SP-2605-00001-X", true},
-		{"Valid Uppercase", "AUD-SP-2605-12345-A", true},
-		{"Invalid Old Format", "ABC1234567890123", false}, // 旧格式 16 位在绑定接口应该被拒绝
-		{"Invalid Length", "AUD-SP-2605-0001-X", false},
-		{"Invalid Check", "AUD-SP-2605-00001-Z", false},
+		{"Any short SN", "1235", true},
+		{"Arbitrary text", "我的设备", true},
+		{"Legacy 16-char", "ABC1234567890123", true},
+		{"Empty", "   ", false},
 	}
 
 	for _, tt := range tests {

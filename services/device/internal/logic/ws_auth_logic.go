@@ -23,7 +23,6 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/model"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 	"github.com/jacklau/audio-ai-platform/services/device/internal/types"
-	"github.com/jacklau/audio-ai-platform/services/device/internal/util"
 )
 
 // websocketAuthHandshakeTimeoutFromConfig 首包认证读超时（可配置）；默认 60s，最短 5s，最长 10m。
@@ -352,8 +351,6 @@ func (l *WsAuthLogic) printValidationTips(msg *types.WsAuthMessage) {
 	}
 	if msg.Sn == "" {
 		logx.Errorf("❌ sn字段为空")
-	} else if !util.ValidateSNFormat(msg.Sn) {
-		logx.Errorf("❌ sn格式错误: \"%s\" (应为16位字母数字)", msg.Sn)
 	}
 	if msg.Timestamp == 0 {
 		logx.Errorf("❌ timestamp字段为空或为0")
@@ -370,14 +367,6 @@ func (l *WsAuthLogic) validateMessageFormat(msg *types.WsAuthMessage) error {
 
 	if msg.Sn == "" {
 		return fmt.Errorf("设备序列号不能为空")
-	}
-
-	if !util.ValidateSNFormat(msg.Sn) {
-		parsed := util.ParseSN(msg.Sn)
-		if errMsg, ok := parsed["error"].(string); ok {
-			return fmt.Errorf("SN格式错误: %s", errMsg)
-		}
-		return fmt.Errorf("SN格式错误或校验码无效")
 	}
 
 	if msg.Signature == "" {

@@ -41,7 +41,7 @@ func serveDocJSON(w http.ResponseWriter, r *http.Request, docPath string) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	io.Copy(w, file)
+	_, _ = io.Copy(w, file)
 }
 
 func renderSwaggerUI(w http.ResponseWriter, r *http.Request) {
@@ -125,7 +125,7 @@ func renderSwaggerUI(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(html))
+	_, _ = w.Write([]byte(html))
 }
 
 func proxyAsset(w http.ResponseWriter, r *http.Request, assetURL string) {
@@ -159,7 +159,7 @@ func proxyAsset(w http.ResponseWriter, r *http.Request, assetURL string) {
 	for {
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
-			w.Write(buf[:n])
+			_, _ = w.Write(buf[:n])
 		}
 		if err != nil {
 			break

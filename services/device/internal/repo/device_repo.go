@@ -37,6 +37,18 @@ type BoundDeviceRow struct {
 	Model           string // 设备型号
 }
 
+// DeviceAuthRow 设备认证查询结果行（用于 reportsvc 状态上报）
+type DeviceAuthRow struct {
+	ID              int64
+	SN              string
+	ProductKey      string
+	Mac             string
+	FirmwareVersion string
+	IP              string
+	DeviceSecret    string
+	Status          int16
+}
+
 // GetDeviceBySN 根据 SN 查询设备（含 Secret）
 func GetDeviceBySN(ctx context.Context, db *sql.DB, sn string) (*DeviceRow, error) {
 	sn = strings.ToUpper(strings.TrimSpace(sn))

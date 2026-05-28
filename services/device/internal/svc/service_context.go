@@ -52,6 +52,9 @@ type ServiceContext struct {
 	// MQTT 下线后 commandsvc.DispatchPendingInstructions 依赖此路径投递在线设备。
 	WsPushJSON func(deviceIDStr string, payload interface{}) error `json:"-"`
 
+	// WsDeliver 本机直写 + Redis relay（由 main 注入 logic.DeliverDeviceWs）；优先于 WsPushJSON。
+	WsDeliver WsDeliverFunc `json:"-"`
+
 	// RegisterTrustedNets HTTP 路径下线后仍可用于将来接入层解析 XFF（与 DeviceRegister.TrustedProxies 一致）。
 	RegisterTrustedNets []*net.IPNet
 

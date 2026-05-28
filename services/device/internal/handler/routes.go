@@ -73,11 +73,39 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 			Path:    "/api/device/detail",
 			Handler: deviceDetailHandler(svcCtx),
 		})
+		// 设备影子详情查询接口（用于设备详情页展示完整影子数据）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/api/device/shadow/detail",
+			Handler: DeviceShadowDetailHandler(svcCtx),
+		})
 		// 设备影子定时上报接口（设备定时采集状态数据上报云端）
 		routes = append(routes, rest.Route{
 			Method:  http.MethodPost,
 			Path:    "/api/device/shadow/report",
 			Handler: deviceShadowReportHandler(svcCtx),
+		})
+		// 设备影子批量更新（管理端/平台：可含 desired，需 expect_version）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/shadow/batch",
+			Handler: DeviceShadowBatchHandler(svcCtx),
+		})
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/v1/device/shadow/batch",
+			Handler: DeviceShadowBatchHandler(svcCtx),
+		})
+		// 网关批量上报子设备真实状态（仅 reported，禁止 desired）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/shadow/batch-report",
+			Handler: DeviceShadowBatchReportHandler(svcCtx),
+		})
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/v1/device/shadow/batch-report",
+			Handler: DeviceShadowBatchReportHandler(svcCtx),
 		})
 		// 设备日志上报接口（设备通过 HTTP POST 请求上报运行日志）
 		routes = append(routes, rest.Route{
@@ -231,7 +259,128 @@ func RegisterHandlers(server *rest.Server, svcCtx *svc.ServiceContext) {
 			Path:    "/api/v1/device/downloads",
 			Handler: DeviceDownloadListHandler(svcCtx),
 		})
+
+		// ========== 设备影子 V2 接口（Redis Hash 实现） ==========
+		shadowV2Handler := NewShadowV2Handler(svcCtx)
+
+		// 初始化设备影子
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/shadow/v2/init",
+			Handler: shadowV2Handler.InitShadow,
+		})
+		// 更新设备上报状态（reported）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/shadow/v2/reported",
+			Handler: shadowV2Handler.UpdateReported,
+		})
+		// 更新平台期望状态（desired）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/shadow/v2/desired",
+			Handler: shadowV2Handler.UpdateDesired,
+		})
+		// 查询完整设备影子
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/api/device/shadow/v2/query",
+			Handler: shadowV2Handler.QueryShadow,
+		})
+		// 查询设备影子（Apifox / 开放平台路径：v2 优先，v1 回退）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/api/v2/device/shadow",
+			Handler: DeviceShadowV2QueryHandler(svcCtx),
+		})
+		// 仅查询 reported 状态
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/api/device/shadow/v2/reported",
+			Handler: shadowV2Handler.QueryReportedOnly,
+		})
+		// 仅查询版本号
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/api/device/shadow/v2/version",
+			Handler: shadowV2Handler.QueryVersionOnly,
+		})
+		// 更新在线状态
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/shadow/v2/status",
+			Handler: shadowV2Handler.UpdateStatus,
+		})
+		// CAS 原子更新
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/shadow/v2/cas",
+			Handler: shadowV2Handler.CASUpdate,
+		})
+
+		// ========== Admin 后台接口（设备影子管理） ==========
+		adminShadowHandler := NewAdminShadowHandler(svcCtx)
+
+		// 获取设备影子完整详情
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/api/admin/device/shadow/detail",
+			Handler: adminShadowHandler.GetDeviceShadowDetail,
+		})
+		// 批量查询设备影子列表
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/admin/device/shadow/list",
+			Handler: adminShadowHandler.ListDeviceShadows,
+		})
+		// 获取设备影子统计信息
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/api/admin/device/shadow/stats",
+			Handler: adminShadowHandler.GetDeviceShadowStats,
+		})
+		// 删除设备影子（谨慎使用）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodDelete,
+			Path:    "/api/admin/device/shadow",
+			Handler: adminShadowHandler.DeleteDeviceShadow,
+		})
+		// 批量更新设备影子（v1 Redis Hash + PostgreSQL，与 /api/device/shadow/batch 相同语义）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/admin/device/shadow/batch",
+			Handler: DeviceShadowBatchHandler(svcCtx),
+		})
+
+		// ========== 诊断指令下发接口 ==========
+		// 用户通过App/后台发起设备日志收集等诊断指令（需JWT鉴权，WebSocket下发）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/device/diagnosis/command",
+			Handler: DiagnosisCommandHandler(svcCtx),
+		})
+		// OpenAPI/BasePath /api/v1 下的别名路径
+		routes = append(routes, rest.Route{
+			Method:  http.MethodPost,
+			Path:    "/api/v1/device/diagnosis/command",
+			Handler: DiagnosisCommandHandler(svcCtx),
+		})
+
+		// ========== 设备状态 WebSocket 订阅接口 ==========
+		// App 用户订阅设备状态变更推送（支持批量订阅/取消，实时推送）
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/ws/device/subscribe",
+			Handler: UserWsHandler(svcCtx),
+		})
+		// 兼容旧路径：用户 WebSocket 长连接
+		routes = append(routes, rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/ws/user",
+			Handler: UserWsHandler(svcCtx),
+		})
 	}
+
 	server.AddRoutes(routes)
 }
 

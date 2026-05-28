@@ -27,6 +27,25 @@ func (r *UserDeviceBindRepo) FindDeviceIDBySN(ctx context.Context, sn string) (d
 	return deviceID, true, nil
 }
 
+// EnsureDeviceIDBySN 解析或创建设备行：绑定不强制要求设备已注册/激活，仅保证 device_id 可用。
+func (r *UserDeviceBindRepo) EnsureDeviceIDBySN(ctx context.Context, sn string) (int64, error) {
+	if id, ok, err := r.FindDeviceIDBySN(ctx, sn); err != nil {
+		return 0, err
+	} else if ok {
+		return id, nil
+	}
+	var deviceID int64
+	err := r.db.QueryRowContext(ctx, `
+INSERT INTO public.device (sn, product_key, mac, firmware_version, hardware_version, ip, status, online_status, device_secret)
+VALUES ($1, 'user_bind', '', '', '', '', 0, 0, '')
+ON CONFLICT (sn) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+RETURNING id`, sn).Scan(&deviceID)
+	if err != nil {
+		return 0, err
+	}
+	return deviceID, nil
+}
+
 // UserDeviceBindRow 绑定行（仅活跃绑定查询用）。
 type UserDeviceBindRow struct {
 	ID            int64

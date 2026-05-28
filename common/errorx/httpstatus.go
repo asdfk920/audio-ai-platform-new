@@ -13,7 +13,7 @@ func HTTPStatusForCode(code int) int {
 		CodeDeviceAuthLocked,
 		CodeDeviceDisabled, CodeDeviceInactive, CodeDeviceScrapped:
 		return http.StatusForbidden
-	case CodeUserNotFound, CodeDeviceNotFound, CodeDeviceShareNotFound, CodeContentNotFound, CodeRealNameRecordNotFound, CodeAccountCancelled, CodeMemberOrderNotFound, CodeMemberPackageNotFound:
+	case CodeUserNotFound, CodeDeviceShareNotFound, CodeContentNotFound, CodeRealNameRecordNotFound, CodeAccountCancelled, CodeMemberOrderNotFound, CodeMemberPackageNotFound:
 		return http.StatusNotFound
 	case CodeUserExists, CodeNicknameTaken, CodeDeviceExists, CodeRebindContactConflict, CodeCancellationAlreadyPending, CodeDeviceAlreadyRegistered, CodeDeviceBoundByOther,
 		CodeFamilyAlreadyExists, CodeFamilyMemberExists, CodeDeviceShareExists:
@@ -27,7 +27,7 @@ func HTTPStatusForCode(code int) int {
 	case CodeVerifyCodeInvalid, CodeInvalidParam, CodeInvalidEmail, CodeInvalidMobile,
 		CodePasswordReuse, CodeWeakPassword, CodeInvalidNickname, CodeInvalidProfileAvatar, CodeDeviceOffline, CodeUploadFailed, CodeParamError,
 		CodeRealNameInvalidPayload, CodeRealNameAlreadyVerified, CodeRealNameInProgress, CodeRealNameInvalidReviewState,
-		CodeCancellationNotInCooling, CodeDeviceSnInvalid, CodeDeviceProductInvalid, CodeDeviceNotBound,
+		CodeCancellationNotInCooling, CodeDeviceSnInvalid, CodeDeviceProductInvalid, CodeDeviceNotBound, CodeDeviceNotFound,
 		CodeMemberPackageDisabled, CodeMemberOrderNotPending, CodeMemberInsufficientBalance, CodeMemberPayCallbackInvalid,
 		CodeFamilyInviteInvalid, CodeDeviceShareInvalid, CodeDeviceShareExpired,
 		CodeMemberNoSubscription, CodeMemberPermanentNoUnsubscribe, CodeMemberUnsubscribeNotPending, CodeMemberExpiredNoUnsubscribe:

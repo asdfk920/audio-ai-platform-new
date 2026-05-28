@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -23,8 +24,28 @@ import (
 	"github.com/jacklau/audio-ai-platform/services/device/internal/svc"
 )
 
+// ShadowPushCallback 设备状态变更推送回调函数类型
+type ShadowPushCallback func(deviceSN string, data interface{})
+
+var (
+	globalPushCallback ShadowPushCallback // 全局推送回调（避免循环依赖）
+	pushCallbackMu     sync.RWMutex
+)
+
 type Service struct {
 	svcCtx *svc.ServiceContext
+}
+
+func New(svcCtx *svc.ServiceContext) *Service {
+	return &Service{svcCtx: svcCtx}
+}
+
+// SetGlobalPushCallback 设置全局状态变更推送回调（在 main 函数中调用一次）
+func SetGlobalPushCallback(cb ShadowPushCallback) {
+	pushCallbackMu.Lock()
+	defer pushCallbackMu.Unlock()
+	globalPushCallback = cb
+	logx.Infof("[ShadowSvc] Global push callback configured")
 }
 
 type View struct {
@@ -114,10 +135,6 @@ func writeShadowDebugLog(runID, hypothesisID, location, message string, data map
 	defer f.Close()
 	body, _ := json.Marshal(data)
 	_, _ = fmt.Fprintf(f, "{\"sessionId\":\"29e955\",\"runId\":%q,\"hypothesisId\":%q,\"location\":%q,\"message\":%q,\"data\":%s,\"timestamp\":%d}\n", runID, hypothesisID, location, message, body, time.Now().UnixMilli())
-}
-
-func New(svcCtx *svc.ServiceContext) *Service {
-	return &Service{svcCtx: svcCtx}
 }
 
 func (s *Service) GetShadowForUser(ctx context.Context, userID int64, sn string) (*View, error) {
@@ -217,6 +234,117 @@ func (s *Service) UpdateDesiredByUserWithOptions(ctx context.Context, userID int
 		view.CommandStatus = "noop"
 	}
 	return view, nil
+}
+
+// GetShadowViewBySNDirect 直接从 device_shadow 表查询（不依赖 device 表）
+// 用于：device 表无记录时，仍能获取 device_shadow 中的 reported 数据
+func (s *Service) GetShadowViewBySNDirect(ctx context.Context, sn string) (*View, error) {
+	sn = strings.ToUpper(strings.TrimSpace(sn))
+	if sn == "" {
+		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "device_sn 不能为空")
+	}
+	if s.svcCtx == nil || s.svcCtx.DB == nil {
+		logx.Errorf("[GetShadowViewBySNDirect] ServiceContext 或 DB 未初始化, sn=%s", sn)
+		return nil, errorx.NewDefaultError(errorx.CodeInternalError)
+	}
+
+	row, err := s.getShadowRowBySN(ctx, sn)
+	if err != nil {
+		logx.Errorf("[GetShadowViewBySNDirect] 查询 device_shadow 失败: sn=%s, err=%v", sn, err)
+		return nil, err
+	}
+	if row == nil {
+		logx.Infof("[GetShadowViewBySNDirect] device_shadow 中无数据: sn=%s", sn)
+		return nil, errorx.NewCodeError(errorx.CodeNotFound, "设备影子不存在")
+	}
+
+	return s.buildViewFromShadowRow(row)
+}
+
+// buildViewFromShadowRow 由 device_shadow 表行构建视图（不读 Redis）
+func (s *Service) buildViewFromShadowRow(row *shadowRow) (*View, error) {
+	if row == nil {
+		return nil, errorx.NewCodeError(errorx.CodeNotFound, "设备影子不存在")
+	}
+	reportedMap := decodeMapOrEmpty(row.Reported)
+	desiredMap := decodeMapOrEmpty(row.Desired)
+	metadataMap := decodeMapOrEmpty(row.Metadata)
+
+	reportedBytes, _ := json.Marshal(reportedMap)
+	desiredBytes, _ := json.Marshal(desiredMap)
+	deltaBytes, _ := json.Marshal(computeJSONDelta(desiredMap, reportedMap))
+	metadataBytes, _ := json.Marshal(metadataMap)
+
+	return &View{
+		DeviceID:       row.DeviceID,
+		DeviceSN:       row.SN,
+		Online:         onlineFromReported(reportedMap),
+		Reported:       reportedBytes,
+		Desired:        desiredBytes,
+		Delta:          deltaBytes,
+		Metadata:       metadataBytes,
+		Version:        row.Version,
+		LastReportTime: row.LastReportTime,
+	}, nil
+}
+
+// getShadowRowBySN 通过 SN 直接查询 device_shadow 表（不依赖 device 表）
+func (s *Service) getShadowRowBySN(ctx context.Context, sn string) (*shadowRow, error) {
+	return s.queryShadowRow(ctx, "sn", sn)
+}
+
+// queryShadowRow 按 sn 或 device_id 查询影子行（兼容无 desired 列的旧表：缺列时仅读 reported）
+func (s *Service) queryShadowRow(ctx context.Context, key string, val interface{}) (*shadowRow, error) {
+	var row shadowRow
+	var reported, desired, metadata []byte
+	var last sql.NullTime
+
+	where := "device_id = $1"
+	if key == "sn" {
+		where = "sn = $1"
+	}
+
+	// 优先完整列查询；若线上库尚无 desired 列则降级
+	fullSQL := fmt.Sprintf(`
+SELECT device_id, sn, COALESCE(reported, '{}'::jsonb)::text,
+       COALESCE(desired, '{}'::jsonb)::text, COALESCE(metadata, '{}'::jsonb)::text,
+       COALESCE(version, 0), last_report_time
+FROM public.device_shadow
+WHERE %s
+LIMIT 1`, where)
+
+	err := s.svcCtx.DB.QueryRowContext(ctx, fullSQL, val).Scan(
+		&row.DeviceID, &row.SN, &reported, &desired, &metadata, &row.Version, &last,
+	)
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "desired") {
+		fallbackSQL := fmt.Sprintf(`
+SELECT device_id, sn, COALESCE(reported, '{}'::jsonb)::text,
+       COALESCE(metadata, '{}'::jsonb)::text, COALESCE(version, 0), last_report_time
+FROM public.device_shadow
+WHERE %s
+LIMIT 1`, where)
+		err = s.svcCtx.DB.QueryRowContext(ctx, fallbackSQL, val).Scan(
+			&row.DeviceID, &row.SN, &reported, &metadata, &row.Version, &last,
+		)
+		desired = []byte("{}")
+	}
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		logx.Errorf("[queryShadowRow] 查询失败 key=%s val=%v err=%v", key, val, err)
+		return nil, errorx.NewDefaultError(errorx.CodeDatabaseError)
+	}
+
+	row.Reported = reported
+	row.Desired = desired
+	row.Metadata = metadata
+	if last.Valid {
+		t := last.Time
+		row.LastReportTime = &t
+	}
+	return &row, nil
 }
 
 func (s *Service) UpdateReportedForUser(ctx context.Context, userID int64, sn string, reportedRaw json.RawMessage) (*View, error) {
@@ -337,11 +465,11 @@ func (s *Service) ReportCommandResult(ctx context.Context, in CommandResultInput
 		if err != nil {
 			return nil, err
 		}
-		_, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, principal.DeviceID, principal.DeviceSN)
+		_, _, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, principal.DeviceID, principal.DeviceSN)
 		return view, nil
 	}
 
-	_, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, principal.DeviceID, principal.DeviceSN)
+	_, _, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, principal.DeviceID, principal.DeviceSN)
 	return s.buildView(ctx, principal.DeviceID, principal.DeviceSN, true)
 }
 
@@ -356,10 +484,10 @@ func (s *Service) ReportCommandResultForAuthenticatedDevice(ctx context.Context,
 		if err != nil {
 			return nil, err
 		}
-		_, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, deviceID, sn)
+		_, _, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, deviceID, sn)
 		return view, nil
 	}
-	_, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, deviceID, sn)
+	_, _, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, deviceID, sn)
 	return s.buildView(ctx, deviceID, sn, true)
 }
 
@@ -368,13 +496,13 @@ func (s *Service) PushPendingForDevice(ctx context.Context, sn string) {
 	if err != nil || device == nil {
 		return
 	}
-	_, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, device.ID, device.Sn)
+	_, _, _ = commandsvc.New(s.svcCtx).DispatchPendingInstructions(ctx, device.ID, device.Sn)
 }
 
 func (s *Service) updateReportedByDeviceID(ctx context.Context, deviceID int64, sn string, reportedRaw json.RawMessage, source string, clientIP string) (*View, error) {
 	reportedPatch, err := decodeJSONObject(reportedRaw)
 	if err != nil {
-		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "reported 必须是合�?JSON 对象")
+		return nil, errorx.NewCodeError(errorx.CodeInvalidParam, "reported 必须是合法的 JSON 对象")
 	}
 
 	row, redisMap, err := s.loadShadowState(ctx, deviceID, sn)
@@ -405,7 +533,22 @@ func (s *Service) updateReportedByDeviceID(ctx context.Context, deviceID int64, 
 	if err := s.persistSnapshot(ctx, deviceID, sn, nextReported, *online, source, clientIP); err != nil {
 		return nil, err
 	}
-	return s.buildView(ctx, deviceID, sn, online != nil && *online)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logx.Errorf("[ShadowPush] 推送异常: sn=%s, recover=%v", sn, r)
+			}
+		}()
+		s.notifySubscribersOnStatusChange(sn, nextReported, nextVersion)
+	}()
+
+	view, err := s.buildView(ctx, deviceID, sn, online != nil && *online)
+	if err != nil {
+		return nil, err
+	}
+
+	return view, nil
 }
 
 func (s *Service) buildView(ctx context.Context, deviceID int64, sn string, defaultOnline bool) (*View, error) {
@@ -459,29 +602,7 @@ func (s *Service) getShadowRow(ctx context.Context, deviceID int64) (*shadowRow,
 	if deviceID <= 0 {
 		return nil, errorx.NewDefaultError(errorx.CodeInvalidParam)
 	}
-	var row shadowRow
-	var reported, desired, metadata []byte
-	var last sql.NullTime
-	err := s.svcCtx.DB.QueryRowContext(ctx, `
-SELECT device_id, sn, COALESCE(reported, '{}'::jsonb)::text, COALESCE(desired, '{}'::jsonb)::text,
-       COALESCE(metadata, '{}'::jsonb)::text, COALESCE(version, 0), last_report_time
-FROM public.device_shadow
-WHERE device_id = $1
-LIMIT 1`, deviceID).Scan(&row.DeviceID, &row.SN, &reported, &desired, &metadata, &row.Version, &last)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errorx.NewDefaultError(errorx.CodeDatabaseError)
-	}
-	row.Reported = reported
-	row.Desired = desired
-	row.Metadata = metadata
-	if last.Valid {
-		t := last.Time
-		row.LastReportTime = &t
-	}
-	return &row, nil
+	return s.queryShadowRow(ctx, "device_id", deviceID)
 }
 
 func (s *Service) upsertShadow(ctx context.Context, deviceID int64, sn string, reported, desired, metadata map[string]interface{}, version int64, lastReportTime *time.Time, fallbackReportTime *time.Time) error {
@@ -978,5 +1099,33 @@ func int32FromAny(v interface{}) int32 {
 		return int32(iv)
 	default:
 		return 0
+	}
+}
+
+// notifySubscribersOnStatusChange 通知订阅者设备状态变更（异步非阻塞）
+func (s *Service) notifySubscribersOnStatusChange(deviceSN string, reported map[string]interface{}, version int64) {
+	deviceSN = strings.ToUpper(strings.TrimSpace(deviceSN))
+	if deviceSN == "" || len(reported) == 0 {
+		return
+	}
+
+	logx.Infof("[ShadowPush] 准备推送状态变更: sn=%s, version=%d", deviceSN, version)
+
+	pushMsg := map[string]interface{}{
+		"type":        "status_change",
+		"device_sn":   deviceSN,
+		"reported":    reported,
+		"version":     version,
+		"update_time": time.Now().UnixMilli(),
+	}
+
+	pushCallbackMu.RLock()
+	cb := globalPushCallback
+	pushCallbackMu.RUnlock()
+
+	if cb != nil {
+		go cb(deviceSN, pushMsg)
+	} else {
+		logx.Slowf("[ShadowPush] 推送回调未设置，跳过推送: sn=%s", deviceSN)
 	}
 }

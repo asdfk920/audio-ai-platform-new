@@ -45,5 +45,8 @@ var CasbinExclude = []UrlInfo{
 	// 平台内容管理：Casbin 未同步 sys_api 时非 admin 角色会 403；仍须登录 JWT
 	{Url: "/api/v1/platform-content/*", Method: "GET"},
 	{Url: "/api/v1/platform-content/*", Method: "POST"},
+	{Url: "/api/v1/platform-device/shadow/*", Method: "GET"},
+	{Url: "/api/v1/platform-device/shadow/*", Method: "PUT"},
+	{Url: "/api/v1/platform-device/shadow-list", Method: "GET"},
 	{Url: "/api/v1/dashboard", Method: "GET"},
 }

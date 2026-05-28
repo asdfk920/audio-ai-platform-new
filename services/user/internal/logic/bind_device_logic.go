@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"encoding/json"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -39,12 +38,13 @@ func (l *BindDeviceLogic) BindDevice(req *types.BindDeviceReq) (resp *types.Bind
 		return nil, err
 	}
 
-	deviceID, err := l.checkDeviceExists(req.Sn)
+	deviceID, err := l.svcCtx.DeviceBind.EnsureDeviceIDBySN(l.ctx, req.Sn)
 	if err != nil {
-		return nil, err
+		l.Logger.Errorf("BindDevice: 解析设备失败, sn=%s, err=%v", req.Sn, err)
+		return nil, errorx.NewCodeError(errorx.CodeDatabaseError, "绑定失败")
 	}
 
-	if err := l.checkBindStatus(userId, deviceID, req.Sn); err != nil {
+	if err := l.checkBindConflict(userId, req.Sn); err != nil {
 		return nil, err
 	}
 
@@ -98,10 +98,6 @@ func (l *BindDeviceLogic) validateParams(req *types.BindDeviceReq) error {
 		return errorx.NewCodeError(errorx.CodeInvalidParam, "设备序列号不能为空")
 	}
 
-	if !l.isValidSN(sn) {
-		return errorx.NewCodeError(errorx.CodeDeviceSnInvalid, "设备序列号格式错误")
-	}
-
 	deviceName := strings.TrimSpace(req.DeviceName)
 	if deviceName == "" {
 		return errorx.NewCodeError(errorx.CodeInvalidParam, "设备名称不能为空")
@@ -113,48 +109,26 @@ func (l *BindDeviceLogic) validateParams(req *types.BindDeviceReq) error {
 	return nil
 }
 
-func (l *BindDeviceLogic) isValidSN(sn string) bool {
-	if len(sn) < 6 || len(sn) > 64 {
-		return false
-	}
-	matched, _ := regexp.MatchString(`^[A-Za-z0-9_-]+$`, sn)
-	return matched
-}
-
-func (l *BindDeviceLogic) checkDeviceExists(sn string) (int64, error) {
-	deviceID, ok, err := l.svcCtx.DeviceBind.FindDeviceIDBySN(l.ctx, sn)
+// checkBindConflict 同一用户重复绑定提示无需重复；他人已绑定则拒绝。
+func (l *BindDeviceLogic) checkBindConflict(userId int64, sn string) error {
+	existingBind, err := l.svcCtx.DeviceBind.FindActiveBindBySN(l.ctx, sn)
 	if err != nil {
-		l.Logger.Errorf("BindDevice: 查询设备失败, sn=%s, err=%v", sn, err)
-		return 0, errorx.NewCodeError(errorx.CodeDatabaseError, "查询设备失败")
-	}
-	if !ok {
-		return 0, errorx.NewCodeError(errorx.CodeDeviceNotFound, "设备不存在")
-	}
-	return deviceID, nil
-}
-
-func (l *BindDeviceLogic) checkBindStatus(userId, deviceID int64, sn string) error {
-	existingBind, err := l.svcCtx.DeviceBind.FindActiveBindByDeviceID(l.ctx, deviceID)
-	if err != nil {
-		l.Logger.Errorf("BindDevice: 查询绑定状态失败, deviceID=%d, err=%v", deviceID, err)
+		l.Logger.Errorf("BindDevice: 查询绑定状态失败, sn=%s, err=%v", sn, err)
 		return errorx.NewCodeError(errorx.CodeDatabaseError, "查询绑定状态失败")
 	}
-
-	if existingBind != nil {
-		if existingBind.UserID == userId {
-			return errorx.NewCodeError(errorx.CodeDeviceExists, "已绑定该设备")
-		}
-		return errorx.NewCodeError(errorx.CodeDeviceBoundByOther, "设备已被他人绑定")
+	if existingBind == nil {
+		return nil
 	}
-
-	return nil
+	if existingBind.UserID == userId {
+		return errorx.NewCodeError(errorx.CodeDeviceExists, "您已绑定该设备，无需重复绑定")
+	}
+	return errorx.NewCodeError(errorx.CodeDeviceBoundByOther, "设备已被他人绑定")
 }
 
 func (l *BindDeviceLogic) executeBind(userId, deviceID int64, sn, deviceName string) error {
 	if err := l.svcCtx.DeviceBind.BindDeviceWithTransaction(l.ctx, userId, deviceID, sn, deviceName); err != nil {
 		l.Logger.Errorf("BindDevice: 绑定事务失败, userId=%d, deviceID=%d, sn=%s, err=%v", userId, deviceID, sn, err)
-		return errorx.NewCodeError(errorx.CodeDatabaseError, "绑定失败：数据库操作异常")
+		return err
 	}
-
 	return nil
 }

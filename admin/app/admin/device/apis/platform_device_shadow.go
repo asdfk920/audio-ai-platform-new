@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,51 @@ import (
 
 	"go-admin/app/admin/device/service"
 )
+
+// ShadowList 设备影子分页列表
+// @Summary 设备影子列表
+// @Tags 平台设备-影子
+// @Router /api/v1/platform-device/shadow/list [get]
+// @Security Bearer
+func (e PlatformDevice) ShadowList(c *gin.Context) {
+	svc := service.PlatformDeviceService{}
+	if err := e.MakeContext(c).MakeOrm().MakeService(&svc.Service).Errors; err != nil {
+		e.Error(500, err, "服务初始化失败")
+		return
+	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSizeStr := c.DefaultQuery("pageSize", "")
+	if pageSizeStr == "" {
+		pageSizeStr = c.DefaultQuery("page_size", "20")
+	}
+	pageSize, _ := strconv.Atoi(pageSizeStr)
+
+	f := service.DeviceShadowListFilter{
+		Sn:      strings.TrimSpace(c.Query("sn")),
+		SnExact: strings.EqualFold(strings.TrimSpace(c.Query("sn_mode")), "exact"),
+	}
+	if v := strings.TrimSpace(c.Query("online_status")); v != "" {
+		n, err := strconv.ParseInt(v, 10, 16)
+		if err == nil {
+			x := int16(n)
+			f.OnlineStatus = &x
+		}
+	}
+	if v := strings.TrimSpace(c.Query("has_shadow")); v != "" {
+		b := v == "1" || strings.EqualFold(v, "true")
+		f.HasShadow = &b
+	}
+	list, total, err := svc.ListDeviceShadows(page, pageSize, f)
+	if err != nil {
+		e.Logger.Error(err)
+		e.Error(500, err, "查询失败")
+		return
+	}
+	if list == nil {
+		list = make([]service.DeviceShadowListItem, 0)
+	}
+	e.PageOK(list, int(total), page, pageSize, "查询成功")
+}
 
 // ShadowGet 查询设备影子（Redis 实时快照 + PG 持久化 reported/desired，并计算 delta）
 // @Summary 设备影子查询

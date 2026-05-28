@@ -131,11 +131,22 @@ func FromMap(deviceSN string, m map[string]string) *DeviceShadow {
 	desired := make(map[string]interface{})
 
 	if v, ok := m[fields.Reported]; ok && v != "" {
-		json.Unmarshal([]byte(v), &reported)
+		_ = json.Unmarshal([]byte(v), &reported)
+	}
+	// 兼容 shadow v1 Hash 字段 reported_json / desired_json（批量上报、shadowsvc 同步）
+	if len(reported) == 0 {
+		if v, ok := m["reported_json"]; ok && v != "" {
+			_ = json.Unmarshal([]byte(v), &reported)
+		}
 	}
 
 	if v, ok := m[fields.Desired]; ok && v != "" {
-		json.Unmarshal([]byte(v), &desired)
+		_ = json.Unmarshal([]byte(v), &desired)
+	}
+	if len(desired) == 0 {
+		if v, ok := m["desired_json"]; ok && v != "" {
+			_ = json.Unmarshal([]byte(v), &desired)
+		}
 	}
 
 	version := parseInt64(m[fields.Version])

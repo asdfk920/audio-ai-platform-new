@@ -392,6 +392,42 @@
                 @current-change="onStatusLogsPage"
               />
             </el-tab-pane>
+            <el-tab-pane label="设备影子" name="shadow">
+              <div v-loading="shadowLoading" style="min-height:120px">
+                <template v-if="deviceShadowDetail">
+                  <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+                    <span class="sub-muted">最后更新：{{ deviceShadowDetail.shadow_updated_at ? parseTime(deviceShadowDetail.shadow_updated_at) : '—' }}</span>
+                    <el-button size="mini" :loading="shadowLoading" @click="fetchDeviceShadow">刷新</el-button>
+                  </div>
+                  <el-descriptions :column="2" border size="small">
+                    <el-descriptions-item label="SN">{{ deviceShadowDetail.sn }}</el-descriptions-item>
+                    <el-descriptions-item label="在线">
+                      <el-tag :type="deviceShadowDetail.online ? 'success' : 'info'" size="mini">
+                        {{ deviceShadowDetail.online ? '在线' : '离线' }}
+                      </el-tag>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="版本号">{{ deviceShadowDetail.version || 0 }}</el-descriptions-item>
+                    <el-descriptions-item label="Redis缓存">
+                      <el-tag :type="deviceShadowDetail.redis_present ? 'success' : 'info'" size="mini">
+                        {{ deviceShadowDetail.redis_present ? '有' : '无' }}
+                      </el-tag>
+                    </el-descriptions-item>
+                  </el-descriptions>
+                  <el-tabs v-model="shadowTab" style="margin-top:12px">
+                    <el-tab-pane label="Reported（上报）" name="reported">
+                      <pre class="json-pre">{{ formatJson(deviceShadowDetail.reported) }}</pre>
+                    </el-tab-pane>
+                    <el-tab-pane label="Desired（期望）" name="desired">
+                      <pre class="json-pre">{{ formatJson(deviceShadowDetail.desired) }}</pre>
+                    </el-tab-pane>
+                    <el-tab-pane label="Delta（差异）" name="delta">
+                      <pre class="json-pre">{{ formatJson(deviceShadowDetail.delta) }}</pre>
+                    </el-tab-pane>
+                  </el-tabs>
+                </template>
+                <div v-else-if="!shadowLoading" class="empty-text">暂无影子数据</div>
+              </div>
+            </el-tab-pane>
           </el-tabs>
         </template>
         <span slot="footer" class="dialog-footer">
@@ -612,6 +648,7 @@ import {
   manualPlatformDeviceStatusReport,
   updatePlatformDeviceInfo
 } from '@/api/admin/platform-device'
+import { getDeviceShadow } from '@/api/admin/platform-device-shadow'
 import BasicLayout from '@/layout/BasicLayout'
 import Pagination from '@/components/Pagination'
 
@@ -655,6 +692,9 @@ export default {
       detailOpen: false,
       detail: null,
       detailTab: 'ins',
+      shadowLoading: false,
+      deviceShadowDetail: null,
+      shadowTab: 'reported',
       otaOpen: false,
       otaLoading: false,
       otaForm: { sn: '', version: '' },
@@ -733,6 +773,9 @@ export default {
     detailTab(val) {
       if (val === 'status' && this.detailOpen && this.detail && this.detail.device && (this.detail.device.id || this.detail.device.sn)) {
         this.fetchStatusLogs()
+      }
+      if (val === 'shadow' && this.detailOpen && this.detail && this.detail.device) {
+        this.fetchDeviceShadow()
       }
     },
     detail(val) {
@@ -920,6 +963,8 @@ export default {
       this.statusLogsTotal = 0
       this.statusLogsPage = 1
       this.statusLogDateRange = null
+      this.deviceShadowDetail = null
+      this.shadowTab = 'reported'
       try {
         const rowId = row && (row.id != null ? row.id : row.device_id != null ? row.device_id : row.deviceId)
         const rowSnRaw =
@@ -995,6 +1040,38 @@ export default {
         this.$message.error(msg)
       } finally {
         this.statusLogsLoading = false
+      }
+    },
+    async fetchDeviceShadow() {
+      if (!this.detail || !this.detail.device) return
+      const dev = this.detail.device
+      const devSn =
+        (dev.sn != null && String(dev.sn).trim() !== '' ? String(dev.sn).trim() : '') ||
+        (dev.device_sn != null && String(dev.device_sn).trim() !== '' ? String(dev.device_sn).trim() : '')
+      if (!devSn) return
+      this.shadowLoading = true
+      try {
+        const res = await getDeviceShadow(devSn)
+        this.deviceShadowDetail = (res && res.data) != null ? res.data : res
+      } catch (e) {
+        this.deviceShadowDetail = null
+        const msg =
+          (e && e.msg) ||
+          (e && e.response && e.response.data && e.response.data.msg) ||
+          (e && e.message) ||
+          '加载设备影子失败'
+        this.$message.error(msg)
+      } finally {
+        this.shadowLoading = false
+      }
+    },
+    formatJson(raw) {
+      if (raw == null || raw === '') return '{}'
+      try {
+        const obj = typeof raw === 'string' ? JSON.parse(raw) : raw
+        return JSON.stringify(obj, null, 2)
+      } catch (e) {
+        return String(raw)
       }
     },
     async triggerReportStatus() {
@@ -1592,6 +1669,17 @@ export default {
 .empty-text {
   margin-bottom: 12px;
   color: #606266;
+}
+.json-pre {
+  font-size: 12px;
+  margin: 0;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 360px;
+  overflow: auto;
 }
 .table-card {
   margin-bottom: 16px;

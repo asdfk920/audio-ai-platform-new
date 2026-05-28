@@ -132,14 +132,10 @@ func NormalizeSN(sn string) string {
 	return strings.TrimSpace(sn)
 }
 
-// ValidateDeviceSN 校验设备序列号：非空、长度上限
+// ValidateDeviceSN 校验设备序列号：仅非空（无格式限制）
 func ValidateDeviceSN(sn string) error {
-	sn = strings.TrimSpace(sn)
-	if sn == "" {
+	if strings.TrimSpace(sn) == "" {
 		return fmt.Errorf("设备序列号不能为空")
-	}
-	if len(sn) > SnMaxLength {
-		return fmt.Errorf("设备序列号过长: 最多%d位", SnMaxLength)
 	}
 	return nil
 }
