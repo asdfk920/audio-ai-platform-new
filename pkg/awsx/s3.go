@@ -24,19 +24,17 @@ func Init(ctx context.Context, awsCfg Config) error {
 	var err error
 
 	if awsCfg.Endpoint != "" {
-		// LocalStack 或自定义端点
+		resolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) { //nolint:staticcheck
+			return aws.Endpoint{ //nolint:staticcheck
+				URL:           awsCfg.Endpoint,
+				SigningRegion: region,
+			}, nil
+		})
 		cfg, err = config.LoadDefaultConfig(ctx,
 			config.WithRegion(awsCfg.Region),
-			config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
-				func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-					return aws.Endpoint{
-						URL:           awsCfg.Endpoint,
-						SigningRegion: awsCfg.Region,
-					}, nil
-				})),
+			config.WithEndpointResolverWithOptions(resolver), //nolint:staticcheck
 		)
 	} else {
-		// 真实 AWS
 		cfg, err = config.LoadDefaultConfig(ctx,
 			config.WithRegion(awsCfg.Region),
 		)

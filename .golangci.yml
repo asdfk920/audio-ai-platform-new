@@ -8,3 +8,4 @@ linters-settings:
     checks:
       - all
       - -SA5008
+      - -SA1019

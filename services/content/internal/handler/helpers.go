@@ -81,21 +81,3 @@ func getLocalFilePath(svcCtx *svc.ServiceContext, assetURL string) string {
 	}
 	return filepath.Join(svcCtx.Config.Local.Root, filepath.FromSlash(assetURL))
 }
-
-func resolveAssetURL(cdnBase, raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
-		return raw
-	}
-	cdnBase = strings.TrimRight(cdnBase, "/")
-	if cdnBase == "" {
-		return raw
-	}
-	if strings.HasPrefix(raw, "/") {
-		return cdnBase + raw
-	}
-	return cdnBase + "/" + raw
-}

@@ -364,10 +364,11 @@ func (l *ArtistSubscribeLogic) GetSubscriptionList(userID int64, page, pageSize 
 	}
 
 	return &types.SubscribeListResp{
-		Total:    total,
-		List:     list,
-		Page:     page,
-		PageSize: pageSize,
+		Total:      total,
+		List:       list,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: totalPages,
 	}, nil
 }
 

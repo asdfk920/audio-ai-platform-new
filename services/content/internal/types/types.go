@@ -583,10 +583,11 @@ type SubscribeListReq struct {
 
 // SubscribeListResp 订阅列表响应
 type SubscribeListResp struct {
-	Total    int64               `json:"total"`
-	List     []SubscribeListItem `json:"list"`
-	Page     int32               `json:"page"`
-	PageSize int32               `json:"page_size"`
+	Total      int64               `json:"total"`
+	List       []SubscribeListItem `json:"list"`
+	Page       int32               `json:"page"`
+	PageSize   int32               `json:"page_size"`
+	TotalPages int32               `json:"total_pages"`
 }
 
 // ArtistDetailResp 歌手详情响应
